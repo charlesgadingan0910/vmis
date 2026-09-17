@@ -1,0 +1,17 @@
+INSERT INTO ranks values (1, 1, 'POLICE GENERAL', 'PGEN', null,null);
+INSERT INTO ranks values (2, 2, 'POLICE LIEUTENANT GENERAL', 'PLTGEN', null,null);
+INSERT INTO ranks values (3, 3, 'POLICE MAJOR GENERAL', 'PMGEN', null,null);
+INSERT INTO ranks values (4, 4, 'POLICE BRIGADIER GENERAL', 'PBGEN', null,null);
+INSERT INTO ranks values (5, 5, 'POLICE COLONEL', 'PCOL', null,null);
+INSERT INTO ranks values (6, 6, 'POLICE LIEUTENANT COLONEL', 'PLTCOL', null,null);
+INSERT INTO ranks values (7, 7, 'POLICE MAJOR', 'PMAJ', null,null);
+INSERT INTO ranks values (8, 8, 'POLICE CAPTAIN', 'PCPT', null,null);
+INSERT INTO ranks values (9, 9, 'POLICE LIEUTENANT', 'PLT', null,null);
+INSERT INTO ranks values (10, 10, 'POLICE EXECUTIVE MASTER SERGEANT', 'PEMS', null,null);
+INSERT INTO ranks values (11, 11, 'POLICE CHIEF MASTER SERGEANT', 'PCMS', null,null);
+INSERT INTO ranks values (12, 12, 'POLICE SENIOR MASTER SERGEANT', 'PSMS', null,null);
+INSERT INTO ranks values (13, 13, 'POLICE MASTER SERGEANT', 'PMSg', null,null);
+INSERT INTO ranks values (14, 14, 'POLICE STAFF SERGEANT', 'PSSg', null,null);
+INSERT INTO ranks values (15, 15, 'POLICE CORPORAL', 'PCpl', null,null);
+INSERT INTO ranks values (16, 16, 'PATROLMAN/PATROLWOMAN', 'Pat', null,null);
+INSERT INTO ranks values (17, 17, 'NON-UNIFORMED PERSONNEL', 'NUP', null,null);
