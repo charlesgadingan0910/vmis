@@ -6,6 +6,7 @@ use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\DriverController;       
 use App\Http\Controllers\VehicleTypeController; 
+use App\Http\Controllers\ScanController;
 use Illuminate\Support\Facades\Route;
 
 // ---------------------------------------------------------------------
@@ -31,13 +32,36 @@ Route::middleware('auth')->group(function () {
     Route::middleware('password.changed')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'dashboard'])->name('dashboard');
 
-        // Vehicle Management
-        Route::get('/vehicles', [VehicleController::class, 'index'])->name('vehicles.index');
-        Route::post('/vehicles', [VehicleController::class, 'store'])->name('vehicles.store');
-    
+        // Vehicle Management — only(...) because create/show/edit (the Blade-view-returning
+        // resource actions) aren't implemented; editing is AJAX-driven via edit-data/update below.
+        Route::resource('vehicles', VehicleController::class)->only(['index', 'store', 'destroy']);
+
+        // Edit support: fetch raw field values, then submit changes — both AJAX, both open in the same modal.
+        Route::get('/vehicles/{vehicle}/edit-data', [VehicleController::class, 'editData'])->name('vehicles.edit-data');
+        Route::put('/vehicles/{vehicle}', [VehicleController::class, 'update'])->name('vehicles.update');
+
+        // OR/CR history + yearly re-registration (a vehicle can accumulate one per year)
+        Route::get('/vehicles/{vehicle}/history', [VehicleController::class, 'getHistory'])->name('vehicles.history');
+        Route::post('/vehicles/{vehicle}/registrations', [VehicleController::class, 'storeRegistration'])->name('vehicles.registrations.store');
+
+        // Serves uploaded OR/CR files directly (bypasses the public/storage symlink, which is
+        // unreliable on Windows) and keeps document access behind login like everything else.
+        Route::get('/vehicle-documents/{path}', [VehicleController::class, 'viewDocument'])
+            ->where('path', '.*')
+            ->name('vehicles.document');
+
         // Real-time AJAX duplicate checker endpoint
         Route::post('/vehicles/check-availability', [VehicleController::class, 'checkAvailability'])->name('vehicles.check-availability');
-        
+
+        // ---------------- QR Code module ----------------
+        Route::get('/vehicles/{vehicle}/qr-image', [VehicleController::class, 'qrImage'])->name('vehicles.qr-image');
+        Route::get('/vehicles/{vehicle}/qr-data', [VehicleController::class, 'qrData'])->name('vehicles.qr-data');
+        Route::get('/vehicles/qr/print', [VehicleController::class, 'printQr'])->name('vehicles.qr.print');
+
+        // In-app camera scanner + what a scanned sticker actually resolves to.
+        Route::get('/scan', [ScanController::class, 'index'])->name('scan.index');
+        Route::get('/vehicles/scan/{qrCode}', [ScanController::class, 'show'])->name('vehicles.scan');
+
         // Driver Management 
         Route::resource('drivers', DriverController::class)->except(['show']);
         

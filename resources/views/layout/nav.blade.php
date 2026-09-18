@@ -33,7 +33,7 @@
       <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right premium-dropdown border-0 shadow-lg animate fade-in">
         <div class="dropdown-header-premium text-center p-3">
           <span class="d-block font-weight-bold text-truncate text-white">
-            {{ Auth::user()->rank }} {{ Auth::user()->firstname }} {{ substr(Auth::user()->middlename, 0, 1) }}. {{ Auth::user()->lastname }} {{ Auth::user()->qlfr ?? ""}}
+            {{ Auth::user()->rank }} {{ Auth::user()->firstname }} {{ substr(Auth::user()->middlename, 0, 1) }}. {{ Auth::user()->lastname }} {{ Auth::user()->qlfr ?? "" }}
           </span>
           <small class="text-muted text-uppercase tracking-wider font-size-10">{{ Auth::user()->account_type }}</small>
         </div>
@@ -97,6 +97,12 @@
             <a href="{{ route('vehicles.index') }}" class="nav-link {{ request()->routeIs('vehicles.*') ? 'active' : '' }}">
                 <i class="nav-icon fas fa-car-side"></i>
                 <p>Vehicle Inventory</p>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ route('scan.index') }}" class="nav-link {{ request()->routeIs('scan.*') ? 'active' : '' }}">
+                <i class="nav-icon fas fa-qrcode"></i>
+                <p>Scan QR Code</p>
             </a>
         </li>
         <li class="nav-item">

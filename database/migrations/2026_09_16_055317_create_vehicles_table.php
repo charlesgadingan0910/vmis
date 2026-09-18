@@ -18,10 +18,6 @@ return new class extends Migration
             $table->string('chassis_number')->nullable();
             $table->string('make');
             $table->string('model');
-            
-            // Updated relationships
-            $table->foreignId('vehicle_type_id')->constrained('vehicle_types')->cascadeOnDelete();
-            $table->foreignId('assigned_driver_id')->nullable()->constrained('drivers')->nullOnDelete();
 
             $table->unsignedSmallInteger('year_model')->nullable();
             $table->string('color')->nullable();
@@ -33,6 +29,12 @@ return new class extends Migration
             $table->enum('status', ['active', 'under_maintenance', 'decommissioned'])->default('active');
             $table->enum('is_active', ['1', '0'])->default('1');
             $table->string('qr_code')->unique()->nullable();
+
+            // Updated relationships
+            $table->foreignId('vehicle_type_id')->constrained('vehicle_types')->cascadeOnDelete();
+            $table->foreignId('assigned_driver_id')->nullable()->constrained('drivers')->nullOnDelete();
+            $table->foreignId('encoded_by')->nullable()->constrained('users')->nullOnDelete();
+            
             
             $table->timestamps();
         });

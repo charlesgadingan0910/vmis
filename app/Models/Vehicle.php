@@ -15,7 +15,6 @@ class Vehicle extends Model
         'chassis_number',
         'make',
         'model',
-        'type',
         'vehicle_type_id',
         'year_model',
         'color',
@@ -28,6 +27,7 @@ class Vehicle extends Model
         'status',
         'is_active',
         'qr_code',
+        'encoded_by'
     ];
 
     protected function casts(): array
@@ -52,5 +52,30 @@ class Vehicle extends Model
     public function type()
     {
         return $this->belongsTo(VehicleType::class, 'vehicle_type_id');
+    }
+
+    public function encoder() {
+        return $this->belongsTo(User::class, 'encoded_by');
+    }
+
+    public function registrations() {
+        return $this->hasMany(VehicleRegistration::class)->latest('registration_year');
+    }
+
+    public function latestRegistration() {
+        return $this->hasOne(VehicleRegistration::class)->latestOfMany('registration_year');
+    }
+
+    /**
+     * Every time this vehicle's QR sticker was printed, and by whom.
+     */
+    public function qrPrints()
+    {
+        return $this->hasMany(VehicleQrPrint::class)->latest('printed_at');
+    }
+
+    public function latestQrPrint()
+    {
+        return $this->hasOne(VehicleQrPrint::class)->latestOfMany('printed_at');
     }
 }
