@@ -642,17 +642,46 @@ $(document.body).ready(function() {
         const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i];
-            if (line.includes(',') && (line.includes('CHARLES') || (line.toUpperCase() === line && line.length > 5))) {
+            const upperLine = line.toUpperCase();
+
+            // Identify the data line by shape, not by requiring the whole line to already
+            // be perfect uppercase — OCR case is unreliable, but the shape is consistent:
+            // comma-separated, no digits, and explicitly not the field's own caption text
+            // ("Last Name, First Name, Middle Name") printed just above the real data.
+            const looksLikeNameLine = line.includes(',')
+                && !/\d/.test(line)
+                && !upperLine.includes('LAST NAME')
+                && !upperLine.includes('FIRST NAME')
+                && !upperLine.includes('MIDDLE NAME')
+                && line.replace(/[^A-Za-z]/g, '').length > 8;
+
+            if (looksLikeNameLine) {
                 let parts = line.split(',').map(p => p.trim());
                 if (parts.length >= 2) {
                     document.getElementById('c_ln').value = parts[0].replace(/[^a-zA-Z\s]/g, '');
-                    let remainingNames = parts[1].split(' ').map(p => p.trim()).filter(p => p.length > 0);
+
+                    // Common placeholder words some licenses print when there's genuinely
+                    // no middle name, instead of just leaving the space blank.
+                    const noMiddleNamePlaceholders = new Set(['NONE', 'NIL', 'NA']);
+
+                    let remainingNames = parts[1]
+                        .split(' ')
+                        .map(p => p.trim())
+                        // Filter by length, not case — OCR case varies scan to scan, but a
+                        // genuine first/middle name is essentially never 1-2 letters, while
+                        // a stray misread fragment (like "ki") usually is exactly that short.
+                        .filter(p => /^[A-Za-z]+$/.test(p) && p.length >= 3)
+                        .filter(p => !noMiddleNamePlaceholders.has(p.toUpperCase()));
+
                     if (remainingNames.length > 0) {
                         document.getElementById('c_fn').value = remainingNames[0];
                     }
-                    if (remainingNames.length > 1) {
-                        document.getElementById('c_mn').value = remainingNames.slice(1).join(' ');
-                    }
+                    // Explicitly clear (not just "leave alone") when there's no middle name —
+                    // otherwise a middle name from a previous scan in the same modal session
+                    // would incorrectly linger on a license that doesn't have one.
+                    document.getElementById('c_mn').value = remainingNames.length > 1
+                        ? remainingNames.slice(1).join(' ')
+                        : '';
                     break;
                 }
             }
