@@ -64,6 +64,10 @@ Route::middleware('auth')->group(function () {
 
         // Driver Management 
         Route::resource('drivers', DriverController::class)->except(['show']);
+
+        // Live license-number duplicate check + profile photo streaming
+        Route::post('/drivers/check-availability', [DriverController::class, 'checkAvailability'])->name('drivers.check-availability');
+        Route::get('/drivers/{driver}/photo', [DriverController::class, 'photo'])->name('drivers.photo');
         
         // Vehicle Types Management
         Route::resource('vehicle-types', VehicleTypeController::class)->except(['show']);

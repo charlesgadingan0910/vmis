@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Driver;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use App\Models\Rank;
 
@@ -44,9 +47,15 @@ class DriverController extends Controller
                 $initials = strtoupper(substr($driver->firstname, 0, 1) . substr($driver->lastname, 0, 1));
                 $middleInitial = $driver->middlename ? substr($driver->middlename, 0, 1) . '.' : '';
                 $fullName = trim("{$driver->rank} {$driver->firstname} {$middleInitial} {$driver->lastname} {$driver->qlfr}");
-                
+
+                // Real photo when we have one, initials avatar otherwise — matches the
+                // fallback pattern already used elsewhere in the app (vehicle driver chips).
+                $avatarHtml = $driver->photo_path
+                    ? '<img src="' . route('drivers.photo', $driver) . '" class="driver-avatar-circle" alt="' . e($fullName) . '">'
+                    : '<div class="driver-avatar-circle">' . $initials . '</div>';
+
                 $identityHtml = '<div class="driver-chip-wrapper">' .
-                                '<div class="driver-avatar-circle">' . $initials . '</div>' .
+                                $avatarHtml .
                                 '<div><div class="driver-name-text">' . e($fullName) . '</div>' .
                                 '<small class="text-muted text-uppercase">' . e($driver->status) . '</small></div>' .
                                 '</div>';
@@ -112,20 +121,67 @@ class DriverController extends Controller
         return view('drivers.index', compact('stats', 'ranks'));
     }
 
+    /**
+     * Live duplicate check fired right after a license scan extracts a license
+     * number — lets the registration form warn (and reset itself) before the
+     * user fills out the rest of the form for someone already on file.
+     */
+    public function checkAvailability(Request $request): JsonResponse
+    {
+        $licenseNumber = strtoupper(trim((string) $request->input('license_number', '')));
+
+        if ($licenseNumber === '') {
+            return response()->json(['exists' => false]);
+        }
+
+        $existing = Driver::where('license_number', $licenseNumber)->first();
+
+        if ($existing) {
+            $name = trim($existing->rank . ' ' . $existing->firstname . ' ' . $existing->lastname);
+
+            return response()->json([
+                'exists'      => true,
+                'driver_name' => $name,
+                'status'      => $existing->status,
+            ]);
+        }
+
+        return response()->json(['exists' => false]);
+    }
+
+    /**
+     * Streams a driver's profile photo. Kept behind auth like the vehicle OR/CR
+     * documents, and read directly off the disk rather than through the
+     * public/storage symlink (unreliable on Windows/WAMP).
+     */
+    public function photo(Driver $driver)
+    {
+        if (! $driver->photo_path || ! Storage::disk('public')->exists($driver->photo_path)) {
+            abort(404);
+        }
+
+        return Storage::disk('public')->response($driver->photo_path);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'rank'                    => ['nullable', 'string', 'max:50'],
+            'rank'                    => ['required', 'string', 'max:50'],
             'firstname'               => ['required', 'string', 'max:50'],
             'middlename'              => ['nullable', 'string', 'max:50'],
             'lastname'                => ['required', 'string', 'max:50'],
             'qlfr'                    => ['nullable', 'string', 'max:20'],
             'license_number'          => ['nullable', 'string', 'max:50', 'unique:drivers,license_number'],
             'license_expiration_date' => ['nullable', 'date'],
-            'license_type'            => ['nullable', 'string', 'max:50'],
-            'contact_number'          => ['nullable', 'string', 'max:20'],
+            'license_type'            => ['required', 'string', 'max:50'],
+            'contact_number'          => ['required', 'string', 'max:20'],
             'status'                  => ['required', 'in:active,inactive'],
+            'photo'                   => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
         ]);
+
+        if ($request->hasFile('photo')) {
+            $validated['photo_path'] = $request->file('photo')->store('driver_photos', 'public');
+        }
 
         Driver::create($validated);
 
@@ -133,19 +189,35 @@ class DriverController extends Controller
     }
 
     public function update(Request $request, Driver $driver): RedirectResponse
-    {
+    {   
         $validated = $request->validate([
-            'rank'                    => ['nullable', 'string', 'max:50'],
+            'rank'                    => ['required', 'string', 'max:50'],
             'firstname'               => ['required', 'string', 'max:50'],
             'middlename'              => ['nullable', 'string', 'max:50'],
             'lastname'                => ['required', 'string', 'max:50'],
             'qlfr'                    => ['nullable', 'string', 'max:20'],
-            'license_number'          => ['nullable', 'string', 'max:50', 'unique:drivers,license_number,' . $driver->id],
+            'license_number'          => ['nullable', 'string', 'max:50', Rule::unique('drivers', 'license_number')->ignore($driver->id)],
             'license_expiration_date' => ['nullable', 'date'],
-            'license_type'            => ['nullable', 'string', 'max:50'],
-            'contact_number'          => ['nullable', 'string', 'max:20'],
+            'license_type'            => ['required', 'string', 'max:50'],
+            'contact_number'          => ['required', 'string', 'max:20'],
             'status'                  => ['required', 'in:active,inactive'],
+            'photo'                   => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'remove_photo'            => ['nullable', 'boolean'],
         ]);
+
+        if ($request->hasFile('photo')) {
+            // A new photo always wins over an explicit "remove" request from the
+            // same submission — replace, don't just delete.
+            if ($driver->photo_path) {
+                Storage::disk('public')->delete($driver->photo_path);
+            }
+            $validated['photo_path'] = $request->file('photo')->store('driver_photos', 'public');
+        } elseif ($request->boolean('remove_photo') && $driver->photo_path) {
+            Storage::disk('public')->delete($driver->photo_path);
+            $validated['photo_path'] = null;
+        }
+
+        unset($validated['remove_photo']); // never a real column — just a UI signal
 
         $driver->update($validated);
 
@@ -154,6 +226,10 @@ class DriverController extends Controller
 
     public function destroy(Driver $driver): RedirectResponse
     {
+        if ($driver->photo_path) {
+            Storage::disk('public')->delete($driver->photo_path);
+        }
+
         $driver->delete();
         return redirect()->route('drivers.index')->with('success', 'Driver removed successfully.');
     }

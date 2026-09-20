@@ -43,7 +43,7 @@
   .fleet-table tbody td { padding: 16px 24px; vertical-align: middle; border-top: 1px solid #f1f5f9; font-size: 13.5px; color: #334155; }
   
   .driver-chip-wrapper { display: flex; align-items: center; gap: 12px; }
-  .driver-avatar-circle { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #1e293b, #0f172a); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .driver-avatar-circle { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #1e293b, #0f172a); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; object-fit: cover; object-position: center; }
   .driver-name-text { font-size: 14px; font-weight: 700; color: #0f172a; }
   
   /* Status Badges */
@@ -74,6 +74,10 @@
   .smart-capture-icon { font-size: 24px; color: #3b82f6; margin-bottom: 6px; }
   .progress-bar-scanner { height: 6px; border-radius: 3px; background: #e2e8f0; overflow: hidden; margin-top: 10px; display: none; }
   .progress-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #3b82f6, #1d4ed8); transition: width 0.2s; }
+
+  /* Driver photo capture */
+  #photoPreviewWrap { width: 84px; height: 84px; border-radius: 50%; overflow: hidden; background: #f1f5f9; border: 2px dashed #cbd5e1; display: flex; align-items: center; justify-content: center; flex: none; }
+  #photoPreviewImg { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
 </style>
 @endsection
 
@@ -146,7 +150,7 @@
     </div>
 </section>
 
-<!-- CREATE MODAL WITH SMART CAPTURE & LIVE WEBCAM -->
+<!-- CREATE MODAL WITH SMART CAPTURE, DRIVER PHOTO & LIVE WEBCAM -->
 <div class="modal fade" id="createModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content modal-content-premium">
@@ -154,7 +158,7 @@
                 <h5 class="m-0"><i class="fas fa-user-plus mr-2 text-primary"></i> Register Driver</h5>
                 <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
             </div>
-            <form action="{{ route('drivers.store') }}" method="POST" id="createForm">
+            <form action="{{ route('drivers.store') }}" method="POST" id="createForm" enctype="multipart/form-data">
                 @csrf
                 <div class="modal-body p-4">
                     
@@ -178,11 +182,29 @@
                     </div>
                     <div id="scanStatusText" class="font-size-11 text-primary mb-3 font-weight-bold text-center d-none">Scanning document...</div>
 
-                    <div class="modal-section-title mt-0">Personal Information</div>
+                    <div class="modal-section-title mt-0">Driver Photo</div>
+                    <div class="d-flex align-items-center mb-2" style="gap:16px;">
+                        <div id="photoPreviewWrap">
+                            <i class="fas fa-user text-muted" id="photoPreviewPlaceholder" style="font-size:28px;"></i>
+                            <img id="photoPreviewImg" class="d-none" alt="Driver photo preview">
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex flex-wrap" style="gap:8px;">
+                                <button type="button" class="btn btn-sm btn-light border font-weight-bold" id="photoLiveCaptureBtn"><i class="fas fa-camera mr-1 text-success"></i> Live Capture</button>
+                                <button type="button" class="btn btn-sm btn-light border font-weight-bold" id="photoUploadBtn"><i class="fas fa-upload mr-1 text-primary"></i> Upload</button>
+                                <button type="button" class="btn btn-sm btn-light border font-weight-bold d-none" id="photoClearBtn"><i class="fas fa-times mr-1 text-danger"></i> Clear</button>
+                            </div>
+                            <small class="text-muted d-block mt-2" id="photoSourceNote">No photo yet — auto-captured from the license scan, or add one manually.</small>
+                            <input type="file" id="photoUploadInput" accept="image/*" class="d-none">
+                        </div>
+                    </div>
+                    <input type="file" name="photo" id="c_photo" class="d-none">
+
+                    <div class="modal-section-title">Personal Information</div>
                     <div class="row">
                         <div class="col-md-2 form-group">
-                            <label class="font-weight-bold font-size-12 text-secondary">Rank</label>
-                            <select name="rank" id="c_rank" class="form-control form-control-modern">
+                            <label class="font-weight-bold font-size-12 text-secondary">Rank <span class="text-danger">*</span></label>
+                            <select name="rank" id="c_rank" class="form-control form-control-modern" required>
                                 <option value="">Select...</option>
                                 @foreach($ranks as $rank)
                                 <option value="{{ $rank->rank_abbvr }}">{{ $rank->rank_abbvr }}</option>
@@ -218,8 +240,8 @@
                             <input type="date" name="license_expiration_date" id="c_lic_exp" class="form-control form-control-modern">
                         </div>
                         <div class="col-md-4 form-group">
-                            <label class="font-weight-bold font-size-12 text-secondary">License Type</label>
-                            <select name="license_type" id="c_lic_type" class="form-control form-control-modern">
+                            <label class="font-weight-bold font-size-12 text-secondary">License Type <span class="text-danger">*</span></label>
+                            <select name="license_type" id="c_lic_type" class="form-control form-control-modern" required>
                                 <option value="">Select Type...</option>
                                 <option value="Professional">Professional</option>
                                 <option value="Non-Professional">Non-Professional</option>
@@ -228,8 +250,8 @@
                     </div>
                     <div class="row">
                         <div class="col-md-6 form-group mb-0">
-                            <label class="font-weight-bold font-size-12 text-secondary">Contact Number</label>
-                            <input type="text" name="contact_number" id="c_contact" class="form-control form-control-modern" placeholder="+63 9...">
+                            <label class="font-weight-bold font-size-12 text-secondary">Contact Number <span class="text-danger">*</span></label>
+                            <input type="text" name="contact_number" id="c_contact" class="form-control form-control-modern" placeholder="+63 9..." required>
                         </div>
                         <div class="col-md-6 form-group mb-0">
                             <label class="font-weight-bold font-size-12 text-secondary">Status <span class="text-danger">*</span></label>
@@ -249,7 +271,7 @@
     </div>
 </div>
 
-<!-- LIVE WEBCAM MODAL -->
+<!-- LIVE WEBCAM MODAL (license scanner) -->
 <div class="modal fade" id="cameraModal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content modal-content-premium">
@@ -275,6 +297,31 @@
 
 <canvas id="snapshotCanvas" class="d-none"></canvas>
 
+<!-- LIVE PHOTO CAPTURE MODAL (driver profile photo — separate from the license scanner above) -->
+<div class="modal fade" id="photoCameraModal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content modal-content-premium">
+            <div class="modal-header-slate d-flex justify-content-between align-items-center">
+                <h5 class="m-0"><i class="fas fa-camera mr-2 text-success"></i> Capture Driver Photo</h5>
+                <button type="button" class="close text-white close-photo-camera-modal">&times;</button>
+            </div>
+            <div class="modal-body text-center p-3 bg-black">
+                <div style="position:relative; width:100%; max-height:360px; overflow:hidden; background:#000; border-radius:10px;">
+                    <video id="photoWebcamVideo" autoplay playsinline style="width:100%; height:auto; display:block;"></video>
+                </div>
+                <p class="text-muted font-size-12 mt-2 mb-0">Center the driver's face and click capture.</p>
+            </div>
+            <div class="modal-footer justify-content-between bg-light border-0">
+                <button type="button" class="btn btn-light font-weight-bold close-photo-camera-modal">Cancel</button>
+                <button type="button" id="takePhotoSnapshotBtn" class="btn btn-success font-weight-bold px-4">
+                    <i class="fas fa-camera mr-1"></i> Capture
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<canvas id="photoSnapshotCanvas" class="d-none"></canvas>
+
 <!-- EDIT MODAL -->
 <div class="modal fade" id="editModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -283,14 +330,33 @@
                 <h5 class="m-0"><i class="fas fa-user-edit mr-2 text-primary"></i> Update Profile</h5>
                 <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
             </div>
-            <form id="editForm" method="POST">
+            <form id="editForm" method="POST" enctype="multipart/form-data">
                 @csrf @method('PUT')
                 <div class="modal-body p-4">
-                    <div class="modal-section-title mt-0">Personal Information</div>
+                    <div class="modal-section-title mt-0">Driver Photo</div>
+                    <div class="d-flex align-items-center mb-2" style="gap:16px;">
+                        <div id="editPhotoPreviewWrap" style="width:84px;height:84px;border-radius:50%;overflow:hidden;background:#f1f5f9;border:2px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;flex:none;">
+                            <i class="fas fa-user text-muted" id="editPhotoPreviewPlaceholder" style="font-size:28px;"></i>
+                            <img id="editPhotoPreviewImg" class="d-none" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;" alt="Driver photo preview">
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex flex-wrap" style="gap:8px;">
+                                <button type="button" class="btn btn-sm btn-light border font-weight-bold" id="editPhotoLiveCaptureBtn"><i class="fas fa-camera mr-1 text-success"></i> Live Capture</button>
+                                <button type="button" class="btn btn-sm btn-light border font-weight-bold" id="editPhotoUploadBtn"><i class="fas fa-upload mr-1 text-primary"></i> Upload</button>
+                                <button type="button" class="btn btn-sm btn-light border font-weight-bold d-none" id="editPhotoClearBtn"><i class="fas fa-times mr-1 text-danger"></i> Remove</button>
+                            </div>
+                            <small class="text-muted d-block mt-2" id="editPhotoSourceNote">No photo on file.</small>
+                            <input type="file" id="editPhotoUploadInput" accept="image/*" class="d-none">
+                        </div>
+                    </div>
+                    <input type="file" name="photo" id="e_photo" class="d-none">
+                    <input type="hidden" name="remove_photo" id="e_remove_photo" value="0">
+
+                    <div class="modal-section-title">Personal Information</div>
                     <div class="row">
                         <div class="col-md-2 form-group">
-                            <label class="font-weight-bold font-size-12 text-secondary">Rank</label>
-                            <select id="e_rank" name="rank" class="form-control form-control-modern">
+                            <label class="font-weight-bold font-size-12 text-secondary">Rank <span class="text-danger">*</span></label>
+                            <select id="e_rank" name="rank" class="form-control form-control-modern" required>
                                 <option value="">Select...</option>
                                 @foreach($ranks as $rank)
                                 <option value="{{ $rank->rank_abbvr }}">{{ $rank->rank_abbvr }}</option>
@@ -326,8 +392,8 @@
                             <input type="date" id="e_lic_exp" name="license_expiration_date" class="form-control form-control-modern">
                         </div>
                         <div class="col-md-4 form-group">
-                            <label class="font-weight-bold font-size-12 text-secondary">License Type</label>
-                            <select id="e_lic_type" name="license_type" class="form-control form-control-modern">
+                            <label class="font-weight-bold font-size-12 text-secondary">License Type <span class="text-danger">*</span></label>
+                            <select id="e_lic_type" name="license_type" class="form-control form-control-modern" required>
                                 <option value="">Select Type...</option>
                                 <option value="Professional">Professional</option>
                                 <option value="Non-Professional">Non-Professional</option>
@@ -336,8 +402,8 @@
                     </div>
                     <div class="row">
                         <div class="col-md-6 form-group mb-0">
-                            <label class="font-weight-bold font-size-12 text-secondary">Contact Number</label>
-                            <input type="text" id="e_contact" name="contact_number" class="form-control form-control-modern">
+                            <label class="font-weight-bold font-size-12 text-secondary">Contact Number <span class="text-danger">*</span></label>
+                            <input type="text" id="e_contact" name="contact_number" class="form-control form-control-modern" required>
                         </div>
                         <div class="col-md-6 form-group mb-0">
                             <label class="font-weight-bold font-size-12 text-secondary">Status</label>
@@ -361,6 +427,7 @@
 @section('script')
 <!-- Tesseract.js, DataTables, & SweetAlert2 JS -->
 <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap4.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -438,6 +505,22 @@ $(document.body).ready(function() {
         
         if(data.license_expiration_date) {
             $('#e_lic_exp').val(data.license_expiration_date.substring(0, 10));
+        }
+
+        // Photo: show the current one if this driver has one, otherwise a clean
+        // empty state — either way, no pending file/removal flag carries over
+        // from whatever was last open in this modal.
+        if (data.photo_path) {
+            let photoUrl = "{{ route('drivers.photo', ':id') }}".replace(':id', data.id);
+            document.getElementById('e_photo').value = '';
+            document.getElementById('e_remove_photo').value = '0';
+            document.getElementById('editPhotoPreviewImg').src = photoUrl;
+            document.getElementById('editPhotoPreviewImg').classList.remove('d-none');
+            document.getElementById('editPhotoPreviewPlaceholder').classList.add('d-none');
+            document.getElementById('editPhotoClearBtn').classList.remove('d-none');
+            document.getElementById('editPhotoSourceNote').innerText = 'Current profile photo on file.';
+        } else {
+            resetEditPhotoWidgetEmpty();
         }
 
         let updateUrl = "{{ route('drivers.update', ':id') }}".replace(':id', data.id);
@@ -529,7 +612,7 @@ $(document.body).ready(function() {
         processImageForOCR(e.target.files[0]);
     });
 
-    // Live Webcam Scanner Logic
+    // Live Webcam Scanner Logic (license)
     let videoStream = null;
     const videoElem = document.getElementById('webcamVideo');
 
@@ -576,6 +659,294 @@ $(document.body).ready(function() {
         }, 'image/jpeg', 0.95);
     });
 
+    // ---------------- Driver Photo Capture (shared between Create & Edit modals) ----------------
+    let photoManuallySet = false;       // Create-only: blocks auto-crop from overwriting a deliberate choice
+    let photoWebcamStream = null;
+    let activePhotoTarget = 'create';   // which modal's photo widget Live Capture is currently acting on
+    const photoVideoElem = document.getElementById('photoWebcamVideo');
+
+    // Every DOM id the photo widget touches, keyed by which modal it belongs to —
+    // lets setDriverPhoto/clearDriverPhoto work for both without duplicating logic.
+    const photoTargets = {
+        create: {
+            fileInput: 'c_photo',
+            previewImg: 'photoPreviewImg',
+            placeholder: 'photoPreviewPlaceholder',
+            clearBtn: 'photoClearBtn',
+            note: 'photoSourceNote',
+        },
+        edit: {
+            fileInput: 'e_photo',
+            previewImg: 'editPhotoPreviewImg',
+            placeholder: 'editPhotoPreviewPlaceholder',
+            clearBtn: 'editPhotoClearBtn',
+            note: 'editPhotoSourceNote',
+        },
+    };
+
+    function setDriverPhoto(blob, source, detail, target) {
+        target = target || 'create';
+        const t = photoTargets[target];
+
+        const file = new File([blob], 'driver-photo.jpg', { type: blob.type || 'image/jpeg' });
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        document.getElementById(t.fileInput).files = dt.files;
+
+        const url = URL.createObjectURL(blob);
+        document.getElementById(t.previewImg).src = url;
+        document.getElementById(t.previewImg).classList.remove('d-none');
+        document.getElementById(t.placeholder).classList.add('d-none');
+        document.getElementById(t.clearBtn).classList.remove('d-none');
+
+        const faceDetected = detail && detail.faceDetected;
+        document.getElementById(t.note).innerText =
+            source === 'auto' ? (faceDetected ? 'Face detected — auto-cropped from the license scan.' : 'Approximate crop (no face clearly detected) — try Live Capture or Upload for a tighter result.') :
+            source === 'live' ? (faceDetected ? 'Face detected and centered from the live capture.' : 'Captured via live camera (face not clearly detected — consider recapturing).') :
+            'Uploaded manually.';
+
+        if (target === 'create' && source !== 'auto') { photoManuallySet = true; }
+        if (target === 'edit') { document.getElementById('e_remove_photo').value = '0'; }
+    }
+
+    // User explicitly removing a photo — for Edit, this also flags the existing
+    // server-side file for deletion on save (setDriverPhoto with a fresh capture
+    // clears that flag again, since a new photo always wins over a removal).
+    function clearDriverPhoto(target) {
+        target = target || 'create';
+        const t = photoTargets[target];
+
+        document.getElementById(t.fileInput).value = '';
+        document.getElementById(t.previewImg).src = '';
+        document.getElementById(t.previewImg).classList.add('d-none');
+        document.getElementById(t.placeholder).classList.remove('d-none');
+        document.getElementById(t.clearBtn).classList.add('d-none');
+        document.getElementById(t.note).innerText = target === 'edit'
+            ? 'No photo on file.'
+            : 'No photo yet — auto-captured from the license scan, or add one manually.';
+
+        if (target === 'create') {
+            photoManuallySet = false;
+        } else {
+            document.getElementById('e_remove_photo').value = '1';
+        }
+    }
+
+    // Quietly resets the Edit modal's photo widget when it's populated for a driver
+    // that has no photo on file yet — distinct from clearDriverPhoto('edit') because
+    // this must NOT flag an existing photo for removal (there isn't one).
+    function resetEditPhotoWidgetEmpty() {
+        document.getElementById('e_photo').value = '';
+        document.getElementById('e_remove_photo').value = '0';
+        const t = photoTargets.edit;
+        document.getElementById(t.previewImg).src = '';
+        document.getElementById(t.previewImg).classList.add('d-none');
+        document.getElementById(t.placeholder).classList.remove('d-none');
+        document.getElementById(t.clearBtn).classList.add('d-none');
+        document.getElementById(t.note).innerText = 'No photo on file — add one via Live Capture or Upload.';
+    }
+
+    document.getElementById('photoClearBtn').addEventListener('click', () => clearDriverPhoto('create'));
+    document.getElementById('editPhotoClearBtn').addEventListener('click', () => clearDriverPhoto('edit'));
+
+    // Manual upload — one file input per modal, both routed through the same setDriverPhoto.
+    document.getElementById('photoUploadBtn').addEventListener('click', () => document.getElementById('photoUploadInput').click());
+    document.getElementById('photoUploadInput').addEventListener('change', function (e) {
+        if (e.target.files.length === 0) return;
+        setDriverPhoto(e.target.files[0], 'upload', null, 'create');
+    });
+
+    document.getElementById('editPhotoUploadBtn').addEventListener('click', () => document.getElementById('editPhotoUploadInput').click());
+    document.getElementById('editPhotoUploadInput').addEventListener('change', function (e) {
+        if (e.target.files.length === 0) return;
+        setDriverPhoto(e.target.files[0], 'upload', null, 'edit');
+    });
+
+    // Live capture — a single shared camera/modal for both Create and Edit (and
+    // separate from the license scanner above, so capturing a face photo never
+    // accidentally triggers OCR). activePhotoTarget records which modal asked.
+    async function openPhotoCameraModal(target) {
+        activePhotoTarget = target;
+        $('#photoCameraModal').modal('show');
+        try {
+            photoWebcamStream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
+            });
+            photoVideoElem.srcObject = photoWebcamStream;
+        } catch (err) {
+            console.error('Photo webcam error:', err);
+            toastr.error('Unable to access webcam.');
+            $('#photoCameraModal').modal('hide');
+        }
+    }
+
+    document.getElementById('photoLiveCaptureBtn').addEventListener('click', () => openPhotoCameraModal('create'));
+    document.getElementById('editPhotoLiveCaptureBtn').addEventListener('click', () => openPhotoCameraModal('edit'));
+
+    $('.close-photo-camera-modal').click(function () {
+        stopPhotoWebcamStream();
+        $('#photoCameraModal').modal('hide');
+    });
+
+    function stopPhotoWebcamStream() {
+        if (photoWebcamStream) {
+            photoWebcamStream.getTracks().forEach(track => track.stop());
+            photoWebcamStream = null;
+        }
+    }
+
+    $('#takePhotoSnapshotBtn').click(function () {
+        if (!photoWebcamStream) return;
+        const canvas = document.getElementById('photoSnapshotCanvas');
+        canvas.width = photoVideoElem.videoWidth || 640;
+        canvas.height = photoVideoElem.videoHeight || 480;
+        canvas.getContext('2d').drawImage(photoVideoElem, 0, 0, canvas.width, canvas.height);
+
+        stopPhotoWebcamStream();
+        $('#photoCameraModal').modal('hide');
+
+        const target = activePhotoTarget;
+        canvas.toBlob(function (blob) {
+            extractFaceSquare(blob)
+                .then(function (result) { setDriverPhoto(result.blob, 'live', result, target); })
+                .catch(function () { setDriverPhoto(blob, 'live', { faceDetected: false }, target); }); // raw snapshot if detection itself errors
+        }, 'image/jpeg', 0.92);
+    });
+
+    // ---------------- Real face detection (face-api.js) ----------------
+    // Replaces the old fixed-position guess with an actual detected face bounding box,
+    // so the crop centers on where the face really is instead of an assumed position.
+    // TinyFaceDetector is used deliberately — it's small (~190KB) and fast, and all we
+    // need is a bounding box, not full landmarks/recognition.
+    let faceApiModelsLoaded = false;
+    let faceApiModelsLoading = null;
+
+    function ensureFaceApiModelsLoaded() {
+        if (faceApiModelsLoaded) return Promise.resolve();
+        if (faceApiModelsLoading) return faceApiModelsLoading;
+
+        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+        faceApiModelsLoading = faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL)
+            .then(function () { faceApiModelsLoaded = true; })
+            .catch(function (err) {
+                console.warn('Face detection models failed to load — falling back to approximate crop.', err);
+                faceApiModelsLoading = null; // allow a retry on the next scan/capture
+            });
+        return faceApiModelsLoading;
+    }
+
+    // Kick off model loading in the background as soon as the page is ready, so it's
+    // very likely already loaded by the time someone actually scans or captures —
+    // avoids a visible delay on the first use.
+    ensureFaceApiModelsLoaded();
+
+    function loadImageElement(imageSource) {
+        return new Promise(function (resolve, reject) {
+            const img = new Image();
+            const objectUrl = URL.createObjectURL(imageSource);
+            img.onload = function () {
+                resolve(img);
+                setTimeout(function () { URL.revokeObjectURL(objectUrl); }, 3000);
+            };
+            img.onerror = function (e) {
+                URL.revokeObjectURL(objectUrl);
+                reject(e);
+            };
+            img.src = objectUrl;
+        });
+    }
+
+    function detectFaceBox(img) {
+        if (typeof faceapi === 'undefined' || !faceApiModelsLoaded) return Promise.resolve(null);
+        return faceapi
+            .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.4 }))
+            .then(function (detection) { return detection ? detection.box : null; })
+            .catch(function () { return null; });
+    }
+
+    function buildCroppedBlob(img, box) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const OUTPUT_SIZE = 360; // fixed output resolution — keeps stored photos a consistent size
+        canvas.width = OUTPUT_SIZE;
+        canvas.height = OUTPUT_SIZE;
+
+        if (box) {
+            // Pad around the detected face for a proper ID-photo framing (head + a
+            // little shoulder room) — NOT the whole card. 0.35x padding on each side
+            // gives a final crop roughly 1.7x the face width, which is the actual
+            // culprit behind the "captures the whole card" issue: the previous 0.9x
+            // padding produced a crop nearly 3x the face width, pulling in most of
+            // the card's surrounding text/background along with the face.
+            const padding = box.width * 0.35;
+            const cropSize = Math.min(img.width, img.height, box.width + padding * 2);
+            let cropX = box.x + box.width / 2 - cropSize / 2;
+            let cropY = box.y + box.height / 2 - cropSize / 2;
+            cropX = Math.max(0, Math.min(cropX, img.width - cropSize));
+            cropY = Math.max(0, Math.min(cropY, img.height - cropSize));
+            ctx.drawImage(img, cropX, cropY, cropSize, cropSize, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+        } else {
+            // No face detected (models still loading, or genuinely no face found) —
+            // fall back to the old approximate fixed-position crop as a safety net
+            // rather than leaving the photo empty.
+            const squareSize = Math.min(img.width * 0.34, img.height * 0.58);
+            const cropX = Math.max(img.width * 0.05, 0);
+            const cropY = Math.max((img.height * 0.53) - (squareSize / 2), 0);
+            ctx.drawImage(img, cropX, cropY, squareSize, squareSize, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+        }
+
+        return new Promise(function (resolve, reject) {
+            canvas.toBlob(function (blob) {
+                if (blob) { resolve(blob); } else { reject(new Error('Crop failed')); }
+            }, 'image/jpeg', 0.92);
+        });
+    }
+
+    // Used by both the license auto-crop and Live Capture — loads the image, tries to
+    // detect a real face, and crops around it. Resolves { blob, faceDetected } so the
+    // caller can tell the user whether a face was actually found or we fell back.
+    function extractFaceSquare(imageSource) {
+        return loadImageElement(imageSource).then(function (img) {
+            return ensureFaceApiModelsLoaded()
+                .then(function () { return detectFaceBox(img); })
+                .then(function (box) {
+                    return buildCroppedBlob(img, box).then(function (blob) {
+                        return { blob: blob, faceDetected: !!box };
+                    });
+                });
+        });
+    }
+
+    // Resets the whole Register Driver form, including photo state — used by the
+    // duplicate-license alert below, and automatically every time the modal closes,
+    // so a previous registration's leftover data never bleeds into the next one.
+    function resetCreateForm() {
+        document.getElementById('createForm').reset();
+        clearDriverPhoto('create');
+    }
+
+    $('#createModal').on('hidden.bs.modal', resetCreateForm);
+
+    // ---------------- Live duplicate check (fires right after OCR reads a license number) ----------------
+    function checkLicenseDuplicate(licenseNumber) {
+        if (!licenseNumber) return;
+        $.post("{{ route('drivers.check-availability') }}", { license_number: licenseNumber })
+            .done(function (res) {
+                if (res.exists) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Driver Already Registered',
+                        html: 'This license number is already on file for <b>' + res.driver_name + '</b>.',
+                        confirmButtonText: 'OK, Clear Form',
+                        confirmButtonColor: '#3b82f6',
+                        customClass: { popup: 'modal-content-premium' }
+                    }).then(function () {
+                        resetCreateForm();
+                    });
+                }
+            });
+    }
+
     // OCR Processing Engine
     const progressBarBox = document.getElementById('scanProgressBox');
     const progressBar = document.getElementById('scanProgressBar');
@@ -599,6 +970,12 @@ $(document.body).ready(function() {
             statusText.innerText = "Extracting details...";
             
             parseOCRText(text);
+
+            if (!photoManuallySet) {
+                extractFaceSquare(imageSource)
+                    .then(result => setDriverPhoto(result.blob, 'auto', result, 'create'))
+                    .catch(() => { /* auto-crop is best-effort; silently skip on failure */ });
+            }
 
             progressBar.style.width = '100%';
             setTimeout(() => {
@@ -625,6 +1002,7 @@ $(document.body).ready(function() {
                 cleanLic = cleanLic.slice(0,3) + '-' + cleanLic.slice(3,5) + '-' + cleanLic.slice(5);
             }
             document.getElementById('c_lic_no').value = cleanLic;
+            checkLicenseDuplicate(cleanLic);
         }
 
         const dateMatches = fullCleanText.match(/\d{4}[-/]\d{2}[-/]\d{2}/g);

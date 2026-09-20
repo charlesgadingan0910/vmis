@@ -8,7 +8,7 @@ class Driver extends Model
     protected $fillable = [
         'rank', 'firstname', 'middlename', 'lastname', 'qlfr', 
         'license_number', 'license_expiration_date', 'license_type', 
-        'contact_number', 'status'
+        'contact_number', 'status', 'photo_path'
     ];
 
     protected $casts = [
