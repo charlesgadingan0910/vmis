@@ -395,7 +395,16 @@
      rather than the desktop hover-to-expand mini-sidebar treatment, which
      doesn't apply on a touchscreen since there's no hover. */
   @media (max-width: 991.98px) {
-    .main-sidebar {
+    /* Scoped to .sidebar-open specifically — NOT a blanket .main-sidebar rule.
+       AdminLTE hides the sidebar by default via `margin-left:-250px`, exactly
+       matched to its native 250px width. Widening .main-sidebar unconditionally
+       (as an earlier version of this rule did) breaks that pairing: a 270px
+       sidebar offset by only -250px leaves 20px permanently visible even while
+       "closed" — that's the overlap/sliver bug. Only touching the OPEN state
+       keeps the closed state's native hide mechanism completely untouched.
+       See CLASS_NAME_OPEN$3 in adminlte.js's PushMenu widget for how/when
+       sidebar-open actually gets added — confirmed directly against source. */
+    .sidebar-open .main-sidebar {
       width: 270px !important;
       box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
     }

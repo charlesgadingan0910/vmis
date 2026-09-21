@@ -2,7 +2,7 @@
 
 @section('title')
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>VMIS | {{ $title }}</title>
 <link href="{{ asset('dist/img/kasurog.png') }}" rel="icon">
 @endsection

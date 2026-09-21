@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>VMIS | Print QR Codes</title>
 <style>
   @page { margin: 10mm; }
@@ -53,6 +54,13 @@
   }
   .sticker .veh-type{font-size:9px;color:#64748b;letter-spacing:.03em;margin-top:6px;font-weight:600;}
   .sticker .wordmark{font-size:7.5px;color:#94a3b8;letter-spacing:.1em;text-transform:uppercase;margin-top:auto;padding-top:8px;font-weight:700;}
+
+  @media (max-width: 640px){
+    body{padding:20px 14px;}
+    .toolbar{flex-direction:column;align-items:flex-start;padding:18px;}
+    .btn-print{width:100%;justify-content:center;}
+    .sticker-sheet{grid-template-columns:repeat(auto-fill, minmax(2.1in, 1fr));}
+  }
 
   @media print {
     body{background:#fff;padding:0;}
