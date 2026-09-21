@@ -80,5 +80,10 @@ Route::middleware('auth')->group(function () {
         // controller + view once each module is built. Keeps the nav links live.
         Route::view('/maintenance', 'coming-soon', ['title' => 'Maintenance & PMS'])->name('maintenance.index');
         Route::view('/driver-assignments', 'coming-soon', ['title' => 'Driver Assignment'])->name('driver-assignments.index');
+
+        // User Management
+        Route::resource('users', \App\Http\Controllers\UserController::class)->except(['create', 'show', 'edit']);
+        Route::get('/users/{user}/edit-data', [\App\Http\Controllers\UserController::class, 'editData'])->name('users.edit-data');
+        Route::post('/users/{user}/reset-password', [\App\Http\Controllers\UserController::class, 'resetPassword'])->name('users.reset-password');
     });
 });
