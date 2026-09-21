@@ -37,4 +37,26 @@ class ScanController extends Controller
 
         return view('vehicles.scan-result', compact('vehicle'));
     }
+
+    /**
+     * Manual-entry fallback for when the camera can't scan (common on non-HTTPS
+     * mobile connections). Deliberately looks up by PLATE NUMBER, not qr_code —
+     * the plate is the only identifier actually printed and visible on the
+     * physical sticker; the raw qr_code token is invisible to a human, so asking
+     * someone to type it in was the real bug being fixed here.
+     */
+    public function showByPlate(string $plate): View
+    {
+        $vehicle = Vehicle::with([
+                'driver',
+                'type',
+                'encoder',
+                'latestRegistration',
+                'registrations.uploader',
+            ])
+            ->where('plate_number', strtoupper(trim($plate)))
+            ->firstOrFail();
+
+        return view('vehicles.scan-result', compact('vehicle'));
+    }
 }
