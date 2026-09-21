@@ -171,13 +171,16 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function handleDecoded(decodedText) {
-        // The QR encodes a full URL to /vehicles/scan/{code} — if that's what we got, just go there.
-        if (decodedText.indexOf(scanQrBaseUrl) === 0) {
-            window.location.href = decodedText;
-        } else {
-            // Fallback: someone scanned/pasted a raw code rather than a full URL.
-            window.location.href = scanQrBaseUrl + '/' + encodeURIComponent(decodedText.trim());
-        }
+        // Extract just the code segment from whatever was decoded, regardless of which
+        // domain it points at — a sticker printed before a domain change (e.g. moving
+        // from local dev to production, exactly what happened here) still encodes the
+        // OLD domain, and a naive "does this match our current base URL" check would
+        // fail forever on every sticker printed before the move. Matching the trailing
+        // /vehicles/scan/{code} shape and using just that code means every sticker
+        // keeps working on whatever domain is currently live, with nothing to reprint.
+        const match = decodedText.match(/\/vehicles\/scan\/([^\/?#]+)\/?$/i);
+        const code = match ? match[1] : decodedText.trim();
+        window.location.href = scanQrBaseUrl + '/' + encodeURIComponent(code);
     }
 
     if (typeof Html5Qrcode !== 'undefined') {
