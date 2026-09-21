@@ -110,6 +110,44 @@
   .field-feedback-text { font-size: 11.5px; font-weight: 600; margin-top: 4px; display: block; }
   .field-feedback-text.error { color: #dc2626; }
   .field-feedback-text.success { color: #16a34a; }
+
+  /* ============================================================ */
+  /* MOBILE: table rows become stacked cards, not a cramped scroll */
+  /* ============================================================ */
+  @media (max-width: 767.98px) {
+    .fleet-table thead { display: none; }
+    .fleet-table, .fleet-table tbody, .fleet-table tr, .fleet-table td { display: block; width: 100%; }
+    .fleet-table tr {
+      background: #fff; border: 1px solid #eef1f6; border-radius: 14px;
+      box-shadow: 0 1px 3px rgba(15,23,42,0.04); margin-bottom: 12px; padding: 4px 16px;
+    }
+    .fleet-table td {
+      padding: 10px 0 !important; border-top: 1px solid #f8fafc !important; text-align: left !important;
+    }
+    .fleet-table td:first-child { border-top: none !important; padding-top: 14px !important; }
+    .fleet-table td:last-child { padding-bottom: 14px !important; }
+
+    /* Column order here is fixed (matches the columns: [...] config below), so
+       labels are keyed to position — Plate, Status and Actions read fine on
+       their own (a plate badge or status pill needs no extra label), the rest
+       get a small caption so it's clear what each stacked value actually is. */
+    .fleet-table td:nth-child(3)::before { content: "Specification"; }
+    .fleet-table td:nth-child(4)::before { content: "Type"; }
+    .fleet-table td:nth-child(5)::before { content: "Driver"; }
+    .fleet-table td:nth-child(6)::before { content: "Registration"; }
+    .fleet-table td:nth-child(7)::before { content: "Next PMS"; }
+    .fleet-table td::before {
+      display: block; font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .04em; color: #94a3b8; margin-bottom: 5px;
+    }
+
+    .fleet-table td:last-child {
+      text-align: right !important; border-top: 1px dashed #eef1f6 !important; margin-top: 2px;
+    }
+    /* The select-all checkbox column: unobtrusive, no label, sits compactly
+       at the top of the card rather than eating a full labeled row. */
+    .fleet-table td:first-child { padding-bottom: 2px !important; }
+  }
 </style>
 @endsection
 

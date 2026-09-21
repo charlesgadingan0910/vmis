@@ -78,6 +78,39 @@
   /* Driver photo capture */
   #photoPreviewWrap { width: 84px; height: 84px; border-radius: 50%; overflow: hidden; background: #f1f5f9; border: 2px dashed #cbd5e1; display: flex; align-items: center; justify-content: center; flex: none; }
   #photoPreviewImg { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+
+  /* ============================================================ */
+  /* MOBILE: table rows become stacked cards, not a cramped scroll */
+  /* ============================================================ */
+  @media (max-width: 767.98px) {
+    .fleet-table thead { display: none; }
+    .fleet-table, .fleet-table tbody, .fleet-table tr, .fleet-table td { display: block; width: 100%; }
+    .fleet-table tr {
+      background: #fff; border: 1px solid #eef1f6; border-radius: 14px;
+      box-shadow: 0 1px 3px rgba(15,23,42,0.04); margin-bottom: 12px; padding: 4px 16px;
+    }
+    .fleet-table td {
+      padding: 10px 0 !important; border-top: 1px solid #f8fafc !important; text-align: left !important;
+    }
+    .fleet-table td:first-child { border-top: none !important; padding-top: 14px !important; }
+    .fleet-table td:last-child { padding-bottom: 14px !important; }
+
+    /* Column order is fixed (Personnel Identity, License Detail, Expiration
+       Status, Contact Info, Actions) — Identity is already self-descriptive
+       (avatar + name + status inline), so it skips a label; the rest get one
+       so a bare phone number or date doesn't sit there with no context. */
+    .fleet-table td:nth-child(2)::before { content: "License"; }
+    .fleet-table td:nth-child(3)::before { content: "Expiration"; }
+    .fleet-table td:nth-child(4)::before { content: "Contact"; }
+    .fleet-table td::before {
+      display: block; font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .04em; color: #94a3b8; margin-bottom: 5px;
+    }
+
+    .fleet-table td:last-child {
+      text-align: right !important; border-top: 1px dashed #eef1f6 !important; margin-top: 2px;
+    }
+  }
 </style>
 @endsection
 
