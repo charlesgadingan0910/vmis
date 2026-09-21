@@ -23,7 +23,7 @@ class ScanController extends Controller
      * rest of the app, so scanning while logged out sends the officer to login
      * first and bounces them back here automatically afterward.
      */
-    public function show(string $qrCode): View
+    public function show(string $qrCode)
     {
         $vehicle = Vehicle::with([
                 'driver',
@@ -33,7 +33,14 @@ class ScanController extends Controller
                 'registrations.uploader',
             ])
             ->where('qr_code', $qrCode)
-            ->firstOrFail();
+            ->first();
+
+        if (! $vehicle) {
+            return response()->view('vehicles.scan-not-found', [
+                'identifier' => $qrCode,
+                'type'       => 'code',
+            ], 404);
+        }
 
         return view('vehicles.scan-result', compact('vehicle'));
     }
@@ -45,8 +52,10 @@ class ScanController extends Controller
      * physical sticker; the raw qr_code token is invisible to a human, so asking
      * someone to type it in was the real bug being fixed here.
      */
-    public function showByPlate(string $plate): View
+    public function showByPlate(string $plate)
     {
+        $plate = strtoupper(trim($plate));
+
         $vehicle = Vehicle::with([
                 'driver',
                 'type',
@@ -54,8 +63,15 @@ class ScanController extends Controller
                 'latestRegistration',
                 'registrations.uploader',
             ])
-            ->where('plate_number', strtoupper(trim($plate)))
-            ->firstOrFail();
+            ->where('plate_number', $plate)
+            ->first();
+
+        if (! $vehicle) {
+            return response()->view('vehicles.scan-not-found', [
+                'identifier' => $plate,
+                'type'       => 'plate',
+            ], 404);
+        }
 
         return view('vehicles.scan-result', compact('vehicle'));
     }

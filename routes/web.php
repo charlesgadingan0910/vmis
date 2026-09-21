@@ -62,6 +62,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/scan', [ScanController::class, 'index'])->name('scan.index');
         Route::get('/vehicles/scan/{qrCode}', [ScanController::class, 'show'])->name('vehicles.scan');
 
+        // Manual-entry fallback (searches by plate number — the only identifier
+        // actually printed and visible on the physical sticker).
+        Route::get('/vehicles/scan-plate/{plate}', [ScanController::class, 'showByPlate'])->name('vehicles.scan-plate');
+
         // Driver Management 
         Route::resource('drivers', DriverController::class)->except(['show']);
 
