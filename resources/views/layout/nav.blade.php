@@ -1,12 +1,12 @@
 <nav class="main-header navbar navbar-expand navbar-white navbar-light border-bottom-0 sticky-top">
   <ul class="navbar-nav align-items-center">
     <li class="nav-item">
-      <a class="nav-link toggle-menu-btn" data-widget="pushmenu" href="#" role="button">
-        <i class="fas fa-bars-staggered"></i>
+      <a class="nav-link toggle-menu-btn" data-widget="pushmenu" href="#" role="button" aria-label="Toggle navigation menu">
+        <i class="fas fa-bars"></i>
       </a>
     </li>
-    <li class="nav-item d-none d-sm-inline-block">
-        <h5 class="nav-page-title-text mb-0">
+    <li class="nav-item d-flex align-items-center nav-title-li">
+        <h5 class="nav-page-title-text mb-0 text-truncate">
             @yield('nav-title', 'VMIS')
         </h5>
     </li>

@@ -119,10 +119,32 @@
 
   .form-foot{font-size:11.5px; color:#8896AA; text-align:center; margin-top:22px; line-height:1.6;}
 
+  /* ---------- Mobile: keep the branding, don't hide it ---------- */
+  /* The old rule here was `.auth-side{display:none;}` — that's what wiped out
+     all system identification on mobile. Instead, this compacts the branding
+     panel into a short header (logo + name + title only — copy, feature list
+     and footer note drop, since they're not essential on a small screen) and
+     runs the card full-bleed edge-to-edge, which reads as a proper native
+     mobile screen rather than a floating desktop card squeezed onto a phone. */
   @media (max-width:720px){
-    .auth-card{grid-template-columns:1fr; max-width:420px;}
-    .auth-side{display:none;}
-    .auth-form{padding:36px 26px;}
+    body{padding:0; align-items:flex-start; background-attachment:fixed;}
+    .auth-card{
+      grid-template-columns:1fr; max-width:100%; min-height:100vh;
+      border-radius:0; box-shadow:none;
+    }
+    .auth-side{
+      padding:calc(24px + env(safe-area-inset-top, 0px)) 24px 20px;
+      flex:none;
+    }
+    .auth-side::after{width:80%; height:60%; top:-25%; right:-25%;}
+    .brand-mark{width:32px; height:32px;}
+    .brand-name{font-size:14px; margin-top:10px;}
+    .brand-sub{font-size:9.5px;}
+    .side-title{font-size:19px; margin-top:8px; max-width:none;}
+    .side-copy, .side-points, .side-foot{display:none;}
+    .auth-form{padding:28px 24px calc(36px + env(safe-area-inset-bottom, 0px));}
+    .form-head h1{font-size:23px;}
+    .field input{font-size:16px;} /* 16px+ prevents iOS Safari auto-zoom on focus */
   }
 </style>
 </head>

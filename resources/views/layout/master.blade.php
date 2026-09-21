@@ -39,6 +39,7 @@
     --accent-card-bg: rgba(255, 255, 255, 0.04);
     --accent-card-border: rgba(255, 255, 255, 0.08);
     --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --header-height: 65px;
   }
 
   body.dark-mode {
@@ -61,24 +62,61 @@
     -webkit-backdrop-filter: blur(12px) !important;
     background: var(--cc-surface) !important;
     border-bottom: 1px solid var(--cc-border) !important;
-    height: 65px;
-    padding: 0 1.5rem;
+    height: calc(var(--header-height) + env(safe-area-inset-top, 0px));
+    padding: env(safe-area-inset-top, 0px) 1.5rem 0;
+    flex-wrap: nowrap;
   }
 
+  /* The title sits between a fixed-size toggle button and a fixed-size
+     actions/profile area — it needs to be the one thing that shrinks and
+     truncates with an ellipsis on a narrow phone, rather than pushing the
+     profile menu or action buttons off-screen. */
+  .main-header .navbar-nav:first-child {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+  .nav-title-li {
+    min-width: 0;
+    overflow: hidden;
+  }
   .nav-page-title-text {
     font-weight: 700;
     letter-spacing: -0.5px;
     color: var(--cc-text-primary);
     margin-left: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
+  /* Toggle button: previously used an icon class (fa-bars-staggered) that
+     doesn't exist in every Font Awesome build, so it rendered with nothing
+     visible at all — fa-bars is universally supported. This also gives it a
+     real visual affordance (background + border on interaction) and a
+     touch target at least 40x40px, which is the practical minimum for a
+     reliably tappable icon-only control on a phone. */
   .toggle-menu-btn {
-    color: var(--cc-text-secondary) !important;
-    padding: 0.5rem;
-    border-radius: 8px;
+    color: var(--cc-text-primary) !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0.5rem 0.65rem;
+    border-radius: 9px;
+    background: rgba(15, 23, 42, 0.05);
+    border: 1px solid transparent;
   }
-  .toggle-menu-btn:hover {
-    background-color: rgba(0, 0, 0, 0.04);
+  .toggle-menu-btn i {
+    font-size: 17px !important;
+    line-height: 1 !important;
+  }
+  .toggle-menu-btn:hover,
+  .toggle-menu-btn:focus,
+  .toggle-menu-btn:active {
+    background-color: rgba(15, 23, 42, 0.09);
+    border-color: var(--cc-border);
     color: var(--cc-text-primary) !important;
   }
 
@@ -252,7 +290,12 @@
       display: flex;
       align-items: center;
       gap: 8px; /* Standard premium spacing between multiple actions */
+      max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
   }
+  .nav-actions-container::-webkit-scrollbar { display: none; }
 
   /* Base style for premium navbar action buttons */
   .btn-nav-action {
@@ -270,6 +313,8 @@
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       height: 38px;
+      white-space: nowrap;
+      flex: none;
   }
 
   /* Subtle Hover states mimicking modern SaaS architectures */
@@ -331,6 +376,37 @@
       line-height: 1;
       text-align: center;
       margin-left: auto; /* Pushes it to the right */
+  }
+
+  /* ============================================================ */
+  /* MOBILE POLISH                                                */
+  /* ============================================================ */
+  @media (max-width: 576px) {
+    :root { --header-height: 56px; }
+    .main-header.navbar { padding-left: 0.85rem; padding-right: 0.85rem; }
+    .nav-page-title-text { font-size: 0.92rem; margin-left: 0.5rem; }
+    .btn-nav-action { padding: 0.5rem 0.8rem; font-size: 0.8rem; }
+    .content-wrapper { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  }
+
+  /* When the sidebar opens as a mobile overlay (AdminLTE's own pushmenu
+     behavior below its lg breakpoint), it should read as a proper drawer —
+     comfortable width, real shadow separating it from the page behind it —
+     rather than the desktop hover-to-expand mini-sidebar treatment, which
+     doesn't apply on a touchscreen since there's no hover. */
+  @media (max-width: 991.98px) {
+    .main-sidebar {
+      width: 270px !important;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
+    }
+    /* AdminLTE's own #sidebar-overlay already provides a working tap-to-close
+       backdrop (shown via the sidebar-open class its PushMenu widget adds) —
+       just deepening the default tint (10% black) so it reads as a deliberate
+       modal-style backdrop instead of a faint, almost-accidental haze. */
+    #sidebar-overlay {
+      background-color: rgba(15, 23, 42, 0.5) !important;
+      backdrop-filter: blur(1px);
+    }
   }
   </style>
 
