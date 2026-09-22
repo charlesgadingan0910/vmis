@@ -4,8 +4,9 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\VehicleController;
-use App\Http\Controllers\DriverController;       
-use App\Http\Controllers\VehicleTypeController; 
+use App\Http\Controllers\DriverController;
+use App\Http\Controllers\VehicleTypeController;
+use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\ScanController;
 use Illuminate\Support\Facades\Route;
 
@@ -76,9 +77,21 @@ Route::middleware('auth')->group(function () {
         // Vehicle Types Management
         Route::resource('vehicle-types', VehicleTypeController::class)->except(['show']);
 
+        // Maintenance & PMS — only(...) because create/show/edit (the Blade-view-returning
+        // resource actions) aren't implemented; editing is AJAX-driven via edit-data/update
+        // below, same convention as vehicles.
+        Route::resource('maintenance', MaintenanceController::class)->only(['index', 'store', 'destroy']);
+        Route::get('/maintenance/{maintenance}/edit-data', [MaintenanceController::class, 'editData'])->name('maintenance.edit-data');
+        Route::put('/maintenance/{maintenance}', [MaintenanceController::class, 'update'])->name('maintenance.update');
+
+        // Serves uploaded maintenance receipts/invoices directly (bypasses the public/storage
+        // symlink, which is unreliable on Windows/WAMP) and keeps document access behind login.
+        Route::get('/maintenance-documents/{path}', [MaintenanceController::class, 'viewDocument'])
+            ->where('path', '.*')
+            ->name('maintenance.document');
+
         // Placeholder pages for planned modules — swap Route::view for a real
         // controller + view once each module is built. Keeps the nav links live.
-        Route::view('/maintenance', 'coming-soon', ['title' => 'Maintenance & PMS'])->name('maintenance.index');
         Route::view('/driver-assignments', 'coming-soon', ['title' => 'Driver Assignment'])->name('driver-assignments.index');
 
         // User Management

@@ -91,7 +91,7 @@
           </a>  
         </li>
 
-        <!-- FLEET MANAGEMENT -->
+        <!-- VEHICLE MANAGEMENT -->
         <li class="nav-header small text-muted text-uppercase mb-1 mt-3 tracking-wider">Vehicle Management</li>
         <li class="nav-item">
             <a href="{{ route('vehicles.index') }}" class="nav-link {{ request()->routeIs('vehicles.*') ? 'active' : '' }}">

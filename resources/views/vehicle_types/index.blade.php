@@ -94,7 +94,7 @@
             <div class="toolbar-header">
                 <div class="toolbar-title">
                     <h5>Categories Registry</h5>
-                    <p>Manage classification groups for your active fleet</p>
+                    <p>Manage classification groups for your active vehicles</p>
                 </div>
                 <div class="search-input-shell">
                     <i class="fas fa-search"></i>

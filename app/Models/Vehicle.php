@@ -67,6 +67,19 @@ class Vehicle extends Model
     }
 
     /**
+     * Every logged maintenance/PMS activity for this vehicle, most recent service first.
+     */
+    public function maintenanceRecords()
+    {
+        return $this->hasMany(MaintenanceRecord::class)->orderByDesc('service_date')->orderByDesc('id');
+    }
+
+    public function latestMaintenanceRecord()
+    {
+        return $this->hasOne(MaintenanceRecord::class)->latestOfMany('service_date');
+    }
+
+    /**
      * Every time this vehicle's QR sticker was printed, and by whom.
      */
     public function qrPrints()

@@ -26,6 +26,7 @@ use Illuminate\Notifications\Notifiable;
     'is_active',
     'is_online',
     'is_password_changed',
+    'created_by',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
@@ -44,5 +45,14 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Who created/last (re)activated this account — surfaced on the System
+     * Users page per the user-management spec's transparency requirement.
+     */
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 }

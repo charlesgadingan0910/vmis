@@ -18,10 +18,10 @@
   .stat-card-modern { background: #ffffff; border-radius: 14px; padding: 18px 20px; border: 1px solid #eef1f6; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.03); display: flex; align-items: center; gap: 16px; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
   .stat-icon-wrapper { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
   
-  .stat-card-modern.total .stat-icon-wrapper { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
-  .stat-card-modern.serviceable .stat-icon-wrapper { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
-  .stat-card-modern.unserviceable .stat-icon-wrapper { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
-  .stat-card-modern.ber .stat-icon-wrapper { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
+  .stat-card-modern.c-total .stat-icon-wrapper { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+  .stat-card-modern.c-active .stat-icon-wrapper { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
+  .stat-card-modern.c-inactive .stat-icon-wrapper { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+  .stat-card-modern.c-admins .stat-icon-wrapper { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
   
   .stat-num-value { font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1.1; }
   .stat-label-title { font-size: 12px; font-weight: 600; color: #64748b; margin-top: 3px; }
@@ -62,9 +62,11 @@
 @section('nav-title', 'VMIS | System Users Management')
 
 @section('nav-actions')
+@if(!empty($allowedTypes))
 <button type="button" id="btnAddNewUser" class="btn btn-primary font-weight-bold shadow-sm" style="border-radius:8px;">
     <i class="fas fa-plus"></i> Add New User
 </button>
+@endif
 @endsection
 
 @section('content')
@@ -73,28 +75,28 @@
 
         <!-- Dynamic Metrics Grid -->
         <div class="fleet-stats-grid">
-            <div class="stat-card-modern total">
+            <div class="stat-card-modern c-total">
                 <div class="stat-icon-wrapper"><i class="fas fa-users"></i></div>
                 <div>
                     <div class="stat-num-value" id="stat-total"><i class="fas fa-spinner fa-spin font-size-16"></i></div>
                     <div class="stat-label-title">Total Users</div>
                 </div>
             </div>
-            <div class="stat-card-modern serviceable">
+            <div class="stat-card-modern c-active">
                 <div class="stat-icon-wrapper"><i class="fas fa-user-check"></i></div>
                 <div>
                     <div class="stat-num-value" id="stat-active"><i class="fas fa-spinner fa-spin font-size-16"></i></div>
                     <div class="stat-label-title">Active Users</div>
                 </div>
             </div>
-            <div class="stat-card-modern unserviceable">
+            <div class="stat-card-modern c-inactive">
                 <div class="stat-icon-wrapper"><i class="fas fa-user-times"></i></div>
                 <div>
                     <div class="stat-num-value" id="stat-inactive"><i class="fas fa-spinner fa-spin font-size-16"></i></div>
                     <div class="stat-label-title">Inactive Users</div>
                 </div>
             </div>
-            <div class="stat-card-modern ber">
+            <div class="stat-card-modern c-admins">
                 <div class="stat-icon-wrapper"><i class="fas fa-user-shield"></i></div>
                 <div>
                     <div class="stat-num-value" id="stat-admins"><i class="fas fa-spinner fa-spin font-size-16"></i></div>
@@ -437,7 +439,13 @@ $(document).ready(function() {
         ]
     });
 
-    $('#customSearchBox').on('keyup input', function() { table.draw(); });
+    // Debounced so typing at speed doesn't fire a server round-trip on every
+    // keystroke — matters once the table holds thousands of rows.
+    let searchDebounce;
+    $('#customSearchBox').on('keyup input', function() {
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(function() { table.draw(); }, 300);
+    });
     $('#filterAccountType, #filterStatus').on('change', function() { table.draw(); });
     $('#resetFiltersBtn').on('click', function() {
         $('#customSearchBox, #filterAccountType, #filterStatus').val('');
