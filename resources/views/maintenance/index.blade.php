@@ -89,11 +89,13 @@
   /* MOBILE: table rows become stacked cards, not a cramped scroll */
   /* ============================================================ */
   @media (max-width: 767.98px) {
-    .fleet-table thead { display: none; }
-    .fleet-table, .fleet-table tbody, .fleet-table tr, .fleet-table td { display: block; width: 100%; }
+    .fleet-table thead { display: none !important; }
+    .fleet-table, .fleet-table tbody, .fleet-table tr, .fleet-table td {
+      display: block !important; width: 100% !important;
+    }
     .fleet-table tr {
-      background: #fff; border: 1px solid #eef1f6; border-radius: 14px;
-      box-shadow: 0 1px 3px rgba(15,23,42,0.04); margin-bottom: 12px; padding: 4px 16px;
+      background: #fff !important; border: 1px solid #eef1f6 !important; border-radius: 14px !important;
+      box-shadow: 0 1px 3px rgba(15,23,42,0.04) !important; margin-bottom: 12px !important; padding: 4px 16px !important;
     }
     .fleet-table td {
       padding: 10px 0 !important; border-top: 1px solid #f8fafc !important; text-align: left !important;
@@ -527,6 +529,11 @@ $(document).ready(function() {
     const table = $('#maintenanceTable').DataTable({
         processing: true,
         serverSide: true,
+        // See vehicles/index.blade.php for why this matters: without it,
+        // DataTables locks the <table> to an inline pixel width at init time,
+        // which overrides our CSS width:100% and breaks the mobile "stack
+        // into cards" layout below.
+        autoWidth: false,
         ajax: {
             url: "{{ route('maintenance.index') }}",
             data: function (d) {

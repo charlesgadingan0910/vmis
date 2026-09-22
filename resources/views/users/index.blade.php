@@ -38,7 +38,41 @@
   
   .fleet-table thead th { background: #f8fafc; color: #475569; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 14px 24px; white-space: nowrap; border: none;}
   .fleet-table tbody td { padding: 16px 24px; vertical-align: middle; border-top: 1px solid #f1f5f9; font-size: 13.5px; }
-  
+
+  /* MOBILE: table rows become stacked cards, not a cramped 8-column horizontal
+     scroll — same pattern used on Vehicle Inventory, Driver Management,
+     Maintenance and Vehicle Types. */
+  @media (max-width: 767.98px) {
+    .fleet-table thead { display: none !important; }
+    .fleet-table, .fleet-table tbody, .fleet-table tr, .fleet-table td {
+      display: block !important; width: 100% !important;
+    }
+    .fleet-table tr {
+      background: #fff !important; border: 1px solid #eef1f6 !important; border-radius: 14px !important;
+      box-shadow: 0 1px 3px rgba(15,23,42,0.04) !important; margin-bottom: 12px !important; padding: 4px 16px !important;
+    }
+    .fleet-table td {
+      padding: 10px 0 !important; border-top: 1px solid #f8fafc !important; text-align: left !important;
+    }
+    .fleet-table td:first-child { border-top: none !important; padding-top: 14px !important; }
+    .fleet-table td:last-child {
+      padding-bottom: 14px !important; text-align: right !important;
+      border-top: 1px dashed #eef1f6 !important; margin-top: 2px;
+    }
+    /* Column order matches the columns: [...] config below. Profile is
+       self-descriptive (avatar + name + email) so it skips a label. */
+    .fleet-table td:nth-child(1)::before { content: "Rank"; }
+    .fleet-table td:nth-child(3)::before { content: "Account Type"; }
+    .fleet-table td:nth-child(4)::before { content: "Badge #"; }
+    .fleet-table td:nth-child(5)::before { content: "Unit / Station"; }
+    .fleet-table td:nth-child(6)::before { content: "Status"; }
+    .fleet-table td:nth-child(7)::before { content: "Connection"; }
+    .fleet-table td::before {
+      display: block; font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .04em; color: #94a3b8; margin-bottom: 5px;
+    }
+  }
+
   .user-avatar-circle { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #ffffff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
   .user-main-name { font-weight: 700; color: #0f172a; font-size: 14px; margin-bottom: 2px;}
   .user-sub-info { font-size: 12px; color: #64748b; }

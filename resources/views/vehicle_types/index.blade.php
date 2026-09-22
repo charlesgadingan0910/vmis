@@ -37,7 +37,33 @@
   .fleet-table thead th { background: #f8fafc; color: #475569; font-size: 11px; font-weight: 700; text-transform: uppercase; border: none; padding: 14px 24px; }
   .fleet-table tbody td { padding: 16px 24px; vertical-align: middle; border-top: 1px solid #f1f5f9; font-size: 13.5px; color: #334155; }
   .fleet-table tbody tr:hover { background: #f8fafc; }
-  
+
+  /* MOBILE: table rows become stacked cards, not a cramped horizontal scroll —
+     same pattern used on Vehicle Inventory, Driver Management and Maintenance. */
+  @media (max-width: 767.98px) {
+    .fleet-table thead { display: none !important; }
+    .fleet-table, .fleet-table tbody, .fleet-table tr, .fleet-table td {
+      display: block !important; width: 100% !important;
+    }
+    .fleet-table tr {
+      background: #fff !important; border: 1px solid #eef1f6 !important; border-radius: 14px !important;
+      box-shadow: 0 1px 3px rgba(15,23,42,0.04) !important; margin-bottom: 12px !important; padding: 4px 16px !important;
+    }
+    .fleet-table td {
+      padding: 10px 0 !important; border-top: 1px solid #f8fafc !important; text-align: left !important;
+    }
+    .fleet-table td:first-child { border-top: none !important; padding-top: 14px !important; }
+    .fleet-table td:last-child {
+      padding-bottom: 14px !important; text-align: right !important;
+      border-top: 1px dashed #eef1f6 !important; margin-top: 2px;
+    }
+    .fleet-table td:nth-child(2)::before { content: "Active Units Assigned"; }
+    .fleet-table td::before {
+      display: block; font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .04em; color: #94a3b8; margin-bottom: 5px;
+    }
+  }
+
   .type-name { font-weight: 700; color: #0f172a; font-size: 14px; }
   .type-desc { font-size: 12.5px; color: #64748b; margin-top: 2px; }
   
@@ -198,6 +224,10 @@ $(document.body).ready(function() {
     const table = $('#vehicleTypesTable').DataTable({
         processing: true,
         serverSide: true,
+        // Without this, DataTables locks the <table> to an inline pixel
+        // width at init time, which would override our CSS width:100% and
+        // break the mobile "stack into cards" layout below.
+        autoWidth: false,
         ajax: {
             url: "{{ route('vehicle-types.index') }}"
         },
