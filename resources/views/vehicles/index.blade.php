@@ -91,6 +91,27 @@
     .fleet-table tbody tr.row-pms-overdue td:nth-child(7) { border-left: none; padding-left: 0; }
   }
 
+  /* ---------- Predictive PMS priority tag (under the overdue/soon badge) ---------- */
+  .pms-priority-tag { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; margin-top:4px; padding:2px 8px; border-radius:20px; cursor:help; }
+  .pms-priority-tag i { font-size: 9px; }
+  .pms-priority-critical { background:#450a0a; color:#fecaca; }
+  .pms-priority-high { background:#7c2d12; color:#fed7aa; }
+  .pms-priority-medium { background:#78350f; color:#fde68a; }
+  .pms-priority-low { background:#1e293b; color:#cbd5e1; }
+
+  /* ---------- Priority Attention panel ---------- */
+  .priority-panel { background:#fff; border-radius:14px; padding:18px 20px; border:1px solid #eef1f6; box-shadow:0 1px 3px rgba(15,23,42,0.04); margin-bottom:22px; }
+  .priority-panel-header { font-size:12px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+  .priority-panel-header i { color:#dc2626; }
+  .priority-panel-sub { font-size:12px; color:#94a3b8; margin-bottom:14px; }
+  .priority-row { display:flex; align-items:center; gap:14px; padding:10px; border-top:1px solid #f8fafc; cursor:pointer; border-radius:8px; margin:0 -10px; }
+  .priority-row:first-of-type { border-top:none; }
+  .priority-row:hover { background:#f8fafc; }
+  .priority-row-plate { font-family:'Courier New',monospace; font-weight:800; font-size:12.5px; background:#1e293b; color:#fff; padding:4px 10px; border-radius:6px; flex-shrink:0; }
+  .priority-row-info { flex:1; min-width:0; }
+  .priority-row-name { font-weight:700; font-size:13px; color:#0f172a; }
+  .priority-row-reason { font-size:11.5px; color:#64748b; margin-top:2px; }
+
   .modal-content-premium { border-radius: 16px; border: none; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden; }
   .modal-header-slate { background: linear-gradient(135deg, #1e293b, #0f172a); color: #ffffff; padding: 20px 24px; border-bottom: none; }
   .modal-header-slate h5 { font-weight: 800; font-size: 17px; margin: 0; }
@@ -228,6 +249,23 @@
             </div>
         </div>
 
+        @if($priorityVehicles->isNotEmpty())
+        <div class="priority-panel">
+            <div class="priority-panel-header"><i class="fas fa-bolt"></i> Priority Attention</div>
+            <div class="priority-panel-sub">Predicted from PMS due date, usage pace and service history — not just which vehicles happen to be overdue. Click one to find it below.</div>
+            @foreach($priorityVehicles as $p)
+            <div class="priority-row" data-plate="{{ strtoupper($p['vehicle']->plate_number) }}" title="Click to find this vehicle in the table below">
+                <span class="priority-row-plate">{{ strtoupper($p['vehicle']->plate_number) }}</span>
+                <div class="priority-row-info">
+                    <div class="priority-row-name">{{ $p['vehicle']->make }} {{ $p['vehicle']->model }}</div>
+                    <div class="priority-row-reason">{{ ucfirst($p['reason']) }}</div>
+                </div>
+                <span class="pms-priority-tag pms-priority-{{ $p['priority'] }}"><i class="fas fa-bolt"></i> {{ ucfirst($p['priority']) }}</span>
+            </div>
+            @endforeach
+        </div>
+        @endif
+
         <div class="fleet-card-container">
             <div class="toolbar-header">
                 <div class="toolbar-title"><h5>Vehicle Inventory</h5></div>
@@ -318,11 +356,11 @@
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Make <span class="text-danger">*</span></label>
-                            <input type="text" name="make" class="form-control form-control-modern" required>
+                            <input type="text" id="make" name="make" class="form-control form-control-modern" required>
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Model <span class="text-danger">*</span></label>
-                            <input type="text" name="model" class="form-control form-control-modern" required>
+                            <input type="text" id="model" name="model" class="form-control form-control-modern" required>
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Vehicle Type <span class="text-danger">*</span></label>
@@ -339,11 +377,11 @@
                     <div class="row">
                         <div class="col-md-3 form-group">
                             <label class="field-label">Year Model</label>
-                            <input type="number" name="year_model" class="form-control form-control-modern" min="1980" max="{{ date('Y') + 1 }}">
+                            <input type="number" id="year_model" name="year_model" class="form-control form-control-modern" min="1980" max="{{ date('Y') + 1 }}">
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Color</label>
-                            <input type="text" name="color" class="form-control form-control-modern">
+                            <input type="text" id="color" name="color" class="form-control form-control-modern">
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Engine Number</label>
@@ -410,13 +448,19 @@
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Official Receipt (OR) <span class="text-danger">*</span></label>
-                            <input type="file" name="or_file" class="form-control form-control-modern" accept=".pdf,.jpg,.png" required style="padding-top:7px;">
+                            <input type="file" id="or_file" name="or_file" class="form-control form-control-modern" accept=".pdf,.jpg,.png" required style="padding-top:7px;">
+                            <span class="field-feedback-text" id="orScanStatus" style="display:none;"></span>
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Cert. of Reg (CR) <span class="text-danger">*</span></label>
                             <input type="file" name="cr_file" class="form-control form-control-modern" accept=".pdf,.jpg,.png" required style="padding-top:7px;">
                         </div>
                     </div>
+                    @if($aiDocumentScanningEnabled ?? false)
+                    <div class="alert alert-light border small text-muted mb-0 mt-1">
+                        <i class="fas fa-wand-magic-sparkles mr-1 text-primary"></i> When the OR is a clear, readable image or PDF, plate/make/model/year/color/engine/chassis fields above are auto-filled from it — always double-check before saving.
+                    </div>
+                    @endif
 
                 </div>
                 <div class="modal-footer border-top p-3 bg-light">
@@ -811,6 +855,16 @@ $(document).ready(function() {
     });
 
     $('#customSearchBox').on('keyup input', function() { table.search($(this).val()).draw(); });$('#filterUnit, #filterStation, #filterStatus, #filterVehicleType').change(function() { table.draw(); });
+
+    // Priority Attention panel — clicking a row jumps straight to that vehicle
+    // in the table below via the same search box, rather than duplicating a
+    // second row-rendering/detail view just for this panel.
+    $('.priority-row').on('click', function() {
+        const plate = $(this).data('plate');
+        $('#customSearchBox').val(plate);
+        table.search(plate).draw();
+        $('html, body').animate({ scrollTop: $('#vehiclesTable').offset().top - 100 }, 400);
+    });
     
     $('#filterUnit, #formUnitId, #edit_unit_id').change(function() {
         let unitId = $(this).val();
@@ -916,6 +970,73 @@ $(document).ready(function() {
             $('#registrationErrorText').text(msg).show();
         }).always(function() {
             $btn.prop('disabled', false).html('<i class="fas fa-upload"></i>');
+        });
+    });
+
+    // ---------------- AI Document Intelligence: auto-fill from OR photo ----------------
+    // Reuses the same file the officer is already required to upload (no second picker) —
+    // as soon as it's chosen, it's sent off to be read, and whatever comes back pre-fills
+    // the fields above so there's less to type. Every field it fills stays a normal,
+    // editable input, so a misread is just corrected before Save like a typo would be.
+    // Gated on the same server-side flag as the hint text above: when no API key is
+    // configured yet, this stays completely silent instead of firing a call just to
+    // show a "not configured" message on every single upload.
+    const aiDocumentScanningEnabled = @json($aiDocumentScanningEnabled ?? false);
+
+    $('#or_file').on('change', function() {
+        const file = this.files && this.files[0];
+        const statusEl = $('#orScanStatus');
+        // Accept photos as well as PDF exports — a scanned/saved OR is very
+        // commonly a PDF, and the backend now reads both the same way.
+        const isScannable = file && (/^image\//.test(file.type) || file.type === 'application/pdf');
+        if (!aiDocumentScanningEnabled || !isScannable) {
+            statusEl.hide();
+            return;
+        }
+
+        statusEl.removeClass('error success').addClass('text-muted').show()
+            .html('<i class="fas fa-spinner fa-spin"></i> Reading document…');
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        $.ajax({
+            url: "{{ route('ai.extract-vehicle-document') }}",
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+        }).done(function(res) {
+            if (!res.success) {
+                statusEl.removeClass('text-muted success').addClass('error').text(res.message || 'Could not read this document.');
+                return;
+            }
+
+            const d = res.data || {};
+            let filled = 0;
+            const setIfEmpty = function(selector, value) {
+                if (value === null || value === undefined || value === '') return;
+                const $field = $(selector);
+                if (!$field.val()) { $field.val(value); filled++; }
+            };
+
+            setIfEmpty('#plate_number', d.plate_number);
+            setIfEmpty('#make', d.make);
+            setIfEmpty('#model', d.model);
+            setIfEmpty('#year_model', d.year_model);
+            setIfEmpty('#color', d.color);
+            setIfEmpty('[name="engine_number"]', d.engine_number);
+            setIfEmpty('[name="chassis_number"]', d.chassis_number);
+
+            if (filled > 0) {
+                statusEl.removeClass('text-muted error').addClass('success')
+                    .html('<i class="fas fa-check"></i> Auto-filled ' + filled + ' field(s) — please review before saving.');
+                $('.live-check-field').trigger('input');
+            } else {
+                statusEl.removeClass('text-muted success').addClass('error').text('No readable fields found — please enter details manually.');
+            }
+        }).fail(function() {
+            statusEl.removeClass('text-muted success').addClass('error').text('Scanning failed — please enter details manually.');
         });
     });
 

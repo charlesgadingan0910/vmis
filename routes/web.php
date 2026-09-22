@@ -12,6 +12,9 @@ use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\UnitController;
 use App\Http\Controllers\StationController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\DocumentIntelligenceController;
+use App\Http\Controllers\AccountTypeController;
+use App\Http\Controllers\TripLogController;
 use Illuminate\Support\Facades\Route;
 
 // ---------------------------------------------------------------------
@@ -48,6 +51,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/profile/activity', [ProfileController::class, 'activity'])->name('profile.activity');
         Route::get('/profile/activity/{activityLog}', [ProfileController::class, 'showActivity'])->name('profile.activity.show');
 
+        // AI Document Intelligence — OCR-style extraction from a photographed
+        // OR/CR document, a maintenance receipt, or a vehicle's plate. Every
+        // endpoint degrades gracefully when no API key is configured (see
+        // DocumentIntelligenceController::extract()), so these only ever
+        // assist the existing manual-entry forms, never block them.
+        Route::post('/ai/extract-vehicle-document', [DocumentIntelligenceController::class, 'extractVehicleDocument'])->name('ai.extract-vehicle-document');
+        Route::post('/ai/extract-maintenance-receipt', [DocumentIntelligenceController::class, 'extractMaintenanceReceipt'])->name('ai.extract-maintenance-receipt');
+        Route::post('/ai/extract-plate', [DocumentIntelligenceController::class, 'extractPlate'])->name('ai.extract-plate');
+
         // Vehicle Management — only(...) because create/show/edit (the Blade-view-returning
         // resource actions) aren't implemented; editing is AJAX-driven via edit-data/update below.
         Route::resource('vehicles', VehicleController::class)->only(['index', 'store', 'destroy']);
@@ -74,6 +86,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/vehicles/{vehicle}/qr-data', [VehicleController::class, 'qrData'])->name('vehicles.qr-data');
         Route::get('/vehicles/qr/print', [VehicleController::class, 'printQr'])->name('vehicles.qr.print');
 
+        // Trip Logs — a DRIVER logs trips for their own assigned vehicle (mobile
+        // view), a SUPER ADMINISTRATOR may log for any vehicle; every other role
+        // is read-only, scoped by unit/station same as Vehicle Inventory. Gated
+        // entirely inside TripLogController — see its class docblock. No edit/
+        // delete: logged trips are permanent records, like Activity Logs.
+        Route::resource('trip-logs', TripLogController::class)->only(['index', 'store']);
+
         // In-app camera scanner + what a scanned sticker actually resolves to.
         Route::get('/scan', [ScanController::class, 'index'])->name('scan.index');
         Route::get('/vehicles/scan/{qrCode}', [ScanController::class, 'show'])->name('vehicles.scan');
@@ -98,6 +117,11 @@ Route::middleware('auth')->group(function () {
         // as ActivityLogController but for two allowed roles instead of one.
         Route::resource('units', UnitController::class)->except(['show']);
         Route::resource('stations', StationController::class)->except(['show']);
+
+        // Account Types Management — gated to SUPER ADMINISTRATOR ONLY inside
+        // the controller itself (AccountTypeController::authorizeAccess), the
+        // same single-role pattern ActivityLogController uses.
+        Route::resource('account-types', AccountTypeController::class)->except(['show']);
 
         // Maintenance & PMS — only(...) because create/show/edit (the Blade-view-returning
         // resource actions) aren't implemented; editing is AJAX-driven via edit-data/update

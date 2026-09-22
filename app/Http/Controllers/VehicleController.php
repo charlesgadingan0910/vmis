@@ -16,6 +16,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use App\Services\DocumentIntelligenceService;
+use App\Services\PmsPredictionService;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class VehicleController extends Controller
@@ -42,12 +44,40 @@ class VehicleController extends Controller
     }
 
     /**
+     * Small colored tag appended under an overdue/due-soon PMS badge, showing
+     * PmsPredictionService's explainable urgency label with its full reasoning
+     * in the tooltip — the "predictive" layer on top of the flat day-count
+     * badge above it.
+     */
+    protected function pmsPriorityHtml(Vehicle $vehicle): string
+    {
+        $score = app(PmsPredictionService::class)->scoreVehicle($vehicle);
+        if (! $score) {
+            return '';
+        }
+
+        return '<div class="pms-priority-tag pms-priority-' . $score['priority'] . '" title="' . e($score['reason']) . '">' .
+               '<i class="fas fa-bolt"></i> ' . ucfirst($score['priority']) . ' priority' .
+               '</div>';
+    }
+
+    /**
      * Display vehicle inventory with dynamic filters & summary metrics.
      */
     public function index(Request $request)
     {
         $user = auth()->user();
         $role = $this->role($user);
+
+        // DRIVER is a brand-new, deliberately narrow account type — none of
+        // the unit/station scoping branches below recognize it, which would
+        // otherwise fall through to an entirely UNFILTERED fleet-wide query.
+        // A driver has no reason to browse the fleet inventory anyway; they
+        // log trips for their own assigned vehicle via Trip Logs instead.
+        if ($role === 'DRIVER') {
+            abort(403, 'Driver accounts do not have access to Vehicle Inventory. Use Trip Logs to log your trips.');
+        }
+
         $hasBroadVisibility = in_array($role, self::BROAD_VISIBILITY_ROLES, true);
 
         if ($request->ajax()) {
@@ -173,11 +203,13 @@ class VehicleController extends Controller
                         // a tinted row (below) rather than only a small inline icon.
                         $overdueDays = abs($days);
                         $pmsHtml = '<div class="pms-date pms-date-overdue">' . $formattedPmsDate . '</div>' .
-                                   '<span class="badge-pms pms-badge-overdue"><i class="fas fa-exclamation-triangle"></i> Overdue ' . $overdueDays . 'd</span>';
+                                   '<span class="badge-pms pms-badge-overdue"><i class="fas fa-exclamation-triangle"></i> Overdue ' . $overdueDays . 'd</span>' .
+                                   $this->pmsPriorityHtml($vehicle);
                         $pmsRowClass = 'row-pms-overdue';
                     } elseif ($days <= 14) {
                         $pmsHtml = '<div class="pms-date">' . $formattedPmsDate . '</div>' .
-                                   '<span class="badge-pms pms-badge-soon"><i class="fas fa-clock"></i> Due in ' . $days . 'd</span>';
+                                   '<span class="badge-pms pms-badge-soon"><i class="fas fa-clock"></i> Due in ' . $days . 'd</span>' .
+                                   $this->pmsPriorityHtml($vehicle);
                     } else {
                         $pmsHtml = '<div class="pms-date">' . $formattedPmsDate . '</div>';
                     }
@@ -253,6 +285,12 @@ class VehicleController extends Controller
             'ber'           => (clone $baseQuery)->where('status', 'BER')->count(),
         ];
 
+        // Predictive PMS: which vehicles most need attention first, not just which
+        // ones happen to be overdue/soon. Bounded to a handful of already-filtered
+        // candidates (see PmsPredictionService::topPriorityVehicles), scoped to the
+        // same unit/station visibility as everything else on this page.
+        $priorityVehicles = app(PmsPredictionService::class)->topPriorityVehicles(clone $baseQuery, 5);
+
         $drivers = Driver::where('status', 'active')->orderBy('lastname')->get();
         $vehicleTypes = VehicleType::withCount('vehicles')->orderBy('name')->get();
 
@@ -275,7 +313,12 @@ class VehicleController extends Controller
 
         $isViewer = ($role === self::ROLE_VIEWER);
 
-        return view('vehicles.index', compact('stats', 'drivers', 'vehicleTypes', 'units', 'stations', 'user', 'hasBroadVisibility', 'isViewer'));
+        // Controls whether the "auto-fill from OR photo" hint/behavior is offered at
+        // all — stays silent rather than showing a button that always fails when no
+        // API key has been configured yet.
+        $aiDocumentScanningEnabled = app(DocumentIntelligenceService::class)->isConfigured();
+
+        return view('vehicles.index', compact('stats', 'drivers', 'vehicleTypes', 'units', 'stations', 'user', 'hasBroadVisibility', 'isViewer', 'aiDocumentScanningEnabled', 'priorityVehicles'));
     }
 
     public function store(Request $request): RedirectResponse

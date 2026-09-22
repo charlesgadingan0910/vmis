@@ -243,7 +243,7 @@
                     <div class="row">
                         <div class="col-md-6 form-group">
                             <label class="field-label">Account Type <span class="text-danger">*</span></label>
-                            <select name="account_type" class="form-control form-control-modern" required>
+                            <select name="account_type" id="account_type" class="form-control form-control-modern" required>
                                 <option value="">Select Account Type...</option>
                                 @foreach($accountTypes as $type)
                                     <option value="{{ $type->type }}">{{ $type->type }}</option>
@@ -264,7 +264,7 @@
                     <div class="row">
                         <div class="col-md-6 form-group">
                             <label class="field-label">Unit Assignment</label>
-                            <select name="unit_id" class="form-control form-control-modern">
+                            <select name="unit_id" id="unit_id" class="form-control form-control-modern">
                                 <option value="">Select Unit...</option>
                                 @foreach($units as $unit)
                                     <option value="{{ $unit->id }}">{{ $unit->unit_name }}</option>
@@ -273,12 +273,30 @@
                         </div>
                         <div class="col-md-6 form-group">
                             <label class="field-label">Station Assignment</label>
-                            <select name="station_id" class="form-control form-control-modern">
+                            <select name="station_id" id="station_id" class="form-control form-control-modern">
                                 <option value="">Select Station...</option>
                                 @foreach($stations as $station)
-                                    <option value="{{ $station->id }}">{{ $station->station_name }}</option>
+                                    <option value="{{ $station->id }}" data-unit="{{ $station->unit_id }}">{{ $station->station_name }}</option>
                                 @endforeach
                             </select>
+                        </div>
+                    </div>
+
+                    <div class="row driver-field-wrapper d-none">
+                        <div class="col-md-6 form-group">
+                            <label class="field-label">Assigned Driver Profile <span class="text-danger">*</span></label>
+                            <select name="driver_id" class="form-control form-control-modern driver-id-select">
+                                <option value="">Select Driver Profile...</option>
+                                @foreach($drivers as $driver)
+                                    <option value="{{ $driver->id }}"
+                                        data-firstname="{{ $driver->firstname }}"
+                                        data-middlename="{{ $driver->middlename }}"
+                                        data-lastname="{{ $driver->lastname }}"
+                                        data-qlfr="{{ $driver->qlfr }}"
+                                        data-rank="{{ $driver->rank }}">{{ trim($driver->firstname . ' ' . $driver->lastname) }}{{ $driver->license_number ? ' — ' . $driver->license_number : '' }}</option>
+                                @endforeach
+                            </select>
+                            <small class="text-muted">Links this login account to a Driver profile so trip logs resolve to their assigned vehicle. Selecting a driver auto-fills their name and rank below.</small>
                         </div>
                     </div>
                 </div>
@@ -377,9 +395,27 @@
                             <select id="edit_station_id" name="station_id" class="form-control form-control-modern">
                                 <option value="">Select Station...</option>
                                 @foreach($stations as $station)
-                                    <option value="{{ $station->id }}">{{ $station->station_name }}</option>
+                                    <option value="{{ $station->id }}" data-unit="{{ $station->unit_id }}">{{ $station->station_name }}</option>
                                 @endforeach
                             </select>
+                        </div>
+                    </div>
+
+                    <div class="row driver-field-wrapper d-none">
+                        <div class="col-md-6 form-group">
+                            <label class="field-label">Assigned Driver Profile <span class="text-danger">*</span></label>
+                            <select id="edit_driver_id" name="driver_id" class="form-control form-control-modern driver-id-select">
+                                <option value="">Select Driver Profile...</option>
+                                @foreach($drivers as $driver)
+                                    <option value="{{ $driver->id }}"
+                                        data-firstname="{{ $driver->firstname }}"
+                                        data-middlename="{{ $driver->middlename }}"
+                                        data-lastname="{{ $driver->lastname }}"
+                                        data-qlfr="{{ $driver->qlfr }}"
+                                        data-rank="{{ $driver->rank }}">{{ trim($driver->firstname . ' ' . $driver->lastname) }}{{ $driver->license_number ? ' — ' . $driver->license_number : '' }}</option>
+                                @endforeach
+                            </select>
+                            <small class="text-muted">Links this login account to a Driver profile so trip logs resolve to their assigned vehicle. Selecting a driver auto-fills their name and rank below.</small>
                         </div>
                     </div>
                 </div>
@@ -486,8 +522,95 @@ $(document).ready(function() {
         table.draw();
     });
 
+    // The "Assigned Driver Profile" field only makes sense for a DRIVER-type
+    // account — shown/required only when that account type is selected, in
+    // both the Create and Edit modals.
+    function toggleDriverField($accountTypeSelect) {
+        let $wrapper = $accountTypeSelect.closest('form').find('.driver-field-wrapper');
+        let $driverSelect = $wrapper.find('.driver-id-select');
+        let isDriver = $accountTypeSelect.val() === 'DRIVER';
+
+        $wrapper.toggleClass('d-none', !isDriver);
+        $driverSelect.prop('required', isDriver);
+        if (!isDriver) {
+            $driverSelect.val('');
+        }
+    }
+
+    function clearDriverAutofilledFields($form) {
+        $form.find('[name="firstname"]').val('');
+        $form.find('[name="middlename"]').val('');
+        $form.find('[name="lastname"]').val('');
+        $form.find('[name="qlfr"]').val('');
+        $form.find('[name="rank"]').val('');
+    }
+
+    // Bound with .on('change') only — a real user interaction — so it never
+    // fires during the Edit modal's programmatic setup (editData sets values
+    // with .val(), not .trigger('change')). If a driver profile was actually
+    // selected and the account type is then switched away from DRIVER, the
+    // name/rank fields that were auto-filled from that driver no longer
+    // belong to whatever account type is now chosen, so they're cleared
+    // instead of silently carrying over.
+    $('#account_type, #edit_account_type').on('change', function() {
+        let $select = $(this);
+        let $form = $select.closest('form');
+        let hadDriverLinked = !!$form.find('.driver-id-select').val();
+
+        if ($select.val() !== 'DRIVER' && hadDriverLinked) {
+            clearDriverAutofilledFields($form);
+        }
+
+        toggleDriverField($select);
+    });
+
+    // Station Assignment is scoped to whichever Unit is picked — same
+    // cascading pattern used on the Vehicle Inventory page: no unit chosen
+    // means no stations are offered yet, and switching units re-filters the
+    // list instead of leaving stale, out-of-unit stations selectable.
+    $('#unit_id, #edit_unit_id').on('change', function() {
+        let unitId = $(this).val();
+        let triggerId = $(this).attr('id');
+        let targetStation = { unit_id: '#station_id', edit_unit_id: '#edit_station_id' }[triggerId];
+
+        $(targetStation + ' option').each(function() {
+            if ($(this).val() === "") { $(this).show(); return; }
+            let matchesUnit = ($(this).data('unit') == unitId);
+            $(this).toggle(unitId !== "" && matchesUnit);
+        });
+        if (triggerId !== 'edit_unit_id') { $(targetStation).val(''); } // don't clear the station when populating the edit modal
+    });
+
+    // Picking a driver profile auto-fills the account's name/rank fields so
+    // whoever is creating the DRIVER login doesn't have to retype what's
+    // already on file for that driver. Delegated so it covers both the
+    // Create and Edit modals' driver dropdowns with one handler.
+    $(document).on('change', '.driver-id-select', function() {
+        let $selected = $(this).find('option:selected');
+        let $form = $(this).closest('form');
+
+        if (!$selected.val()) {
+            // Driver profile de-selected — clear whatever was auto-filled from
+            // it rather than leaving that driver's name/rank attached with no
+            // driver actually chosen.
+            clearDriverAutofilledFields($form);
+            return;
+        }
+
+        $form.find('[name="firstname"]').val($selected.data('firstname') || '');
+        $form.find('[name="middlename"]').val($selected.data('middlename') || '');
+        $form.find('[name="lastname"]').val($selected.data('lastname') || '');
+        $form.find('[name="qlfr"]').val($selected.data('qlfr') || '');
+
+        let rank = $selected.data('rank');
+        if (rank) { $form.find('[name="rank"]').val(rank); }
+    });
+
     $('#btnAddNewUser').on('click', function() {
         $('#registerUserForm')[0].reset();
+        $('.driver-field-wrapper').addClass('d-none');
+        $('.driver-id-select').prop('required', false);
+        $('#unit_id').trigger('change');
         $('#registerUserModal').modal('show');
     });
 
@@ -542,8 +665,24 @@ $(document).ready(function() {
                 $('#edit_email').val(d.email);
                 $('#edit_account_type').val(d.account_type);
                 $('#edit_rank').val(d.rank);
-                $('#edit_unit_id').val(d.unit_id);
+                $('#edit_unit_id').val(d.unit_id).trigger('change');
                 $('#edit_station_id').val(d.station_id);
+
+                toggleDriverField($('#edit_account_type'));
+                if (d.account_type === 'DRIVER' && d.driver_id) {
+                    let $driverSelect = $('#edit_driver_id');
+                    if ($driverSelect.find('option[value="' + d.driver_id + '"]').length === 0 && d.driver) {
+                        // Currently-linked driver isn't in the active-drivers list
+                        // (e.g. their profile was later marked inactive) — add it
+                        // as a fallback option so the field still shows who it's
+                        // linked to instead of silently appearing blank.
+                        let label = [d.driver.firstname, d.driver.lastname].filter(Boolean).join(' ')
+                            + (d.driver.license_number ? ' — ' + d.driver.license_number : '') + ' (inactive)';
+                        $driverSelect.append($('<option>', { value: d.driver_id, text: label }));
+                    }
+                    $driverSelect.val(d.driver_id);
+                }
+
                 $('#editUserModal').modal('show');
             }
         });

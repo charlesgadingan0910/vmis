@@ -91,4 +91,12 @@ class Vehicle extends Model
     {
         return $this->hasOne(VehicleQrPrint::class)->latestOfMany('printed_at');
     }
+
+    /**
+     * Every logged trip for this vehicle, most recent first.
+     */
+    public function tripLogs()
+    {
+        return $this->hasMany(TripLog::class)->orderByDesc('trip_date')->orderByDesc('id');
+    }
 }

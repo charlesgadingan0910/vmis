@@ -23,6 +23,7 @@ use Illuminate\Notifications\Notifiable;
     'password',
     'unit_id',
     'station_id',
+    'driver_id',
     'is_active',
     'is_online',
     'is_password_changed',
@@ -54,5 +55,15 @@ class User extends Authenticatable
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * The Driver profile record this DRIVER-type login account is linked to
+     * (license number, contact info, etc.) — null for every other account
+     * type. See TripLogController for how this resolves to "their vehicle".
+     */
+    public function driver()
+    {
+        return $this->belongsTo(Driver::class, 'driver_id');
     }
 }

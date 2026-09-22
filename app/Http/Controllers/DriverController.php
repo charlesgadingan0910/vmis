@@ -15,8 +15,20 @@ use App\Models\Rank;
 
 class DriverController extends Controller
 {
+    protected function role($user): string
+    {
+        return strtoupper(trim((string) $user->account_type));
+    }
+
     public function index(Request $request)
     {
+        // A driver managing driver profiles (including their own license/
+        // contact info, or anyone else's) isn't part of the spec — they log
+        // trips for their own assigned vehicle via Trip Logs instead.
+        if ($this->role(auth()->user()) === 'DRIVER') {
+            abort(403, 'Driver accounts do not have access to Driver Management.');
+        }
+
         if ($request->ajax()) {
             $query = Driver::latest();
 

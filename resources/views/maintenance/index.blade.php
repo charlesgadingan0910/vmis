@@ -275,7 +275,7 @@
                     <div class="row">
                         <div class="col-md-12 form-group">
                             <label class="field-label">Description / Notes</label>
-                            <textarea name="description" rows="2" class="form-control form-control-modern" placeholder="What was done..."></textarea>
+                            <textarea name="description" id="log_description" rows="2" class="form-control form-control-modern" placeholder="What was done..."></textarea>
                         </div>
                     </div>
 
@@ -292,17 +292,21 @@
                         </div>
                         <div class="col-md-4 form-group">
                             <label class="field-label">Cost (&#8369;)</label>
-                            <input type="number" name="cost" step="0.01" class="form-control form-control-modern" min="0">
+                            <input type="number" name="cost" id="log_cost" step="0.01" class="form-control form-control-modern" min="0">
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 form-group">
                             <label class="field-label">Performed By / Shop</label>
-                            <input type="text" name="performed_by" class="form-control form-control-modern" placeholder="e.g. Motorpool, ABC Auto Shop">
+                            <input type="text" name="performed_by" id="log_performed_by" class="form-control form-control-modern" placeholder="e.g. Motorpool, ABC Auto Shop">
                         </div>
                         <div class="col-md-6 form-group">
                             <label class="field-label">Receipt / Invoice</label>
-                            <input type="file" name="attachment" class="form-control form-control-modern" accept=".pdf,.jpg,.jpeg,.png" style="padding-top:7px;">
+                            <input type="file" name="attachment" id="log_attachment" class="form-control form-control-modern" accept=".pdf,.jpg,.jpeg,.png" style="padding-top:7px;">
+                            <span class="field-feedback-text" id="logAttachmentScanStatus" style="display:none;"></span>
+                            @if($aiDocumentScanningEnabled ?? false)
+                            <small class="text-muted d-block mt-1"><i class="fas fa-wand-magic-sparkles mr-1 text-primary"></i> A clear receipt photo or PDF auto-fills cost/date/shop/notes above.</small>
+                            @endif
                         </div>
                     </div>
 
@@ -616,6 +620,68 @@ $(document).ready(function() {
         $('#log_service_date').val(new Date().toISOString().slice(0, 10));
         $('#logModalErrorBanner').hide().text('');
         $('#log_vehicle_id').val('').trigger('change');
+    });
+
+    // ---------------- AI Document Intelligence: auto-fill from receipt photo ----------------
+    // Reuses the same file already being attached as the record's receipt/invoice — as
+    // soon as it's chosen, it's read and whatever comes back pre-fills the fields below,
+    // which stay normal editable inputs so a misread is just corrected before Save.
+    // Gated on the same server-side flag as the hint text above: when no API key is
+    // configured yet, this stays completely silent instead of firing a call just to
+    // show a "not configured" message on every single upload.
+    const aiDocumentScanningEnabled = @json($aiDocumentScanningEnabled ?? false);
+
+    $('#log_attachment').on('change', function () {
+        const file = this.files && this.files[0];
+        const statusEl = $('#logAttachmentScanStatus');
+        // Accept photos as well as PDF exports — a saved receipt/invoice is
+        // very commonly a PDF, and the backend now reads both the same way.
+        const isScannable = file && (/^image\//.test(file.type) || file.type === 'application/pdf');
+        if (!aiDocumentScanningEnabled || !isScannable) {
+            statusEl.hide();
+            return;
+        }
+
+        statusEl.removeClass('error success').addClass('text-muted').show()
+            .html('<i class="fas fa-spinner fa-spin"></i> Reading receipt…');
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        $.ajax({
+            url: "{{ route('ai.extract-maintenance-receipt') }}",
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+        }).done(function (res) {
+            if (!res.success) {
+                statusEl.removeClass('text-muted success').addClass('error').text(res.message || 'Could not read this receipt.');
+                return;
+            }
+
+            const d = res.data || {};
+            let filled = 0;
+            const setIfEmpty = function (selector, value) {
+                if (value === null || value === undefined || value === '') return;
+                const $field = $(selector);
+                if (!$field.val()) { $field.val(value); filled++; }
+            };
+
+            setIfEmpty('#log_service_date', d.service_date);
+            setIfEmpty('#log_cost', d.cost);
+            setIfEmpty('#log_performed_by', d.performed_by);
+            setIfEmpty('#log_description', d.description);
+
+            if (filled > 0) {
+                statusEl.removeClass('text-muted error').addClass('success')
+                    .html('<i class="fas fa-check"></i> Auto-filled ' + filled + ' field(s) — please review before saving.');
+            } else {
+                statusEl.removeClass('text-muted success').addClass('error').text('No readable fields found — please enter details manually.');
+            }
+        }).fail(function () {
+            statusEl.removeClass('text-muted success').addClass('error').text('Scanning failed — please enter details manually.');
+        });
     });
 
     $('#logMaintenanceForm').on('submit', function (e) {

@@ -3,10 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\Vehicle;
+use App\Services\DocumentIntelligenceService;
 use Illuminate\View\View;
 
 class ScanController extends Controller
 {
+    public function __construct(protected DocumentIntelligenceService $documentIntelligence)
+    {
+    }
+
     /**
      * The in-app camera scanner page — lets a logged-in user scan a vehicle's
      * QR sticker with their device camera without leaving the app or relying
@@ -14,7 +19,13 @@ class ScanController extends Controller
      */
     public function index(): View
     {
-        return view('scan.index');
+        // Same "only show the AI button when a key is actually configured"
+        // rule used on the vehicle/maintenance forms — keeps the fallback
+        // itself (typing the plate) working with nothing extra to explain
+        // when ANTHROPIC_API_KEY isn't set.
+        $aiDocumentScanningEnabled = $this->documentIntelligence->isConfigured();
+
+        return view('scan.index', compact('aiDocumentScanningEnabled'));
     }
 
     /**

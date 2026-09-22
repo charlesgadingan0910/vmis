@@ -79,9 +79,18 @@
     </div>
     @endauth
 
+    @php
+        // A DRIVER's nav is deliberately minimal — Dashboard, Scan QR, and Trip
+        // Logs only. Every section/link hidden here is backed by a matching
+        // abort(403) inside its own controller (see VehicleController,
+        // MaintenanceController, DriverController, VehicleTypeController,
+        // UserController), so this is UX polish, not the actual access control.
+        $__navRole = auth()->check() ? strtoupper(trim(Auth::user()->account_type)) : null;
+        $__isDriver = $__navRole === 'DRIVER';
+    @endphp
     <nav class="mt-2">
       <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent nav-flat" data-widget="treeview" role="menu">
-        
+
         <!-- GENERAL -->
         <li class="nav-header small text-muted text-uppercase mb-1 tracking-wider">General</li>
         <li class="nav-item">
@@ -93,12 +102,14 @@
 
         <!-- VEHICLE MANAGEMENT -->
         <li class="nav-header small text-muted text-uppercase mb-1 mt-3 tracking-wider">Vehicle Management</li>
+        @unless($__isDriver)
         <li class="nav-item">
             <a href="{{ route('vehicles.index') }}" class="nav-link {{ request()->routeIs('vehicles.*') ? 'active' : '' }}">
                 <i class="nav-icon fas fa-car-side"></i>
                 <p>Vehicle Inventory</p>
             </a>
         </li>
+        @endunless
         <li class="nav-item">
             <a href="{{ route('scan.index') }}" class="nav-link {{ request()->routeIs('scan.*') ? 'active' : '' }}">
                 <i class="nav-icon fas fa-qrcode"></i>
@@ -106,12 +117,21 @@
             </a>
         </li>
         <li class="nav-item">
+            <a href="{{ route('trip-logs.index') }}" class="nav-link {{ request()->routeIs('trip-logs.*') ? 'active' : '' }}">
+                <i class="nav-icon fas fa-route"></i>
+                <p>Trip Logs</p>
+            </a>
+        </li>
+        @unless($__isDriver)
+        <li class="nav-item">
             <a href="{{ route('maintenance.index') }}" class="nav-link {{ request()->routeIs('maintenance.*') ? 'active' : '' }}">
                 <i class="nav-icon fas fa-tools"></i>
                 <p>Maintenance &amp; PMS</p>
             </a>
         </li>
+        @endunless
 
+        @unless($__isDriver)
         <!-- PERSONNEL -->
         <li class="nav-header small text-muted text-uppercase mb-1 mt-3 tracking-wider">Personnel</li>
         <li class="nav-item">
@@ -135,8 +155,7 @@
                 <p>System Users</p>
             </a>
         </li>
-        @auth
-        @if(in_array(strtoupper(trim(Auth::user()->account_type)), ['SUPER ADMINISTRATOR', 'ADMINISTRATOR']))
+        @if(in_array($__navRole, ['SUPER ADMINISTRATOR', 'ADMINISTRATOR']))
         <li class="nav-item">
             <a href="{{ route('units.index') }}" class="nav-link {{ (request()->routeIs('units.*') || request()->routeIs('stations.*')) ? 'active' : '' }}">
                 <i class="nav-icon fas fa-map-marker-alt"></i>
@@ -144,9 +163,13 @@
             </a>
         </li>
         @endif
-        @endauth
-        @auth
-        @if(strtoupper(trim(Auth::user()->account_type)) === 'SUPER ADMINISTRATOR')
+        @if($__navRole === 'SUPER ADMINISTRATOR')
+        <li class="nav-item">
+            <a href="{{ route('account-types.index') }}" class="nav-link {{ request()->routeIs('account-types.*') ? 'active' : '' }}">
+                <i class="nav-icon fas fa-user-tag"></i>
+                <p>Account Types</p>
+            </a>
+        </li>
         <li class="nav-item">
             <a href="{{ route('activity-logs.index') }}" class="nav-link {{ request()->routeIs('activity-logs.*') ? 'active' : '' }}">
                 <i class="nav-icon fas fa-shield-alt"></i>
@@ -154,7 +177,7 @@
             </a>
         </li>
         @endif
-        @endauth
+        @endunless
 
       </ul>
     </nav>

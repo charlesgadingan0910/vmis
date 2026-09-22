@@ -35,4 +35,21 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Document Intelligence (AI vision)
+    |--------------------------------------------------------------------------
+    |
+    | Powers the "scan with AI" auto-fill on the vehicle registration and
+    | maintenance receipt forms, and the plate-photo fallback on the QR
+    | scanner page. Leaving ANTHROPIC_API_KEY unset disables these features
+    | gracefully — see DocumentIntelligenceService::isConfigured().
+    |
+    */
+
+    'anthropic' => [
+        'api_key' => env('ANTHROPIC_API_KEY'),
+        'vision_model' => env('ANTHROPIC_VISION_MODEL', 'claude-sonnet-4-5-20250929'),
+    ],
+
 ];

@@ -7,6 +7,7 @@ use App\Models\MaintenanceRecord;
 use App\Models\Vehicle;
 use App\Models\Unit;
 use App\Models\Station;
+use App\Services\DocumentIntelligenceService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Arr;
@@ -159,6 +160,15 @@ class MaintenanceController extends Controller
     {
         $user = auth()->user();
         $role = $this->role($user);
+
+        // Same reasoning as VehicleController::index() — scopeToVisibleVehicles()
+        // has no branch for DRIVER, which would otherwise leave maintenance
+        // records completely unfiltered for it. A driver has no reason to be
+        // on this page; PMS/maintenance history isn't part of their job.
+        if ($role === 'DRIVER') {
+            abort(403, 'Driver accounts do not have access to Maintenance & PMS.');
+        }
+
         $hasBroadVisibility = in_array($role, self::BROAD_VISIBILITY_ROLES, true);
         $isViewer = ($role === self::ROLE_VIEWER);
 
@@ -366,8 +376,13 @@ class MaintenanceController extends Controller
             $stations = Station::where('id', $user->station_id)->orderBy('station_name')->get();
         }
 
+        // Controls whether the "auto-fill from receipt photo" hint/behavior is offered —
+        // stays silent rather than showing a control that always fails when no AI vision
+        // API key has been configured yet.
+        $aiDocumentScanningEnabled = app(DocumentIntelligenceService::class)->isConfigured();
+
         return view('maintenance.index', compact(
-            'stats', 'vehicles', 'units', 'stations', 'hasBroadVisibility', 'isViewer'
+            'stats', 'vehicles', 'units', 'stations', 'hasBroadVisibility', 'isViewer', 'aiDocumentScanningEnabled'
         ));
     }
 

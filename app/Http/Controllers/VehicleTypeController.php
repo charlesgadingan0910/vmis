@@ -12,8 +12,19 @@ use Illuminate\View\View;
 
 class VehicleTypeController extends Controller
 {
+    protected function role($user): string
+    {
+        return strtoupper(trim((string) $user->account_type));
+    }
+
     public function index(Request $request)
     {
+        // Vehicle categories aren't part of a driver's job — they log trips
+        // for their own assigned vehicle via Trip Logs instead.
+        if ($this->role(auth()->user()) === 'DRIVER') {
+            abort(403, 'Driver accounts do not have access to Vehicle Types.');
+        }
+
         if ($request->ajax()) {
             $query = VehicleType::withCount('vehicles')->latest();
 

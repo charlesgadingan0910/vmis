@@ -91,6 +91,19 @@
   .scan-hint{display:flex; gap:9px; align-items:flex-start; font-size:12px; color:#94a3b8; padding:16px 4px 4px; line-height:1.5;}
   .scan-hint svg{width:16px;height:16px;flex:none;margin-top:1px;color:#93c5fd;}
 
+  /* ---------- Plate photo fallback (AI) ---------- */
+  .photo-fallback-card{background:#fff;border-radius:16px;border:1px solid #eef1f6;box-shadow:0 1px 3px rgba(15,23,42,0.04);padding:18px 18px 20px;margin-top:14px;}
+  .photo-fallback-card label{font-size:12px;font-weight:700;color:#334155;margin-bottom:8px;display:block;}
+  .photo-fallback-card label small{display:block;font-weight:500;color:#94a3b8;font-size:11px;margin-top:2px;text-transform:none;letter-spacing:0;}
+  .btn-photo-fallback{
+    width:100%; height:48px; border-radius:11px; border:1.5px solid #e2e8f0; background:#f8fafc;
+    font-weight:700; font-size:13.5px; color:#334155; display:flex; align-items:center; justify-content:center; gap:8px;
+    transition:background .15s ease;
+  }
+  .btn-photo-fallback:hover{background:#eef2f7;}
+  .btn-photo-fallback:disabled{opacity:.6;cursor:not-allowed;}
+  .photo-fallback-status{margin-top:9px;font-size:12px;font-weight:600;display:none;}
+
   @media (max-width: 420px){
     .scanner-hero h5{font-size:16.5px;}
   }
@@ -144,6 +157,21 @@
                     </button>
                 </div>
             </div>
+
+            @if($aiDocumentScanningEnabled ?? false)
+            <div class="photo-fallback-card">
+                <label for="platePhotoInput">
+                    Sticker damaged or missing?
+                    <small>Snap a photo of the plate instead — AI reads it for you</small>
+                </label>
+                <button class="btn-photo-fallback" id="platePhotoBtn" type="button">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 8a2 2 0 0 1 2-2h1.2l.8-1.6A1 1 0 0 1 8.9 4h6.2a1 1 0 0 1 .9.6L16.8 6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.3" stroke="currentColor" stroke-width="1.6"/></svg>
+                    <span>Take / upload a photo of the plate</span>
+                </button>
+                <input type="file" id="platePhotoInput" accept="image/*" capture="environment" style="display:none;">
+                <div class="photo-fallback-status" id="platePhotoStatus"></div>
+            </div>
+            @endif
 
             <div class="scan-hint">
                 <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 8V13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="16" r="1" fill="currentColor"/></svg>
@@ -211,6 +239,68 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('manualPlate').addEventListener('keydown', function (e) {
         if (e.key === 'Enter') goToVehicleByPlate(this.value);
     });
+
+    // ---------- Plate photo fallback (AI) ----------
+    // Only rendered at all when the server confirmed an API key is configured
+    // (see the Blade "if AI scanning enabled" check above), but guard anyway
+    // in case the block is ever removed independently of this script.
+    const platePhotoBtn = document.getElementById('platePhotoBtn');
+    const platePhotoInput = document.getElementById('platePhotoInput');
+    const platePhotoStatus = document.getElementById('platePhotoStatus');
+
+    if (platePhotoBtn && platePhotoInput && platePhotoStatus) {
+        const extractPlateUrl = @json(route('ai.extract-plate'));
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        function setPlatePhotoStatus(message, kind) {
+            platePhotoStatus.textContent = message;
+            platePhotoStatus.style.display = message ? 'block' : 'none';
+            platePhotoStatus.style.color = kind === 'error' ? '#dc2626' : (kind === 'success' ? '#16a34a' : '#64748b');
+        }
+
+        platePhotoBtn.addEventListener('click', function () {
+            platePhotoInput.value = '';
+            platePhotoInput.click();
+        });
+
+        platePhotoInput.addEventListener('change', function () {
+            const file = platePhotoInput.files && platePhotoInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            platePhotoBtn.disabled = true;
+            setPlatePhotoStatus('Reading plate from photo…', 'info');
+
+            fetch(extractPlateUrl, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+                body: formData,
+            })
+                .then(function (response) { return response.json(); })
+                .then(function (result) {
+                    const plate = result && result.success && result.data ? result.data.plate_number : null;
+
+                    if (plate) {
+                        setPlatePhotoStatus('Plate read: ' + plate + ' — opening vehicle…', 'success');
+                        goToVehicleByPlate(plate);
+                        return;
+                    }
+
+                    platePhotoBtn.disabled = false;
+                    setPlatePhotoStatus(
+                        (result && result.message) || 'Could not read a plate from that photo. Please type it in below instead.',
+                        'error'
+                    );
+                })
+                .catch(function (err) {
+                    console.warn('Plate photo scan failed:', err);
+                    platePhotoBtn.disabled = false;
+                    setPlatePhotoStatus('AI scanning is unavailable right now. Please type the plate below instead.', 'error');
+                });
+        });
+    }
 });
 </script>
 @endsection

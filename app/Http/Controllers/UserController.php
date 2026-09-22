@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\User;
 use App\Models\AccountType;
+use App\Models\Driver;
 use App\Models\Rank;
 use App\Models\Unit;
 use App\Models\Station;
@@ -23,6 +24,7 @@ class UserController extends Controller
     protected const ROLE_UNIT_ADMIN    = 'UNIT ADMINISTRATOR';
     protected const ROLE_STATION_ADMIN = 'STATION ADMINISTRATOR';
     protected const ROLE_VIEWER        = 'VIEWER';
+    protected const ROLE_DRIVER        = 'DRIVER';
 
     protected function role($user): string
     {
@@ -41,22 +43,28 @@ class UserController extends Controller
      *                            beyond the literal doc text, flagged to the user.
      *   STATION ADMINISTRATOR -> STATION ADMINISTRATOR/VIEWER only, same reasoning.
      *   VIEWER                -> none (read-only, per spec's silence on VIEWER permissions).
+     *   DRIVER                -> none (a driver account manages nobody, including itself).
+     *
+     * DRIVER is appended to every other role's list (it's the lowest-privilege
+     * operational account) so any admin-capable role can create/manage driver
+     * login accounts, matching how driver profiles themselves are already
+     * manageable by everyone who reaches Driver Management.
      */
     protected function manageableAccountTypes(string $role): array
     {
         return match ($role) {
             self::ROLE_SUPER_ADMIN => [
                 self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN, self::ROLE_UNIT_ADMIN,
-                self::ROLE_STATION_ADMIN, self::ROLE_VIEWER,
+                self::ROLE_STATION_ADMIN, self::ROLE_VIEWER, self::ROLE_DRIVER,
             ],
             self::ROLE_ADMIN => [
-                self::ROLE_ADMIN, self::ROLE_UNIT_ADMIN, self::ROLE_STATION_ADMIN, self::ROLE_VIEWER,
+                self::ROLE_ADMIN, self::ROLE_UNIT_ADMIN, self::ROLE_STATION_ADMIN, self::ROLE_VIEWER, self::ROLE_DRIVER,
             ],
             self::ROLE_UNIT_ADMIN => [
-                self::ROLE_UNIT_ADMIN, self::ROLE_STATION_ADMIN, self::ROLE_VIEWER,
+                self::ROLE_UNIT_ADMIN, self::ROLE_STATION_ADMIN, self::ROLE_VIEWER, self::ROLE_DRIVER,
             ],
             self::ROLE_STATION_ADMIN => [
-                self::ROLE_STATION_ADMIN, self::ROLE_VIEWER,
+                self::ROLE_STATION_ADMIN, self::ROLE_VIEWER, self::ROLE_DRIVER,
             ],
             default => [],
         };
@@ -131,6 +139,16 @@ class UserController extends Controller
     {
         $authUser = Auth::user();
         $role = $this->role($authUser);
+
+        // DRIVER is a brand-new, deliberately narrow account type — the
+        // scoping below (ADMIN/UNIT ADMIN/STATION ADMIN) has no branch for
+        // it, which would otherwise fall through to the unfiltered "Super
+        // Admin & Viewer" path below and hand a driver the entire personnel
+        // directory. Block it outright instead; a driver has no reason to be
+        // on this page at all.
+        if ($role === self::ROLE_DRIVER) {
+            abort(403, 'Driver accounts do not have access to System Users.');
+        }
 
         if ($request->ajax()) {
             $query = User::query()->select([
@@ -233,6 +251,7 @@ class UserController extends Controller
                     'UNIT ADMINISTRATOR'  => 'badge-primary',
                     'STATION ADMINISTRATOR' => 'badge-info',
                     'VIEWER'              => 'badge-secondary',
+                    'DRIVER'              => 'badge-success',
                     default               => 'badge-dark'
                 };
 
@@ -302,6 +321,14 @@ class UserController extends Controller
 
         $ranks = Rank::all();
 
+        // Driver-profile picker for the Add/Edit modal's "Assigned Driver
+        // Profile" field, shown only when Account Type = DRIVER is selected.
+        // Every active driver is offered here rather than only "unlinked"
+        // ones, so a driver already linked to the user currently being
+        // edited still shows up in their own dropdown — store()/update()'s
+        // unique:users,driver_id check is the real duplicate-link guard.
+        $drivers = Driver::where('status', 'active')->orderBy('lastname')->get();
+
         // Unit/Station pickers in the Add/Edit modals are scoped the same way
         // as write access, so a scoped admin physically cannot select an
         // out-of-scope assignment (the controller re-checks this regardless).
@@ -316,7 +343,7 @@ class UserController extends Controller
             $stations = Station::all();
         }
 
-        return view('users.index', compact('accountTypes', 'ranks', 'units', 'stations', 'allowedTypes'));
+        return view('users.index', compact('accountTypes', 'ranks', 'units', 'stations', 'allowedTypes', 'drivers'));
     }
 
     public function store(Request $request)
@@ -335,6 +362,9 @@ class UserController extends Controller
             'rank' => 'nullable|string|exists:ranks,rank_abbvr',
             'unit_id' => 'nullable|integer|exists:units,id',
             'station_id' => 'nullable|integer|exists:stations,id',
+            'driver_id' => 'nullable|integer|exists:drivers,id|unique:users,driver_id',
+        ], [
+            'driver_id.unique' => 'That driver profile is already linked to another user account.',
         ]);
 
         if ($validator->fails()) {
@@ -349,6 +379,16 @@ class UserController extends Controller
             return response()->json(['success' => false, 'message' => $error]);
         }
 
+        // Only a DRIVER account is ever linked to a driver profile — required
+        // for one (there'd be no vehicle to resolve for Trip Logs otherwise),
+        // and force-nulled for every other type regardless of what was sent,
+        // so a stray leftover value can never silently attach to the wrong
+        // kind of account.
+        if ($accountType === self::ROLE_DRIVER && !$request->filled('driver_id')) {
+            return response()->json(['success' => false, 'message' => 'Please select which driver profile this DRIVER account is linked to.']);
+        }
+        $driverId = $accountType === self::ROLE_DRIVER ? (int) $request->driver_id : null;
+
         $fields = [
             'account_type' => $accountType,
             'rank' => $request->rank,
@@ -360,6 +400,7 @@ class UserController extends Controller
             'email' => $request->email,
             'unit_id' => $unitId,
             'station_id' => $stationId,
+            'driver_id' => $driverId,
             'fullname' => trim($request->firstname . ' ' . $request->middlename . ' ' . $request->lastname . ' ' . $request->qlfr),
         ];
 
@@ -423,6 +464,12 @@ class UserController extends Controller
             return response()->json(['success' => false, 'message' => 'You are not authorized to view this user.'], 403);
         }
 
+        // Eager-loaded so the Edit modal's driver picker can show a label
+        // (name + license) for whichever driver this account is already
+        // linked to, even though the DRIVER-type user itself only stores a
+        // bare driver_id.
+        $user->load('driver');
+
         return response()->json(['success' => true, 'data' => $user]);
     }
 
@@ -446,6 +493,9 @@ class UserController extends Controller
             'rank' => 'nullable|string|exists:ranks,rank_abbvr',
             'unit_id' => 'nullable|integer|exists:units,id',
             'station_id' => 'nullable|integer|exists:stations,id',
+            'driver_id' => 'nullable|integer|exists:drivers,id|unique:users,driver_id,' . $user->id,
+        ], [
+            'driver_id.unique' => 'That driver profile is already linked to another user account.',
         ]);
 
         if ($validator->fails()) {
@@ -460,6 +510,11 @@ class UserController extends Controller
             return response()->json(['success' => false, 'message' => $error]);
         }
 
+        if ($accountType === self::ROLE_DRIVER && !$request->filled('driver_id')) {
+            return response()->json(['success' => false, 'message' => 'Please select which driver profile this DRIVER account is linked to.']);
+        }
+        $driverId = $accountType === self::ROLE_DRIVER ? (int) $request->driver_id : null;
+
         $data = [
             'account_type' => $accountType,
             'rank' => $request->rank,
@@ -471,6 +526,7 @@ class UserController extends Controller
             'email' => $request->email,
             'unit_id' => $unitId,
             'station_id' => $stationId,
+            'driver_id' => $driverId,
             'fullname' => trim($request->firstname . ' ' . $request->middlename . ' ' . $request->lastname . ' ' . $request->qlfr),
         ];
 
