@@ -122,7 +122,7 @@
 @section('nav-actions')
 @if (! $isViewer)
 <button class="btn btn-primary font-weight-bold shadow-sm" style="border-radius:8px;" data-toggle="modal" data-target="#logMaintenanceModal">
-  <i class="fas fa-plus"></i> Log Maintenance
+  <i class="fas fa-plus"></i> <span class="btn-label">Log Maintenance</span>
 </button>
 @endif
 @endsection

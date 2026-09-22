@@ -64,7 +64,7 @@
 @section('nav-actions')
 @if(!empty($allowedTypes))
 <button type="button" id="btnAddNewUser" class="btn btn-primary font-weight-bold shadow-sm" style="border-radius:8px;">
-    <i class="fas fa-plus"></i> Add New User
+    <i class="fas fa-plus"></i> <span class="btn-label">Add New User</span>
 </button>
 @endif
 @endsection

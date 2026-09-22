@@ -76,6 +76,19 @@
     flex: 1 1 auto;
     overflow: hidden;
   }
+
+  /* The right-hand group (page action buttons + profile menu) also needs
+     permission to shrink. Without min-width:0 here, a flex item's default
+     min-width is "auto" — it refuses to shrink below its content's natural
+     width, so on a page with two nav-action buttons (e.g. "Print QR" +
+     "Register Vehicle") the group simply doesn't have room to fit and the
+     buttons render squeezed on top of each other instead of either fitting
+     or scrolling cleanly. This lets .nav-actions-container's own overflow
+     rule (below) actually take effect instead of being blocked upstream. */
+  .main-header .navbar-nav.ml-auto {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
   .nav-title-li {
     min-width: 0;
     overflow: hidden;
@@ -286,16 +299,35 @@
   /* PREMIUM NAV ACTIONS STYLING                                 */
   /* ============================================================ */
 
+  .nav-actions-li {
+      min-width: 0;
+      flex: 0 1 auto;
+  }
   .nav-actions-container {
       display: flex;
       align-items: center;
       gap: 8px; /* Standard premium spacing between multiple actions */
+      flex: 0 1 auto;
+      min-width: 0;
       max-width: 100%;
       overflow-x: auto;
+      overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
   }
   .nav-actions-container::-webkit-scrollbar { display: none; }
+  /* Every action element (button, badge, dropdown wrapper — whatever a page
+     yields into nav-actions) keeps its own natural size. Without this, a
+     flex child can shrink below its readable size and two buttons visually
+     collide instead of the row simply scrolling horizontally, which is the
+     actual overlap bug reported on Vehicle Inventory's "Print QR" +
+     "Register Vehicle" pair. This is scoped to the shared layout, not the
+     vehicles page, so it protects every current and future page that yields
+     into nav-actions. */
+  .nav-actions-container > * {
+      flex: 0 0 auto;
+      white-space: nowrap;
+  }
 
   /* Base style for premium navbar action buttons */
   .btn-nav-action {
@@ -387,6 +419,39 @@
     .nav-page-title-text { font-size: 0.92rem; margin-left: 0.5rem; }
     .btn-nav-action { padding: 0.5rem 0.8rem; font-size: 0.8rem; }
     .content-wrapper { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+    /* Any page-level nav-action button (whatever Bootstrap/AdminLTE classes
+       it uses — plain .btn or the custom .btn-nav-action) shrinks its
+       padding/text on a phone so two or more buttons plus the title and
+       profile menu have a real chance of fitting on one line before
+       .nav-actions-container's horizontal-scroll fallback ever has to
+       kick in. */
+    .nav-actions-container .btn,
+    .nav-actions-container .btn-nav-action {
+      padding: 0.45rem 0.65rem;
+      font-size: 0.78rem;
+    }
+    .nav-actions-container .btn i,
+    .nav-actions-container .btn-nav-action i {
+      margin-right: 3px;
+    }
+  }
+
+  /* Below ~360px (small/older phones, or a phone in a narrow split-view),
+     even the shrunk buttons above can be too much text to fit two-wide.
+     Collapse each nav-action button to its icon only — the icon alone is
+     still a clear, tappable affordance — rather than let text get clipped
+     or the row overlap/collide. Pages opt in by wrapping their button
+     label text in <span class="btn-label">; a button without that span
+     just keeps shrinking via the rule above instead. */
+  @media (max-width: 360px) {
+    .nav-actions-container .btn,
+    .nav-actions-container .btn-nav-action {
+      padding: 0.45rem 0.6rem;
+    }
+    .nav-actions-container .btn-label {
+      display: none;
+    }
   }
 
   /* When the sidebar opens as a mobile overlay (AdminLTE's own pushmenu

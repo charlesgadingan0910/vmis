@@ -70,7 +70,7 @@
 
 @section('nav-actions')
 <button class="btn-nav-action btn-nav-action-primary" data-toggle="modal" data-target="#createModal">
-  <i class="fas fa-plus"></i> Add Category
+  <i class="fas fa-plus"></i> <span class="btn-label">Add Category</span>
 </button>
 @endsection
 

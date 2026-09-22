@@ -155,11 +155,11 @@
 
 @section('nav-actions')
 <button type="button" id="printSelectedQrBtn" class="btn btn-outline-secondary font-weight-bold shadow-sm mr-2" style="border-radius:8px;" disabled>
-  <i class="fas fa-print"></i> Print QR <span class="badge badge-primary ml-1" id="selectedCountBadge" style="display:none;">0</span>
+  <i class="fas fa-print"></i> <span class="btn-label">Print QR</span> <span class="badge badge-primary ml-1" id="selectedCountBadge" style="display:none;">0</span>
 </button>
 @if (! $isViewer)
 <button class="btn btn-primary font-weight-bold shadow-sm" style="border-radius:8px;" data-toggle="modal" data-target="#registerVehicleModal">
-  <i class="fas fa-plus"></i> Register Vehicle
+  <i class="fas fa-plus"></i> <span class="btn-label">Register Vehicle</span>
 </button>
 @endif
 @endsection

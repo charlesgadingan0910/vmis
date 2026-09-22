@@ -32,7 +32,7 @@
   .fleet-card-container { background: #ffffff; border-radius: 16px; border: 1px solid #eef1f6; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04); overflow: hidden; }
   .toolbar-header { padding: 20px 24px; background: #ffffff; border-bottom: 1px solid #eef1f6; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
   
-  .filter-bar { display: flex; flex-wrap: nowrap; gap: 10px; align-items: center; }
+  .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .search-input-shell { position: relative; width: 240px; }
   .search-input-shell i { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 13px; z-index: 5; }
   .search-input-shell input { padding-left: 36px; border-radius: 9px; border: 1.5px solid #e2e8f0; height: 38px; font-size: 13px; }
@@ -118,7 +118,7 @@
 
 @section('nav-actions')
 <button class="btn-nav-action btn-nav-action-primary" data-toggle="modal" data-target="#createModal">
-  <i class="fas fa-plus"></i> Register Driver
+  <i class="fas fa-plus"></i> <span class="btn-label">Register Driver</span>
 </button>
 @endsection
 

@@ -14,7 +14,7 @@
 
   <ul class="navbar-nav ml-auto align-items-center">
     @if(View::hasSection('nav-actions'))
-    <li class="nav-item d-flex align-items-center mr-3">
+    <li class="nav-item nav-actions-li d-flex align-items-center mr-3">
         <div class="nav-actions-container">
             @yield('nav-actions')
         </div>
