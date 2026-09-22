@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
@@ -44,12 +45,32 @@ class AuthController extends Controller
             ->first();
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+            // Distinguish "no such account" from "wrong password for a real
+            // account" — the latter is tied to that user so repeated failed
+            // attempts against one account are visible on the activity log,
+            // not just an anonymous stream of failures.
+            ActivityLog::record(
+                'login_failed',
+                'Authentication',
+                $user
+                    ? "Failed login attempt (incorrect password) for '{$credentials['login']}'."
+                    : "Failed login attempt: no account found for '{$credentials['login']}'.",
+                $user
+            );
+
             return back()
                 ->withErrors(['login' => 'The badge number/e-mail or password you entered is incorrect.'])
                 ->withInput($request->except('password'));
         }
 
         if ((string) $user->is_active !== '1') {
+            ActivityLog::record(
+                'login_failed',
+                'Authentication',
+                "Blocked login attempt: account is deactivated.",
+                $user
+            );
+
             return back()
                 ->withErrors(['login' => 'This account has been deactivated. Please contact your system administrator.'])
                 ->withInput($request->except('password'));
@@ -72,6 +93,7 @@ class AuthController extends Controller
 
         if ($user) {
             $user->forceFill(['is_online' => '0'])->save();
+            ActivityLog::record('logout', 'Authentication', ActivityLog::actorLabel($user).' logged out.', $user);
         }
 
         Auth::logout();
@@ -97,6 +119,7 @@ class AuthController extends Controller
         if ($justLoggedIn) {
             $name = trim(($user->rank ? $user->rank.' ' : '').$user->firstname.' '.$user->lastname);
             $redirect->with('success', 'Welcome back, '.$name.'.');
+            ActivityLog::record('login', 'Authentication', ActivityLog::actorLabel($user).' logged in.', $user);
         }
 
         return $redirect;

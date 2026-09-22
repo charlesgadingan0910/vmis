@@ -3,11 +3,12 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3306
--- Generation Time: Sep 22, 2026 at 03:04 AM
+-- Generation Time: Sep 22, 2026 at 01:53 AM
 -- Server version: 9.0.1
 -- PHP Version: 8.3.11
 
 SET FOREIGN_KEY_CHECKS = 0;
+
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
@@ -322,7 +323,7 @@ CREATE TABLE IF NOT EXISTS `sessions` (
 --
 
 INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, `last_activity`) VALUES
-('jMvmj8c2H3wgUYxn8LbJnNw3j2RHtXV1hjplJUxM', 1, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36', 'eyJfdG9rZW4iOiJ3d1pDZUllYVpCNWFPQXlZTXgwRWdWZEZQbnl2OVZITGg4cFhXenZFIiwiX2ZsYXNoIjp7Im5ldyI6W10sIm9sZCI6W119LCJfcHJldmlvdXMiOnsidXJsIjoiaHR0cDpcL1wvbG9jYWxob3N0XC92bWlzXC9wdWJsaWNcL2Rhc2hib2FyZCIsInJvdXRlIjoiZGFzaGJvYXJkIn0sImxvZ2luX3dlYl81OWJhMzZhZGRjMmIyZjk0MDE1ODBmMDE0YzdmNThlYTRlMzA5ODlkIjoxfQ==', 1790043069);
+('jMvmj8c2H3wgUYxn8LbJnNw3j2RHtXV1hjplJUxM', 1, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36', 'eyJfdG9rZW4iOiJ3d1pDZUllYVpCNWFPQXlZTXgwRWdWZEZQbnl2OVZITGg4cFhXenZFIiwiX2ZsYXNoIjp7Im5ldyI6W10sIm9sZCI6W119LCJfcHJldmlvdXMiOnsidXJsIjoiaHR0cDpcL1wvbG9jYWxob3N0XC92bWlzXC9wdWJsaWNcL3ZlaGljbGVzIiwicm91dGUiOiJ2ZWhpY2xlcy5pbmRleCJ9LCJsb2dpbl93ZWJfNTliYTM2YWRkYzJiMmY5NDAxNTgwZjAxNGM3ZjU4ZWE0ZTMwOTg5ZCI6MX0=', 1790041902);
 
 -- --------------------------------------------------------
 
@@ -581,7 +582,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   KEY `users_unit_id_index` (`unit_id`),
   KEY `users_station_id_index` (`station_id`),
   KEY `users_is_active_index` (`is_active`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `users`
@@ -589,9 +590,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 
 INSERT INTO `users` (`id`, `account_type`, `rank`, `lastname`, `firstname`, `middlename`, `qlfr`, `fullname`, `badge_number`, `email`, `email_verified_at`, `password`, `unit_id`, `station_id`, `is_active`, `is_online`, `is_password_changed`, `created_by`, `remember_token`, `created_at`, `updated_at`) VALUES
 (1, 'SUPER ADMINISTRATOR', 'Pat', 'Administrator', 'Super', NULL, NULL, 'Super Administrator', 'superadmin001', 'super.admin@pnp.gov.ph', NULL, '$2y$12$thQCjPWhxpK.I4GMk86LGO3y47.5qT0mjaN9.PvbEOsIDOypoOQG6', NULL, NULL, '1', '1', '1', NULL, NULL, NULL, '2026-09-21 16:56:56'),
-(2, 'UNIT ADMINISTRATOR', 'Pat', 'AGUILAR', 'JOVILLE', 'ABONITA', NULL, 'JOVILLE ABONITA AGUILAR', '341194', 'joville.aguila@pnp.gov.ph', NULL, '$2y$12$rfcEhIU0Dyk.0CV8u3AK3O3pN7wAMVyix43PGrda.WJpZP36JnSjW', 1, NULL, '1', '0', '0', NULL, NULL, '2026-09-20 22:11:21', '2026-09-20 22:46:27'),
-(3, 'ADMINISTRATOR', 'PCPT', 'STA INES', 'ERROL', 'MOLINA', NULL, 'ERROL MOLINA STA INES', 'O-36458', 'errol.staines@pnp.gov.ph', NULL, '$2y$12$1uaGyB5ag1waH8olzu67AOa.MDpwgbeic6FLcXR3VwkT7HzAdpC0m', NULL, NULL, '1', '0', '0', 1, NULL, '2026-09-21 18:04:16', '2026-09-21 18:04:16'),
-(4, 'ADMINISTRATOR', 'PCPT', 'DOCTOLERO', 'REGGIEMAR', NULL, NULL, 'REGGIEMAR  DOCTOLERO', 'O-36673', 'reggiemar.doctolero@pnp.gov.ph', NULL, '$2y$12$WbTZawhy8ByLmuzzPelmg.tVoD/6tuXA9HCyCVPEaBx8fkdj.xotm', NULL, NULL, '1', '0', '0', 1, NULL, '2026-09-21 18:05:43', '2026-09-21 18:05:43');
+(2, 'UNIT ADMINISTRATOR', 'Pat', 'AGUILAR', 'JOVILLE', 'ABONITA', NULL, 'JOVILLE ABONITA AGUILAR', '341194', 'joville.aguila@pnp.gov.ph', NULL, '$2y$12$rfcEhIU0Dyk.0CV8u3AK3O3pN7wAMVyix43PGrda.WJpZP36JnSjW', 1, NULL, '1', '0', '0', NULL, NULL, '2026-09-20 22:11:21', '2026-09-20 22:46:27');
 
 -- --------------------------------------------------------
 

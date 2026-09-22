@@ -135,6 +135,26 @@
                 <p>System Users</p>
             </a>
         </li>
+        @auth
+        @if(in_array(strtoupper(trim(Auth::user()->account_type)), ['SUPER ADMINISTRATOR', 'ADMINISTRATOR']))
+        <li class="nav-item">
+            <a href="{{ route('units.index') }}" class="nav-link {{ (request()->routeIs('units.*') || request()->routeIs('stations.*')) ? 'active' : '' }}">
+                <i class="nav-icon fas fa-map-marker-alt"></i>
+                <p>Units &amp; Stations</p>
+            </a>
+        </li>
+        @endif
+        @endauth
+        @auth
+        @if(strtoupper(trim(Auth::user()->account_type)) === 'SUPER ADMINISTRATOR')
+        <li class="nav-item">
+            <a href="{{ route('activity-logs.index') }}" class="nav-link {{ request()->routeIs('activity-logs.*') ? 'active' : '' }}">
+                <i class="nav-icon fas fa-shield-alt"></i>
+                <p>Activity Logs</p>
+            </a>
+        </li>
+        @endif
+        @endauth
 
       </ul>
     </nav>

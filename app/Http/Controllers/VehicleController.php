@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\Vehicle;
 use App\Models\Driver;
 use App\Models\VehicleType;
@@ -11,6 +12,7 @@ use App\Models\Station;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -161,14 +163,23 @@ class VehicleController extends Controller
                 }
 
                 $pmsHtml = '—';
+                $pmsRowClass = '';
                 if ($vehicle->next_pms_date) {
                     $days = now()->startOfDay()->diffInDays($vehicle->next_pms_date->startOfDay(), false);
+                    $formattedPmsDate = $vehicle->next_pms_date->format('M d, Y');
                     if ($days < 0) {
-                        $pmsHtml = '<span class="pms-overdue"><i class="fas fa-exclamation-triangle mr-1"></i>' . $vehicle->next_pms_date->format('M d, Y') . '</span>';
+                        // Past due — this needs to jump out at a glance, not just read as
+                        // another date in the column, so it gets its own alert badge plus
+                        // a tinted row (below) rather than only a small inline icon.
+                        $overdueDays = abs($days);
+                        $pmsHtml = '<div class="pms-date pms-date-overdue">' . $formattedPmsDate . '</div>' .
+                                   '<span class="badge-pms pms-badge-overdue"><i class="fas fa-exclamation-triangle"></i> Overdue ' . $overdueDays . 'd</span>';
+                        $pmsRowClass = 'row-pms-overdue';
                     } elseif ($days <= 14) {
-                        $pmsHtml = '<span class="pms-soon"><i class="fas fa-clock mr-1"></i>' . $vehicle->next_pms_date->format('M d, Y') . '</span>';
+                        $pmsHtml = '<div class="pms-date">' . $formattedPmsDate . '</div>' .
+                                   '<span class="badge-pms pms-badge-soon"><i class="fas fa-clock"></i> Due in ' . $days . 'd</span>';
                     } else {
-                        $pmsHtml = '<span class="pms-normal">' . $vehicle->next_pms_date->format('M d, Y') . '</span>';
+                        $pmsHtml = '<div class="pms-date">' . $formattedPmsDate . '</div>';
                     }
                 }
 
@@ -211,7 +222,10 @@ class VehicleController extends Controller
                     'docs_html'   => $docsHtml,
                     'pms_html'    => $pmsHtml,
                     'status_html' => $statusHtml,
-                    'actions_html'=> $actionsHtml
+                    'actions_html'=> $actionsHtml,
+                    // DataTables' built-in "add this class to <tr>" hook — used so an
+                    // overdue PMS is noticeable across the whole row, not just its cell.
+                    'DT_RowClass' => $pmsRowClass,
                 ];
             }
 
@@ -312,6 +326,14 @@ class VehicleController extends Controller
             ]);
         }
 
+        ActivityLog::record(
+            'created',
+            'Vehicle',
+            'Registered vehicle [' . strtoupper($validated['plate_number']) . '].',
+            $vehicle,
+            ['after' => Arr::except($validated, ['or_file', 'cr_file'])]
+        );
+
         return redirect()->route('vehicles.index')
             ->with('success', 'Vehicle [' . strtoupper($validated['plate_number']) . '] registered successfully!');
     }
@@ -376,7 +398,20 @@ class VehicleController extends Controller
         $validated = $request->validate($rules);
         $validated = $this->applyWriteScope($validated, $user, $role, $vehicle);
 
+        $before = $vehicle->getOriginal();
         $vehicle->update($validated);
+        $changed = $vehicle->getChanges();
+        unset($changed['updated_at']);
+
+        if (!empty($changed)) {
+            ActivityLog::record(
+                'updated',
+                'Vehicle',
+                'Updated vehicle [' . strtoupper($vehicle->plate_number) . '].',
+                $vehicle,
+                ['before' => Arr::only($before, array_keys($changed)), 'after' => $changed]
+            );
+        }
 
         return response()->json([
             'success' => true,
@@ -449,7 +484,17 @@ class VehicleController extends Controller
         $vehicle = Vehicle::findOrFail($id);
         $this->authorizeVehicleWrite($vehicle);
 
+        $snapshot = $vehicle->toArray();
         $vehicle->delete();
+
+        ActivityLog::record(
+            'deleted',
+            'Vehicle',
+            'Deleted vehicle [' . strtoupper($vehicle->plate_number) . '].',
+            $vehicle,
+            ['before' => $snapshot]
+        );
+
         return redirect()->route('vehicles.index')->with('success', 'Vehicle record deleted.');
     }
 

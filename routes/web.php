@@ -8,6 +8,10 @@ use App\Http\Controllers\DriverController;
 use App\Http\Controllers\VehicleTypeController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\ScanController;
+use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\UnitController;
+use App\Http\Controllers\StationController;
+use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 // ---------------------------------------------------------------------
@@ -32,6 +36,17 @@ Route::middleware('auth')->group(function () {
     // Add future protected routes inside this group.
     Route::middleware('password.changed')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'dashboard'])->name('dashboard');
+
+        // My Profile — every account type can reach this (no role gate); it
+        // only ever reads/writes Auth::user(), so there's nothing to scope.
+        // The activity feed is its own AJAX endpoint, server-side paginated
+        // and filtered on the already-indexed activity_logs.user_id column,
+        // so it stays fast even once an account has thousands of log entries.
+        Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
+        Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+        Route::get('/profile/activity', [ProfileController::class, 'activity'])->name('profile.activity');
+        Route::get('/profile/activity/{activityLog}', [ProfileController::class, 'showActivity'])->name('profile.activity.show');
 
         // Vehicle Management — only(...) because create/show/edit (the Blade-view-returning
         // resource actions) aren't implemented; editing is AJAX-driven via edit-data/update below.
@@ -77,6 +92,13 @@ Route::middleware('auth')->group(function () {
         // Vehicle Types Management
         Route::resource('vehicle-types', VehicleTypeController::class)->except(['show']);
 
+        // Units & Stations Management — one combined page, gated to SUPER
+        // ADMINISTRATOR + ADMINISTRATOR only inside the controllers themselves
+        // (UnitController/StationController::authorizeAccess), same pattern
+        // as ActivityLogController but for two allowed roles instead of one.
+        Route::resource('units', UnitController::class)->except(['show']);
+        Route::resource('stations', StationController::class)->except(['show']);
+
         // Maintenance & PMS — only(...) because create/show/edit (the Blade-view-returning
         // resource actions) aren't implemented; editing is AJAX-driven via edit-data/update
         // below, same convention as vehicles.
@@ -98,5 +120,12 @@ Route::middleware('auth')->group(function () {
         Route::resource('users', \App\Http\Controllers\UserController::class)->except(['create', 'show', 'edit']);
         Route::get('/users/{user}/edit-data', [\App\Http\Controllers\UserController::class, 'editData'])->name('users.edit-data');
         Route::post('/users/{user}/reset-password', [\App\Http\Controllers\UserController::class, 'resetPassword'])->name('users.reset-password');
+
+        // System Activity Logs — read-only, and gated to SUPER ADMINISTRATOR
+        // only inside the controller itself (ActivityLogController::authorizeAccess),
+        // matching how every other role check in this app is done inline
+        // rather than through a route middleware/policy layer.
+        Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
+        Route::get('/activity-logs/{activityLog}', [ActivityLogController::class, 'show'])->name('activity-logs.show');
     });
 });

@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\MaintenanceRecord;
 use App\Models\Vehicle;
 use App\Models\Unit;
 use App\Models\Station;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -396,9 +398,17 @@ class MaintenanceController extends Controller
         }
         $validated['recorded_by'] = auth()->id();
 
-        MaintenanceRecord::create($validated);
+        $record = MaintenanceRecord::create($validated);
 
         $this->syncVehicleFromLatestRecord($vehicle);
+
+        ActivityLog::record(
+            'created',
+            'Maintenance Record',
+            'Logged ' . (MaintenanceRecord::TYPES[$validated['maintenance_type']] ?? $validated['maintenance_type']) . ' for [' . strtoupper($vehicle->plate_number) . '].',
+            $record,
+            ['after' => Arr::except($validated, ['attachment'])]
+        );
 
         return response()->json([
             'success' => true,
@@ -469,13 +479,26 @@ class MaintenanceController extends Controller
         }
         unset($validated['remove_attachment']);
 
+        $before = $maintenance->getOriginal();
         $maintenance->update($validated);
+        $changed = $maintenance->getChanges();
+        unset($changed['updated_at']);
 
         // Re-sync whichever vehicle(s) could be affected — both the old one (if this
         // record was moved off it) and the new/current one.
         $this->syncVehicleFromLatestRecord($newVehicle);
         if ($oldVehicle && $oldVehicle->id !== $newVehicle->id) {
             $this->syncVehicleFromLatestRecord($oldVehicle);
+        }
+
+        if (!empty($changed)) {
+            ActivityLog::record(
+                'updated',
+                'Maintenance Record',
+                'Updated maintenance record for [' . strtoupper($newVehicle->plate_number) . '].',
+                $maintenance,
+                ['before' => Arr::only($before, array_keys($changed)), 'after' => $changed]
+            );
         }
 
         return response()->json([
@@ -489,6 +512,8 @@ class MaintenanceController extends Controller
         $this->authorizeVehicleWrite($maintenance->vehicle);
 
         $vehicle = $maintenance->vehicle;
+        $snapshot = $maintenance->toArray();
+        $plateLabel = $vehicle ? strtoupper($vehicle->plate_number) : 'unknown vehicle';
 
         if ($maintenance->attachment_path) {
             Storage::disk('public')->delete($maintenance->attachment_path);
@@ -498,6 +523,14 @@ class MaintenanceController extends Controller
         if ($vehicle) {
             $this->syncVehicleFromLatestRecord($vehicle);
         }
+
+        ActivityLog::record(
+            'deleted',
+            'Maintenance Record',
+            'Deleted maintenance record for [' . $plateLabel . '].',
+            $maintenance,
+            ['before' => $snapshot]
+        );
 
         return response()->json([
             'success' => true,

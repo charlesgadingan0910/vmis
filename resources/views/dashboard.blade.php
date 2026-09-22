@@ -371,7 +371,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!el) return;
         var now = new Date();
         var pad = function (n) { return n.toString().padStart(2, '0'); };
-        el.textContent = pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+        // 12-hour format with AM/PM — easier for most users to read at a
+        // glance than 24-hour time.
+        var hours = now.getHours();
+        var meridiem = hours >= 12 ? 'PM' : 'AM';
+        var hours12 = hours % 12;
+        if (hours12 === 0) hours12 = 12;
+        el.textContent = pad(hours12) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds()) + ' ' + meridiem;
     }
     tickClock();
     setInterval(tickClock, 1000);

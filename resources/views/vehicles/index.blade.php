@@ -65,7 +65,32 @@
   .status-serviceable { background: #eaf6ef; color: #16a34a; } .status-serviceable .dot { background: #16a34a; }
   .status-unserviceable { background: #fff4e5; color: #d97706; } .status-unserviceable .dot { background: #d97706; }
   .status-ber { background: #fcedec; color: #dc2626; } .status-ber .dot { background: #dc2626; }
-  
+
+  /* ---------- PMS (Preventive Maintenance Schedule) alert badges ---------- */
+  .pms-date { font-weight: 600; color: #334155; font-size: 13.5px; }
+  .pms-date-overdue { color: #dc2626; font-weight: 800; }
+  .badge-pms { font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; }
+  .badge-pms i { font-size: 10px; }
+  .pms-badge-soon { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+  .pms-badge-overdue {
+    background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;
+    animation: pms-alert-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes pms-alert-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.32); }
+    50% { box-shadow: 0 0 0 4px rgba(220, 38, 38, 0); }
+  }
+  /* An overdue PMS should be obvious the moment the eye reaches the row, not
+     only once it lands on the PMS cell — so the whole row gets a faint red
+     wash plus an accent bar on the PMS column itself. */
+  .fleet-table tbody tr.row-pms-overdue { background: #fff6f6; }
+  .fleet-table tbody tr.row-pms-overdue:hover { background: #fee2e2; }
+  .fleet-table tbody tr.row-pms-overdue td:nth-child(7) { border-left: 3px solid #dc2626; padding-left: 21px; }
+  @media (max-width: 767.98px) {
+    .fleet-table tbody tr.row-pms-overdue { background: #fff6f6 !important; border-color: #fecaca !important; border-width: 1.5px !important; }
+    .fleet-table tbody tr.row-pms-overdue td:nth-child(7) { border-left: none; padding-left: 0; }
+  }
+
   .modal-content-premium { border-radius: 16px; border: none; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden; }
   .modal-header-slate { background: linear-gradient(135deg, #1e293b, #0f172a); color: #ffffff; padding: 20px 24px; border-bottom: none; }
   .modal-header-slate h5 { font-weight: 800; font-size: 17px; margin: 0; }

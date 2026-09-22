@@ -1,0 +1,424 @@
+<title>VMIS Process Flow</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root {
+    --bg: #F3F4F7;
+    --surface: #FFFFFF;
+    --surface-2: #E7E9EE;
+    --ink: #1B222C;
+    --ink-dim: #5B6672;
+    --border: #C6CCD6;
+    --accent: #B9791F;
+    --accent-ink: #8A5A12;
+    --accent-fill: #FBEDD6;
+    --module-stroke: #3E6C8A;
+    --module-fill: #FFFFFF;
+    --hub-fill: #FDF3E2;
+    --good: #2E7D4F;
+    --good-fill: #E9F5EE;
+    --bad: #A73E32;
+    --bad-fill: #FBECE9;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #11151C;
+      --surface: #1A212B;
+      --surface-2: #212936;
+      --ink: #E7EBF0;
+      --ink-dim: #97A2B1;
+      --border: #333E4C;
+      --accent: #E2A94C;
+      --accent-ink: #F2D6A0;
+      --accent-fill: #3A2E17;
+      --module-stroke: #6FA8C9;
+      --module-fill: #1A212B;
+      --hub-fill: #2E2718;
+      --good: #5FB980;
+      --good-fill: #17281F;
+      --bad: #E0796A;
+      --bad-fill: #2C1D1B;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #11151C;
+    --surface: #1A212B;
+    --surface-2: #212936;
+    --ink: #E7EBF0;
+    --ink-dim: #97A2B1;
+    --border: #333E4C;
+    --accent: #E2A94C;
+    --accent-ink: #F2D6A0;
+    --accent-fill: #3A2E17;
+    --module-stroke: #6FA8C9;
+    --module-fill: #1A212B;
+    --hub-fill: #2E2718;
+    --good: #5FB980;
+    --good-fill: #17281F;
+    --bad: #E0796A;
+    --bad-fill: #2C1D1B;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    padding-inline: 20px;
+    padding-block: 32px 56px;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0 0 10px;
+  }
+
+  h1 {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: clamp(24px, 4vw, 34px);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 10px;
+    text-wrap: balance;
+  }
+
+  .dek {
+    color: var(--ink-dim);
+    font-size: 15px;
+    line-height: 1.55;
+    max-width: 66ch;
+    margin: 0 0 26px;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 22px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    white-space: nowrap;
+  }
+
+  .legend-swatch {
+    width: 26px;
+    height: 0;
+    border-top-width: 2.5px;
+    border-top-style: solid;
+    flex: none;
+  }
+
+  .sw-flow { border-color: var(--ink-dim); }
+  .sw-audit { border-color: var(--accent); border-top-style: dashed; }
+  .sw-lookup { border-color: var(--ink-dim); border-top-style: dotted; border-top-width: 3px; }
+  .sw-loop { border-color: var(--ink-dim); border-top-style: dashed; }
+
+  .diagram-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 6px;
+    overflow-x: auto;
+  }
+
+  .diagram-wrap svg {
+    display: block;
+    min-width: 760px;
+    width: 100%;
+    height: auto;
+  }
+
+  figcaption {
+    margin: 12px 4px 0;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    line-height: 1.5;
+  }
+
+  figure { margin: 0 0 34px; }
+
+  /* --- SVG node styling --- */
+  .band-tint { fill: var(--surface-2); opacity: 0.55; }
+  .band-divider { stroke: var(--border); stroke-width: 1; }
+  .band-label {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    fill: var(--accent-ink);
+    font-weight: 600;
+  }
+
+  .node-title {
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-size: 14.5px;
+    font-weight: 600;
+    fill: var(--ink);
+  }
+  .node-sub {
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-size: 11.5px;
+    fill: var(--ink-dim);
+  }
+
+  .node-access rect { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
+  .node-module rect { fill: var(--module-fill); stroke: var(--module-stroke); stroke-width: 1.5; }
+  .node-hub rect { fill: var(--hub-fill); stroke: var(--accent); stroke-width: 2; }
+  .node-lookup rect { fill: none; stroke: var(--ink-dim); stroke-width: 1.4; stroke-dasharray: 3 4; }
+  .node-lookup .node-title, .node-lookup .node-sub { fill: var(--ink-dim); font-style: italic; }
+  .node-store path, .node-store ellipse { fill: var(--accent-fill); stroke: var(--accent); stroke-width: 2; }
+  .node-gate-no rect { fill: var(--bad-fill); stroke: var(--bad); stroke-width: 1.6; }
+  .node-gate-yes rect { fill: var(--good-fill); stroke: var(--good); stroke-width: 1.6; }
+
+  .diamond-shape polygon { fill: var(--surface-2); stroke: var(--ink-dim); stroke-width: 1.5; }
+  .diamond-title { font-family: 'IBM Plex Sans', sans-serif; font-size: 12.5px; font-weight: 600; fill: var(--ink); }
+  .diamond-sub { font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; fill: var(--ink-dim); }
+
+  .arrow-flow { fill: none; stroke: var(--ink-dim); stroke-width: 1.8; }
+  .arrow-audit { fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-dasharray: 7 4; }
+  .arrow-lookup { fill: none; stroke: var(--ink-dim); stroke-width: 1.5; stroke-dasharray: 1.5 4; stroke-linecap: round; }
+  .arrow-loop { fill: none; stroke: var(--ink-dim); stroke-width: 1.4; stroke-dasharray: 4 3; }
+
+  .loop-label, .edge-label {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 10.5px;
+    fill: var(--ink-dim);
+  }
+
+  .notes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+  }
+
+  @media (max-width: 720px) {
+    .notes { grid-template-columns: 1fr; }
+  }
+
+  .note h2 {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0 0 8px;
+    font-weight: 600;
+  }
+
+  .note p {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--ink-dim);
+  }
+
+  .note strong { color: var(--ink); font-weight: 600; }
+</style>
+
+<p class="eyebrow">VMIS &middot; System Documentation</p>
+<h1>Process Flow: Login to Audit</h1>
+<p class="dek">How a request moves through the Vehicle Management Information System &mdash; from a badge-number login, through the role-gated modules where records get created and changed, down into the activity log that captures all of it, and back out through the one role allowed to review it.</p>
+
+<div class="legend">
+  <span class="legend-item"><span class="legend-swatch sw-flow"></span>user / system flow</span>
+  <span class="legend-item"><span class="legend-swatch sw-audit"></span>write &rarr; recorded to Activity Log</span>
+  <span class="legend-item"><span class="legend-swatch sw-lookup"></span>read-only lookup, not logged</span>
+  <span class="legend-item"><span class="legend-swatch sw-loop"></span>retry / loop back</span>
+</div>
+
+<figure>
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 1060 1400" role="img" aria-label="Flow diagram showing a VMIS user authenticating, working through role-gated modules whose create, update and delete actions all write to a shared Activity Log, which only the Super Administrator role can open.">
+      <defs>
+        <marker id="arrowend" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-dim)"/>
+        </marker>
+      </defs>
+<rect x="0" y="0" width="1060" height="540" class="band band-tint"/>
+<rect x="0" y="945" width="1060" height="455" class="band band-tint"/>
+<line x1="0" y1="540" x2="1060" y2="540" class="band-divider"/>
+<line x1="0" y1="945" x2="1060" y2="945" class="band-divider"/>
+<text class="band-label" x="30" y="34" text-anchor="start">01 · ACCESS &amp; AUTHENTICATION</text>
+<text class="band-label" x="30" y="570" text-anchor="start">02 · ROLE-GATED WORKSPACE</text>
+<text class="band-label" x="30" y="975" text-anchor="start">03 · AUDIT TRAIL &amp; OVERSIGHT</text>
+<path d="M520,110 L520,133" class="arrow-flow" marker-end="url(#arrowend)"/>
+<path d="M630,190 L758,190" class="arrow-flow" marker-end="url(#arrowend)"/>
+<path d="M875,222 L875,244" class="arrow-flow" marker-end="url(#arrowend)"/>
+<path d="M760,273 C 660,240 600,150 652,88" class="arrow-loop" marker-end="url(#arrowend)"/>
+<path d="M520,245 L520,268" class="arrow-flow" marker-end="url(#arrowend)"/>
+<path d="M520,326 L520,343" class="arrow-flow" marker-end="url(#arrowend)"/>
+<path d="M410,400 L392,400" class="arrow-flow" marker-end="url(#arrowend)"/>
+<path d="M265,432 C 265,472 400,472 518,452" class="arrow-loop" marker-end="url(#arrowend)"/>
+<path d="M520,455 L520,468" class="arrow-flow" marker-end="url(#arrowend)"/>
+<path d="M520,524 L520,558" class="arrow-flow" marker-end="url(#arrowend)"/>
+<path d="M990,190 L1010,190" class="arrow-audit"/>
+<path d="M1010,190 L1010,1000" class="arrow-audit"/>
+<path d="M650,497 L1010,497" class="arrow-audit"/>
+<path d="M990,587 L1010,587" class="arrow-audit"/>
+<path d="M1010,1000 C 1010,1030 820,1040 686,1032" class="arrow-audit" marker-end="url(#arrowend)"/>
+<path d="M470,624 C 400,660 260,672 190,698" class="arrow-flow" marker-end="url(#arrowend)"/>
+<path d="M520,624 L530,698" class="arrow-flow" marker-end="url(#arrowend)"/>
+<path d="M570,624 C 700,660 820,672 868,698" class="arrow-flow" marker-end="url(#arrowend)"/>
+<path d="M430,592 C -80,650 -80,860 238,880" class="arrow-flow" marker-end="url(#arrowend)"/>
+<path d="M610,592 C 900,650 900,860 692,880" class="arrow-flow" marker-end="url(#arrowend)"/>
+<path d="M190,774 L190,792" class="arrow-lookup" marker-end="url(#arrowend)"/>
+<path d="M190,774 C 250,880 320,950 400,972" class="arrow-audit" marker-end="url(#arrowend)"/>
+<path d="M530,774 C 500,880 470,950 462,972" class="arrow-audit" marker-end="url(#arrowend)"/>
+<path d="M868,774 C 760,880 660,930 618,966" class="arrow-audit" marker-end="url(#arrowend)"/>
+<path d="M370,924 C 390,945 405,958 424,966" class="arrow-audit" marker-end="url(#arrowend)"/>
+<path d="M690,924 C 660,945 630,958 606,966" class="arrow-audit" marker-end="url(#arrowend)"/>
+<path d="M520,1112 L520,1133" class="arrow-flow" marker-end="url(#arrowend)"/>
+<path d="M380,1190 L352,1190" class="arrow-flow" marker-end="url(#arrowend)"/>
+<path d="M520,1245 L520,1273" class="arrow-flow" marker-end="url(#arrowend)"/>
+<g class="node-access">
+  <rect x="390" y="50" width="260" height="60" rx="10"/>
+  <text class="node-title" x="520.0" y="74.775" text-anchor="middle">LOGIN FORM</text>
+  <text class="node-sub" x="520.0" y="92.025" text-anchor="middle">badge no. / e-mail + password</text>
+</g>
+<g class="diamond-shape">
+  <polygon points="520,135 630,190 520,245 410,190"/>
+  <text class="diamond-title" x="520" y="183.75" text-anchor="middle">Valid</text>
+  <text class="diamond-title" x="520" y="200.625" text-anchor="middle">credentials?</text>
+</g>
+<g class="node-access">
+  <rect x="760" y="158" width="230" height="64" rx="10"/>
+  <text class="node-title" x="875.0" y="177.0125" text-anchor="middle">Log · login_failed</text>
+  <text class="node-sub" x="875.0" y="194.2625" text-anchor="middle">records the attempted login,</text>
+  <text class="node-sub" x="875.0" y="209.7875" text-anchor="middle">not just “failed”</text>
+</g>
+<g class="node-access">
+  <rect x="760" y="246" width="230" height="54" rx="10"/>
+  <text class="node-title" x="875.0" y="267.775" text-anchor="middle">Show error</text>
+  <text class="node-sub" x="875.0" y="285.025" text-anchor="middle">return to Login Form</text>
+</g>
+<g class="node-access">
+  <rect x="390" y="270" width="260" height="56" rx="10"/>
+  <text class="node-title" x="520.0" y="292.775" text-anchor="middle">Create session</text>
+  <text class="node-sub" x="520.0" y="310.025" text-anchor="middle">is_online → 1</text>
+</g>
+<g class="diamond-shape">
+  <polygon points="520,345 630,400 520,455 410,400"/>
+  <text class="diamond-title" x="520" y="393.75" text-anchor="middle">Password already</text>
+  <text class="diamond-title" x="520" y="410.625" text-anchor="middle">changed?</text>
+</g>
+<g class="node-access">
+  <rect x="140" y="368" width="250" height="64" rx="10"/>
+  <text class="node-title" x="265.0" y="387.0125" text-anchor="middle">Forced Password</text>
+  <text class="node-sub" x="265.0" y="404.2625" text-anchor="middle">Change screen</text>
+  <text class="node-sub" x="265.0" y="419.78749999999997" text-anchor="middle">(blocks every other route)</text>
+</g>
+<g class="node-access">
+  <rect x="390" y="470" width="260" height="54" rx="10"/>
+  <text class="node-title" x="520.0" y="501.64" text-anchor="middle">Log · login</text>
+</g>
+<g class="node-hub">
+  <rect x="390" y="560" width="260" height="64" rx="10"/>
+  <text class="node-title" x="520.0" y="579.0125" text-anchor="middle">DASHBOARD</text>
+  <text class="node-sub" x="520.0" y="596.2625" text-anchor="middle">role-scoped stats · Vehicles,</text>
+  <text class="node-sub" x="520.0" y="611.7875" text-anchor="middle">Maintenance, Drivers, Users</text>
+</g>
+<g class="node-access">
+  <rect x="790" y="560" width="200" height="64" rx="10"/>
+  <text class="node-title" x="890.0" y="580.4575" text-anchor="middle">Logout</text>
+  <text class="node-sub" x="890.0" y="595.9075" text-anchor="middle">is_online → 0 · Log · logout</text>
+  <text class="node-sub" x="890.0" y="609.8125" text-anchor="middle">returns to Login Form</text>
+</g>
+<g class="node-module">
+  <rect x="60" y="700" width="260" height="74" rx="10"/>
+  <text class="node-title" x="190.0" y="724.0125" text-anchor="middle">Vehicle Inventory</text>
+  <text class="node-sub" x="190.0" y="741.2625" text-anchor="middle">CRUD · QR generate/print ·</text>
+  <text class="node-sub" x="190.0" y="756.7875" text-anchor="middle">OR/CR registration history</text>
+</g>
+<g class="node-module">
+  <rect x="400" y="700" width="260" height="74" rx="10"/>
+  <text class="node-title" x="530.0" y="724.0125" text-anchor="middle">Maintenance &amp; PMS</text>
+  <text class="node-sub" x="530.0" y="741.2625" text-anchor="middle">service records tied to</text>
+  <text class="node-sub" x="530.0" y="756.7875" text-anchor="middle">each vehicle</text>
+</g>
+<g class="node-module">
+  <rect x="740" y="700" width="260" height="74" rx="10"/>
+  <text class="node-title" x="870.0" y="724.0125" text-anchor="middle">Driver Management</text>
+  <text class="node-sub" x="870.0" y="741.2625" text-anchor="middle">CRUD · license &amp;</text>
+  <text class="node-sub" x="870.0" y="756.7875" text-anchor="middle">assignment records</text>
+</g>
+<g class="node-lookup">
+  <rect x="60" y="794" width="260" height="46" rx="10"/>
+  <text class="node-title" x="190.0" y="812.35" text-anchor="middle">Scan QR / plate</text>
+  <text class="node-sub" x="190.0" y="827.35" text-anchor="middle">read-only lookup — not logged</text>
+</g>
+<g class="node-module">
+  <rect x="240" y="850" width="260" height="74" rx="10"/>
+  <text class="node-title" x="370.0" y="874.0125" text-anchor="middle">Vehicle Types</text>
+  <text class="node-sub" x="370.0" y="891.2625" text-anchor="middle">reference data used across</text>
+  <text class="node-sub" x="370.0" y="906.7875" text-anchor="middle">the inventory</text>
+</g>
+<g class="node-module">
+  <rect x="560" y="850" width="260" height="74" rx="10"/>
+  <text class="node-title" x="690.0" y="874.0125" text-anchor="middle">System Users</text>
+  <text class="node-sub" x="690.0" y="891.2625" text-anchor="middle">role-scoped by Unit /</text>
+  <text class="node-sub" x="690.0" y="906.7875" text-anchor="middle">Station Administrator</text>
+</g>
+<g class="node-store">
+  <path d="M 350 980 L 350 1090 A 170 22 0 0 0 690 1090 L 690 980 A 170 22 0 0 1 350 980 Z"/>
+  <ellipse cx="520" cy="980" rx="170" ry="22"/>
+</g>
+<text class="node-title" x="520" y="1032" text-anchor="middle">ACTIVITY LOG</text>
+<text class="node-sub" x="520" y="1049" text-anchor="middle">activity_logs · every create / update / delete</text>
+<text class="node-sub" x="520" y="1064" text-anchor="middle">+ every login, logout, failed login</text>
+<g class="diamond-shape">
+  <polygon points="520,1135 660,1190 520,1245 380,1190"/>
+  <text class="diamond-title" x="520" y="1183.75" text-anchor="middle">role ===</text>
+  <text class="diamond-sub" x="520" y="1200.625" text-anchor="middle">SUPER ADMINISTRATOR ?</text>
+</g>
+<g class="node-gate-no">
+  <rect x="100" y="1160" width="250" height="64" rx="10"/>
+  <text class="node-title" x="225.0" y="1186.775" text-anchor="middle">Blocked · HTTP 403</text>
+  <text class="node-sub" x="225.0" y="1204.025" text-anchor="middle">nav item hidden entirely</text>
+</g>
+<g class="node-gate-yes">
+  <rect x="370" y="1275" width="300" height="90" rx="10"/>
+  <text class="node-title" x="520.0" y="1300.175" text-anchor="middle">ACTIVITY LOGS PAGE</text>
+  <text class="node-sub" x="520.0" y="1316.675" text-anchor="middle">filters · stats · before/after diff</text>
+  <text class="node-sub" x="520.0" y="1331.5249999999999" text-anchor="middle">visible only in the sidebar for</text>
+  <text class="node-sub" x="520.0" y="1346.3749999999998" text-anchor="middle">this one role</text>
+</g>
+<text class="loop-label" x="700" y="168" text-anchor="middle">retry</text>
+<text class="loop-label" x="400" y="462" text-anchor="middle">password set</text>
+<text class="edge-label" x="700" y="1180" text-anchor="middle">No</text>
+<text class="edge-label" x="545" y="1258" text-anchor="start">Yes</text>
+    </svg>
+  </div>
+  <figcaption>Every create, update and delete across Vehicle Inventory, Maintenance &amp; PMS, Driver Management, Vehicle Types and System Users &mdash; plus every login, logout and failed login &mdash; funnels into one Activity Log. Only a user whose role is SUPER ADMINISTRATOR can open it; everyone else gets a 403 and never sees the nav item.</figcaption>
+</figure>
+
+<div class="notes">
+  <div class="note">
+    <h2>Role scope narrows automatically</h2>
+    <p>The Dashboard and every module query is filtered by the signed-in role before it runs. A <strong>Unit Administrator</strong> sees their unit and every station beneath it; a <strong>Station Administrator</strong> sees only their own station. Nothing is hidden by the interface alone &mdash; the query itself never fetches out-of-scope rows.</p>
+  </div>
+  <div class="note">
+    <h2>The password gate can't be skipped</h2>
+    <p>A session is created the moment credentials check out, but <strong>redirectAfterAuth()</strong> refuses to send that session anywhere except the forced password-change screen until <code>is_password_changed</code> flips to 1. The dashboard, and the "login" log entry itself, only exist on the other side of that gate.</p>
+  </div>
+  <div class="note">
+    <h2>Logging isn't a per-page decision</h2>
+    <p>Every controller calls the same <strong>ActivityLog::record()</strong> helper on write, so there's no module where an edit can slip through unlogged. Uploaded files and passwords are stripped from the payload before it's ever written.</p>
+  </div>
+</div>

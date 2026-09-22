@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
+use App\Models\Vehicle;
 use App\Models\VehicleType;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Arr;
 use Illuminate\View\View;
 
 class VehicleTypeController extends Controller
@@ -46,7 +49,7 @@ class VehicleTypeController extends Controller
                                '<button class="action-btn mr-1 edit-btn" ' .
                                'data-id="' . $type->id . '" ' .
                                'data-name="' . e($type->name) . '" ' .
-                               'data-desc="' . e($type->description) . '"><i class="fas fa-pen"></i></button>' .
+                               'data-desc="' . e($type->description ?? '') . '"><i class="fas fa-pen"></i></button>' .
                                '<button class="action-btn btn-delete delete-btn" ' .
                                'data-id="' . $type->id . '" ' .
                                'data-name="' . e($type->name) . '" ' .
@@ -69,8 +72,15 @@ class VehicleTypeController extends Controller
         }
 
         $stats = [
-            'total_types'    => VehicleType::count(),
-            'total_assigned' => VehicleType::withSum('vehicles', 'id')->count(), 
+            // Total classification categories on file.
+            'total_types'   => VehicleType::count(),
+            // Vehicles that currently have a category assigned.
+            'classified'    => Vehicle::whereNotNull('vehicle_type_id')->count(),
+            // Vehicles with no category at all — worth flagging so they don't
+            // get missed when someone is auditing the fleet by type.
+            'unclassified'  => Vehicle::whereNull('vehicle_type_id')->count(),
+            // Categories nobody has actually used yet.
+            'unused_types'  => VehicleType::doesntHave('vehicles')->count(),
         ];
 
         return view('vehicle_types.index', compact('stats'));
@@ -83,7 +93,15 @@ class VehicleTypeController extends Controller
             'description' => ['nullable', 'string', 'max:255'],
         ]);
 
-        VehicleType::create($validated);
+        $vehicleType = VehicleType::create($validated);
+
+        ActivityLog::record(
+            'created',
+            'Vehicle Type',
+            'Added vehicle category [' . $vehicleType->name . '].',
+            $vehicleType,
+            ['after' => $validated]
+        );
 
         return redirect()->route('vehicle-types.index')->with('success', 'Vehicle category added successfully.');
     }
@@ -95,7 +113,20 @@ class VehicleTypeController extends Controller
             'description' => ['nullable', 'string', 'max:255'],
         ]);
 
+        $before = $vehicleType->getOriginal();
         $vehicleType->update($validated);
+        $changed = $vehicleType->getChanges();
+        unset($changed['updated_at']);
+
+        if (!empty($changed)) {
+            ActivityLog::record(
+                'updated',
+                'Vehicle Type',
+                'Updated vehicle category [' . $vehicleType->name . '].',
+                $vehicleType,
+                ['before' => Arr::only($before, array_keys($changed)), 'after' => $changed]
+            );
+        }
 
         return redirect()->route('vehicle-types.index')->with('success', 'Vehicle category updated successfully.');
     }
@@ -106,7 +137,12 @@ class VehicleTypeController extends Controller
             return redirect()->route('vehicle-types.index')->withErrors(['error' => 'Cannot delete type because vehicles are currently assigned to it.']);
         }
 
+        $snapshot = $vehicleType->toArray();
+        $name = $vehicleType->name;
         $vehicleType->delete();
+
+        ActivityLog::record('deleted', 'Vehicle Type', 'Removed vehicle category [' . $name . '].', $vehicleType, ['before' => $snapshot]);
+
         return redirect()->route('vehicle-types.index')->with('success', 'Vehicle category removed successfully.');
     }
 }

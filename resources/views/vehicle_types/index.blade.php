@@ -14,10 +14,18 @@
 @section('css')
 <style>
   /* Modern Stat Card */
-  .fleet-stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 22px; max-width: 500px; }
+  .fleet-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 22px; }
+  @media (max-width: 991px) { .fleet-stats-grid { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 575px) { .fleet-stats-grid { grid-template-columns: 1fr; } }
-  .stat-card-modern { background: #ffffff; border-radius: 14px; padding: 18px 20px; border: 1px solid #eef1f6; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04); display: flex; align-items: center; gap: 16px; }
-  .stat-icon-wrapper { width: 48px; height: 48px; border-radius: 12px; background: rgba(59, 130, 246, 0.12); color: #3b82f6; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .stat-card-modern { background: #ffffff; border-radius: 14px; padding: 18px 20px; border: 1px solid #eef1f6; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04); display: flex; align-items: center; gap: 16px; transition: transform 0.2s; }
+  .stat-card-modern:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08); }
+  .stat-icon-wrapper { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+
+  .stat-card-modern.vt-total .stat-icon-wrapper { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+  .stat-card-modern.vt-classified .stat-icon-wrapper { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
+  .stat-card-modern.vt-unclassified .stat-icon-wrapper { background: rgba(245, 158, 11, 0.14); color: #d97706; }
+  .stat-card-modern.vt-unused .stat-icon-wrapper { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
+
   .stat-num-value { font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1.1; }
   .stat-label-title { font-size: 12px; font-weight: 600; color: #64748b; margin-top: 3px; }
 
@@ -27,11 +35,12 @@
   .toolbar-title h5 { font-weight: 800; color: #0f172a; margin: 0; font-size: 16px; }
   .toolbar-title p { font-size: 12px; color: #94a3b8; margin: 2px 0 0; }
 
-  .search-input-shell { position: relative; width: 280px; }
+  .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .search-input-shell { position: relative; width: 260px; }
   .search-input-shell i { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 13px; z-index: 5; }
   .search-input-shell input { padding-left: 36px; border-radius: 9px; border: 1.5px solid #e2e8f0; height: 38px; font-size: 13.5px; }
   .search-input-shell input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12); outline: none; }
-  
+
   /* Table Elements */
   .fleet-table { width: 100% !important; margin: 0 !important; }
   .fleet-table thead th { background: #f8fafc; color: #475569; font-size: 11px; font-weight: 700; text-transform: uppercase; border: none; padding: 14px 24px; }
@@ -57,7 +66,7 @@
       padding-bottom: 14px !important; text-align: right !important;
       border-top: 1px dashed #eef1f6 !important; margin-top: 2px;
     }
-    .fleet-table td:nth-child(2)::before { content: "Active Units Assigned"; }
+    .fleet-table td:nth-child(2)::before { content: "Vehicles Assigned"; }
     .fleet-table td::before {
       display: block; font-size: 10px; font-weight: 700; text-transform: uppercase;
       letter-spacing: .04em; color: #94a3b8; margin-bottom: 5px;
@@ -106,11 +115,32 @@
         
         <!-- STATS CARD -->
         <div class="fleet-stats-grid">
-            <div class="stat-card-modern">
+            <div class="stat-card-modern vt-total">
                 <div class="stat-icon-wrapper"><i class="fas fa-tags"></i></div>
                 <div>
                     <div class="stat-num-value">{{ $stats['total_types'] }}</div>
                     <div class="stat-label-title">Vehicle Categories</div>
+                </div>
+            </div>
+            <div class="stat-card-modern vt-classified">
+                <div class="stat-icon-wrapper"><i class="fas fa-car"></i></div>
+                <div>
+                    <div class="stat-num-value">{{ $stats['classified'] }}</div>
+                    <div class="stat-label-title">Vehicles Classified</div>
+                </div>
+            </div>
+            <div class="stat-card-modern vt-unclassified">
+                <div class="stat-icon-wrapper"><i class="fas fa-exclamation-triangle"></i></div>
+                <div>
+                    <div class="stat-num-value">{{ $stats['unclassified'] }}</div>
+                    <div class="stat-label-title">Unclassified Vehicles</div>
+                </div>
+            </div>
+            <div class="stat-card-modern vt-unused">
+                <div class="stat-icon-wrapper"><i class="fas fa-inbox"></i></div>
+                <div>
+                    <div class="stat-num-value">{{ $stats['unused_types'] }}</div>
+                    <div class="stat-label-title">Unused Categories</div>
                 </div>
             </div>
         </div>
@@ -120,11 +150,14 @@
             <div class="toolbar-header">
                 <div class="toolbar-title">
                     <h5>Categories Registry</h5>
-                    <p>Manage classification groups for your active vehicles</p>
+                    <p>Manage the classification categories used across your fleet</p>
                 </div>
-                <div class="search-input-shell">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="customSearchBox" class="form-control" placeholder="Search vehicle types...">
+                <div class="filter-bar">
+                    <div class="search-input-shell">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="customSearchBox" class="form-control" placeholder="Search vehicle types...">
+                    </div>
+                    <button type="button" id="resetFiltersBtn" class="btn btn-light border text-secondary"><i class="fas fa-undo"></i></button>
                 </div>
             </div>
 
@@ -133,7 +166,7 @@
                     <thead>
                         <tr>
                             <th>Category Information</th>
-                            <th>Active Units Assigned</th>
+                            <th>Vehicles Assigned</th>
                             <th class="text-right">Actions</th>
                         </tr>
                     </thead>
@@ -252,6 +285,12 @@ $(document.body).ready(function() {
         searchTimeout = setTimeout(function() {
             table.search(val).draw();
         }, 300);
+    });
+
+    // Reset — matches the pattern on System Users / Driver Management
+    $('#resetFiltersBtn').on('click', function() {
+        $('#customSearchBox').val('');
+        table.search('').draw();
     });
 
     // Event delegation for dynamic Edit buttons

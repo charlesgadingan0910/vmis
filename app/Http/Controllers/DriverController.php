@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\Driver;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -183,7 +185,15 @@ class DriverController extends Controller
             $validated['photo_path'] = $request->file('photo')->store('driver_photos', 'public');
         }
 
-        Driver::create($validated);
+        $driver = Driver::create($validated);
+
+        ActivityLog::record(
+            'created',
+            'Driver',
+            'Registered driver ' . trim($driver->firstname . ' ' . $driver->lastname) . '.',
+            $driver,
+            ['after' => Arr::except($validated, ['photo'])]
+        );
 
         return redirect()->route('drivers.index')->with('success', 'Driver registered successfully.');
     }
@@ -219,7 +229,20 @@ class DriverController extends Controller
 
         unset($validated['remove_photo']); // never a real column — just a UI signal
 
+        $before = $driver->getOriginal();
         $driver->update($validated);
+        $changed = $driver->getChanges();
+        unset($changed['updated_at']);
+
+        if (!empty($changed)) {
+            ActivityLog::record(
+                'updated',
+                'Driver',
+                'Updated driver ' . trim($driver->firstname . ' ' . $driver->lastname) . '.',
+                $driver,
+                ['before' => Arr::only($before, array_keys($changed)), 'after' => $changed]
+            );
+        }
 
         return redirect()->route('drivers.index')->with('success', 'Driver profile updated successfully.');
     }
@@ -230,7 +253,12 @@ class DriverController extends Controller
             Storage::disk('public')->delete($driver->photo_path);
         }
 
+        $snapshot = $driver->toArray();
+        $name = trim($driver->firstname . ' ' . $driver->lastname);
         $driver->delete();
+
+        ActivityLog::record('deleted', 'Driver', 'Removed driver ' . $name . '.', $driver, ['before' => $snapshot]);
+
         return redirect()->route('drivers.index')->with('success', 'Driver removed successfully.');
     }
 }

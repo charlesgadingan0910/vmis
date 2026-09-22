@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\User;
 use App\Models\AccountType;
 use App\Models\Rank;
 use App\Models\Unit;
 use App\Models\Station;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -379,6 +381,14 @@ class UserController extends Controller
             $fields['created_by'] = $authUser->id;
             $existingUser->update($fields);
 
+            ActivityLog::record(
+                'created',
+                'User',
+                'Reactivated user account for ' . $fields['fullname'] . ' (' . $accountType . ').',
+                $existingUser,
+                ['after' => Arr::except($fields, ['password'])]
+            );
+
             return response()->json([
                 'success' => true,
                 'message' => 'An inactive account was found and successfully updated/reactivated.'
@@ -391,7 +401,15 @@ class UserController extends Controller
         $fields['is_password_changed'] = "0";
         $fields['created_by'] = $authUser->id;
 
-        User::create($fields);
+        $newUser = User::create($fields);
+
+        ActivityLog::record(
+            'created',
+            'User',
+            'Created user account for ' . $fields['fullname'] . ' (' . $accountType . ').',
+            $newUser,
+            ['after' => Arr::except($fields, ['password'])]
+        );
 
         return response()->json(['success' => true, 'message' => 'User account created successfully.']);
     }
@@ -456,7 +474,20 @@ class UserController extends Controller
             'fullname' => trim($request->firstname . ' ' . $request->middlename . ' ' . $request->lastname . ' ' . $request->qlfr),
         ];
 
+        $before = $user->getOriginal();
         $user->update($data);
+        $changed = $user->getChanges();
+        unset($changed['updated_at']);
+
+        if (!empty($changed)) {
+            ActivityLog::record(
+                'updated',
+                'User',
+                'Updated user account for ' . $data['fullname'] . '.',
+                $user,
+                ['before' => Arr::only($before, array_keys($changed)), 'after' => $changed]
+            );
+        }
 
         return response()->json(['success' => true, 'message' => 'User account updated successfully.']);
     }
@@ -477,6 +508,13 @@ class UserController extends Controller
         $user->is_active = "0";
         $user->save();
 
+        ActivityLog::record(
+            'deleted',
+            'User',
+            'Deactivated user account for ' . ($user->fullname ?: trim($user->firstname.' '.$user->lastname)) . '.',
+            $user
+        );
+
         return response()->json(['success' => true, 'message' => 'User account deactivated successfully.']);
     }
 
@@ -496,6 +534,13 @@ class UserController extends Controller
         $user->password = Hash::make('P@ssw0rd12345');
         $user->is_password_changed = "0";
         $user->save();
+
+        ActivityLog::record(
+            'updated',
+            'User',
+            'Reset password to default for ' . ($user->fullname ?: trim($user->firstname.' '.$user->lastname)) . '.',
+            $user
+        );
 
         return response()->json(['success' => true, 'message' => 'User password has been reset to default.']);
     }
