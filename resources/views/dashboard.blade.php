@@ -26,29 +26,67 @@
   .welcome-date{ font-size:12px; color:#94a3b8; margin-top:2px; }
   .welcome-scope{ display:inline-flex; align-items:center; gap:6px; margin-top:8px; font-size:11.5px; color:#cbd5e1; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); padding:4px 10px; border-radius:20px; position:relative; z-index:1; }
 
-  .fleet-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
-  @media (max-width: 991px) { .fleet-stats-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 575px) { .fleet-stats-grid { grid-template-columns: 1fr; } }
 
-  .stat-card-modern { background: #ffffff; border-radius: 14px; padding: 18px 20px; border: 1px solid #eef1f6; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.03); display: flex; align-items: center; gap: 16px; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
-  .stat-card-modern:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08); }
-  .stat-icon-wrapper { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
-  .stat-card-modern.c-vehicles .stat-icon-wrapper { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
-  .stat-card-modern.c-drivers .stat-icon-wrapper { background: rgba(139, 92, 246, 0.12); color: #7c3aed; }
-  .stat-card-modern.c-users .stat-icon-wrapper { background: rgba(20, 184, 166, 0.12); color: #0d9488; }
-  .stat-card-modern.c-records .stat-icon-wrapper { background: rgba(99, 102, 241, 0.12); color: #6366f1; }
-  .stat-card-modern.c-serviceable .stat-icon-wrapper { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
-  .stat-card-modern.c-soon .stat-icon-wrapper { background: rgba(245, 158, 11, 0.14); color: #d97706; }
-  .stat-card-modern.c-overdue .stat-icon-wrapper { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
-  .stat-card-modern.c-cost .stat-icon-wrapper { background: rgba(14, 165, 233, 0.12); color: #0284c7; }
-  .stat-card-modern.c-unregistered .stat-icon-wrapper { background: rgba(100, 116, 139, 0.12); color: #475569; }
-  .stat-card-modern.c-fuel-logs .stat-icon-wrapper { background: rgba(217, 119, 6, 0.12); color: #d97706; }
-  .stat-card-modern.c-fuel-liters .stat-icon-wrapper { background: rgba(14, 165, 233, 0.12); color: #0284c7; }
-  .stat-card-modern.c-fuel-cost .stat-icon-wrapper { background: rgba(220, 38, 38, 0.1); color: #dc2626; }
-  .stat-card-modern.c-fuel-kml .stat-icon-wrapper { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
-  .stat-num-value { font-size: 23px; font-weight: 800; color: #0f172a; line-height: 1.1; }
-  .stat-label-title { font-size: 11.5px; font-weight: 600; color: #64748b; margin-top: 3px; }
-  .stat-sub-note { font-size: 10.5px; color: #94a3b8; margin-top: 1px; }
+  /* ============================================================
+     Fleet-at-a-glance KPI strip — one cohesive card with internal
+     dividers instead of four look-alike boxes repeated edge to edge.
+     Used for the top-line Fleet Overview counts. ============== */
+  .kpi-strip-panel { background: #fff; border-radius: 16px; border: 1px solid #eef1f6; box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.03); display: flex; flex-wrap: wrap; margin-bottom: 16px; overflow: hidden; }
+  .kpi-strip-item { flex: 1 1 0; min-width: 190px; display: flex; align-items: center; gap: 14px; padding: 20px 22px; border-right: 1px solid #f1f4f8; }
+  .kpi-strip-item:last-child { border-right: none; }
+  .kpi-strip-icon { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex: none; }
+  .kpi-strip-icon.c-vehicles { background: rgba(59,130,246,0.12); color: #3b82f6; }
+  .kpi-strip-icon.c-drivers { background: rgba(139,92,246,0.12); color: #7c3aed; }
+  .kpi-strip-icon.c-users { background: rgba(20,184,166,0.12); color: #0d9488; }
+  .kpi-strip-icon.c-records { background: rgba(99,102,241,0.12); color: #6366f1; }
+  .kpi-strip-value { font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1.1; }
+  .kpi-strip-label { font-size: 11.5px; font-weight: 600; color: #64748b; margin-top: 2px; }
+  @media (max-width: 991px) { .kpi-strip-item { flex: 1 1 50%; border-right: none; border-bottom: 1px solid #f1f4f8; } .kpi-strip-item:nth-child(odd) { border-right: 1px solid #f1f4f8; } }
+  @media (max-width: 575px) { .kpi-strip-item { flex: 1 1 100%; border-right: none !important; } }
+
+  /* ============================================================
+     Fleet Health — two compliance rings side by side (PMS,
+     Registration) instead of eight near-identical icon boxes. The
+     ring's color itself carries the status (good/warn/critical),
+     same reasoning as a status-tagged meter. ==================== */
+  .health-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 860px) { .health-row { grid-template-columns: 1fr; } }
+  .health-card { background: #fff; border-radius: 16px; border: 1px solid #eef1f6; box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.03); padding: 20px 22px; }
+  .health-card-title { font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .health-card-title i { color: #94a3b8; font-size: 12px; }
+  .health-card-body { display: flex; align-items: center; gap: 22px; }
+  .health-ring-wrap { position: relative; width: 102px; height: 102px; flex: none; }
+  .health-ring { width: 102px; height: 102px; border-radius: 50%; background: conic-gradient(var(--ring-color, #3b82f6) calc(var(--pct, 0) * 3.6deg), #eef1f6 0deg); }
+  .health-ring-inner { position: absolute; inset: 11px; background: #fff; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .health-ring-pct { font-size: 19px; font-weight: 800; color: #0f172a; line-height: 1; }
+  .health-ring-lbl { font-size: 8.5px; color: #94a3b8; text-transform: uppercase; font-weight: 700; letter-spacing: .04em; margin-top: 2px; }
+  .health-ring.ring-good { --ring-color: #16a34a; }
+  .health-ring.ring-warn { --ring-color: #d97706; }
+  .health-ring.ring-crit { --ring-color: #dc2626; }
+  .health-metrics { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 11px; }
+  .health-metric-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; }
+  .health-metric-label { display: flex; align-items: center; gap: 8px; color: #475569; font-weight: 600; min-width: 0; }
+  .health-metric-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .health-metric-value { font-weight: 800; color: #0f172a; flex: none; }
+
+  /* ============================================================
+     Fuel Monitoring hero panel — one headline metric (efficiency)
+     plus supporting figures in the same card, instead of a fourth
+     repeat of the icon-box grid. ================================ */
+  .fuel-hero-panel { background: linear-gradient(135deg, #fffdf7, #fff); border-radius: 16px; border: 1px solid #fde8c6; box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.03); padding: 20px 24px; margin-bottom: 16px; display: flex; align-items: center; flex-wrap: wrap; gap: 22px; }
+  .fuel-hero-main { display: flex; align-items: center; gap: 16px; padding-right: 24px; border-right: 1px solid #fde8c6; }
+  @media (max-width: 860px) { .fuel-hero-main { border-right: none; padding-right: 0; width: 100%; } }
+  .fuel-hero-icon { width: 58px; height: 58px; border-radius: 15px; background: rgba(217,119,6,0.14); color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 23px; flex: none; }
+  .fuel-hero-value { font-size: 28px; font-weight: 800; color: #0f172a; line-height: 1; white-space: nowrap; }
+  .fuel-hero-label { font-size: 11.5px; color: #92400e; font-weight: 700; margin-top: 4px; text-transform: uppercase; letter-spacing: .03em; }
+  .fuel-mini-stats { display: flex; flex: 1; flex-wrap: wrap; gap: 22px; }
+  .fuel-mini-stat { display: flex; align-items: center; gap: 11px; min-width: 150px; }
+  .fuel-mini-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex: none; }
+  .fuel-mini-icon.c-logs { background: rgba(217,119,6,0.12); color: #d97706; }
+  .fuel-mini-icon.c-liters { background: rgba(14,165,233,0.12); color: #0284c7; }
+  .fuel-mini-icon.c-cost { background: rgba(220,38,38,0.1); color: #dc2626; }
+  .fuel-mini-value { font-size: 16px; font-weight: 800; color: #0f172a; line-height: 1.2; }
+  .fuel-mini-label { font-size: 10.5px; color: #94a3b8; font-weight: 600; }
 
   .dash-panel { background: #ffffff; border-radius: 16px; border: 1px solid #eef1f6; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04); overflow: hidden; margin-bottom: 22px; height: calc(100% - 22px); }
   .dash-panel-header { padding: 18px 22px; border-bottom: 1px solid #eef1f6; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -301,81 +339,123 @@
         </div>
         @endif
 
-        <div class="fleet-stats-grid">
-            <div class="stat-card-modern c-vehicles">
-                <div class="stat-icon-wrapper"><i class="fas fa-car-side"></i></div>
-                <div><div class="stat-num-value">{{ $vehicleStats['total'] }}</div><div class="stat-label-title">Total Vehicles</div></div>
+        @php
+            // Registration compliance %, lifted out of the card markup below so
+            // it's computed once and the ring/metrics can both reference it.
+            $regCompliantPct = $vehicleStats['total'] > 0
+                ? (int) round((($vehicleStats['total'] - $vehicleStats['registration_overdue'] - $vehicleStats['registration_due_soon'] - $vehicleStats['registration_not_on_file']) / $vehicleStats['total']) * 100)
+                : 0;
+            // Same good/warn/critical banding for both rings — >=80% reads as
+            // healthy, >=50% needs attention soon, below that is critical.
+            $ringStatus = fn ($pct) => $pct >= 80 ? 'ring-good' : ($pct >= 50 ? 'ring-warn' : 'ring-crit');
+        @endphp
+
+        <!-- Fleet Overview — one strip, four figures, instead of four separate cards -->
+        <div class="kpi-strip-panel">
+            <div class="kpi-strip-item">
+                <div class="kpi-strip-icon c-vehicles"><i class="fas fa-car-side"></i></div>
+                <div><div class="kpi-strip-value">{{ $vehicleStats['total'] }}</div><div class="kpi-strip-label">Total Vehicles</div></div>
             </div>
-            <div class="stat-card-modern c-drivers">
-                <div class="stat-icon-wrapper"><i class="fas fa-id-card"></i></div>
-                <div><div class="stat-num-value">{{ $driverStats['total'] }}</div><div class="stat-label-title">Total Personnel</div></div>
+            <div class="kpi-strip-item">
+                <div class="kpi-strip-icon c-drivers"><i class="fas fa-id-card"></i></div>
+                <div><div class="kpi-strip-value">{{ $driverStats['total'] }}</div><div class="kpi-strip-label">Total Personnel</div></div>
             </div>
-            <div class="stat-card-modern c-users">
-                <div class="stat-icon-wrapper"><i class="fas fa-users-cog"></i></div>
-                <div><div class="stat-num-value">{{ $userStats['total'] }}</div><div class="stat-label-title">System Users</div><div class="stat-sub-note">{{ $userStats['online'] }} online now</div></div>
+            <div class="kpi-strip-item">
+                <div class="kpi-strip-icon c-users"><i class="fas fa-users-cog"></i></div>
+                <div><div class="kpi-strip-value">{{ $userStats['total'] }}</div><div class="kpi-strip-label">System Users &middot; {{ $userStats['online'] }} online</div></div>
             </div>
-            <div class="stat-card-modern c-records">
-                <div class="stat-icon-wrapper"><i class="fas fa-clipboard-list"></i></div>
-                <div><div class="stat-num-value">{{ $maintenanceStats['total'] }}</div><div class="stat-label-title">Maintenance Records</div></div>
+            <div class="kpi-strip-item">
+                <div class="kpi-strip-icon c-records"><i class="fas fa-clipboard-list"></i></div>
+                <div><div class="kpi-strip-value">{{ $maintenanceStats['total'] }}</div><div class="kpi-strip-label">Maintenance Records</div></div>
             </div>
         </div>
 
-        <div class="fleet-stats-grid">
-            <div class="stat-card-modern c-serviceable">
-                <div class="stat-icon-wrapper"><i class="fas fa-check-circle"></i></div>
-                <div><div class="stat-num-value">{{ $vehicleStats['serviceable_pct'] }}%</div><div class="stat-label-title">Vehicles Serviceable</div></div>
+        <!-- Fleet Health — PMS compliance and Registration compliance as two
+             rings side by side, each with its supporting figures beside it,
+             so the headline % and its breakdown read as one picture instead
+             of four flat boxes apiece. -->
+        <div class="health-row">
+            <div class="health-card">
+                <div class="health-card-title"><i class="fas fa-tools"></i> PMS &amp; Maintenance Health</div>
+                <div class="health-card-body">
+                    <div class="health-ring-wrap">
+                        <div class="health-ring {{ $ringStatus($vehicleStats['serviceable_pct']) }}" style="--pct: {{ $vehicleStats['serviceable_pct'] }};">
+                            <div class="health-ring-inner">
+                                <div class="health-ring-pct">{{ $vehicleStats['serviceable_pct'] }}%</div>
+                                <div class="health-ring-lbl">Serviceable</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="health-metrics">
+                        <div class="health-metric-row">
+                            <span class="health-metric-label"><span class="health-metric-dot" style="background:#d97706;"></span>Due Soon (PMS)</span>
+                            <span class="health-metric-value">{{ $vehicleStats['due_soon'] }}</span>
+                        </div>
+                        <div class="health-metric-row">
+                            <span class="health-metric-label"><span class="health-metric-dot" style="background:#dc2626;"></span>Overdue (PMS)</span>
+                            <span class="health-metric-value">{{ $vehicleStats['overdue'] }}</span>
+                        </div>
+                        <div class="health-metric-row">
+                            <span class="health-metric-label"><span class="health-metric-dot" style="background:#0284c7;"></span>Spent This Month</span>
+                            <span class="health-metric-value">&#8369;{{ number_format($maintenanceStats['this_month_cost'] ?? 0, 0) }}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="stat-card-modern c-soon">
-                <div class="stat-icon-wrapper"><i class="fas fa-clock"></i></div>
-                <div><div class="stat-num-value">{{ $vehicleStats['due_soon'] }}</div><div class="stat-label-title">Due Soon (PMS)</div></div>
-            </div>
-            <div class="stat-card-modern c-overdue">
-                <div class="stat-icon-wrapper"><i class="fas fa-exclamation-triangle"></i></div>
-                <div><div class="stat-num-value">{{ $vehicleStats['overdue'] }}</div><div class="stat-label-title">Overdue (PMS)</div></div>
-            </div>
-            <div class="stat-card-modern c-cost">
-                <div class="stat-icon-wrapper"><i class="fas fa-money-bill-wave"></i></div>
-                <div><div class="stat-num-value">&#8369;{{ number_format($maintenanceStats['this_month_cost'] ?? 0, 0) }}</div><div class="stat-label-title">Spent This Month</div></div>
+
+            <div class="health-card">
+                <div class="health-card-title"><i class="fas fa-id-card"></i> Registration Health</div>
+                <div class="health-card-body">
+                    <div class="health-ring-wrap">
+                        <div class="health-ring {{ $ringStatus($regCompliantPct) }}" style="--pct: {{ $regCompliantPct }};">
+                            <div class="health-ring-inner">
+                                <div class="health-ring-pct">{{ $regCompliantPct }}%</div>
+                                <div class="health-ring-lbl">Compliant</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="health-metrics">
+                        <div class="health-metric-row">
+                            <span class="health-metric-label"><span class="health-metric-dot" style="background:#d97706;"></span>Due Soon (Registration)</span>
+                            <span class="health-metric-value">{{ $vehicleStats['registration_due_soon'] }}</span>
+                        </div>
+                        <div class="health-metric-row">
+                            <span class="health-metric-label"><span class="health-metric-dot" style="background:#dc2626;"></span>Overdue (Registration)</span>
+                            <span class="health-metric-value">{{ $vehicleStats['registration_overdue'] }}</span>
+                        </div>
+                        <div class="health-metric-row">
+                            <span class="health-metric-label"><span class="health-metric-dot" style="background:#475569;"></span>No Registration on File</span>
+                            <span class="health-metric-value">{{ $vehicleStats['registration_not_on_file'] }}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="section-heading"><i class="fas fa-id-card mr-1"></i> Registration Summary</div>
-        <div class="fleet-stats-grid">
-            <div class="stat-card-modern c-serviceable">
-                <div class="stat-icon-wrapper"><i class="fas fa-check-double"></i></div>
-                <div><div class="stat-num-value">{{ $vehicleStats['total'] > 0 ? (int) round((($vehicleStats['total'] - $vehicleStats['registration_overdue'] - $vehicleStats['registration_due_soon'] - $vehicleStats['registration_not_on_file']) / $vehicleStats['total']) * 100) : 0 }}%</div><div class="stat-label-title">Registration Compliant</div></div>
+        <!-- Fuel Monitoring — one headline metric (efficiency) with its three
+             supporting figures beside it in the same card, amber-accented to
+             read as its own module rather than a third repeat of the grid. -->
+        <div class="fuel-hero-panel">
+            <div class="fuel-hero-main">
+                <div class="fuel-hero-icon"><i class="fas fa-chart-line"></i></div>
+                <div>
+                    <div class="fuel-hero-value">{{ $fuelStats['avg_kml'] !== null ? number_format($fuelStats['avg_kml'], 2) : '—' }}<span style="font-size:14px;font-weight:700;color:#92400e;">&nbsp;km/L</span></div>
+                    <div class="fuel-hero-label">Avg. Fleet Efficiency</div>
+                </div>
             </div>
-            <div class="stat-card-modern c-soon">
-                <div class="stat-icon-wrapper"><i class="fas fa-clock"></i></div>
-                <div><div class="stat-num-value">{{ $vehicleStats['registration_due_soon'] }}</div><div class="stat-label-title">Due Soon (Registration)</div></div>
-            </div>
-            <div class="stat-card-modern c-overdue">
-                <div class="stat-icon-wrapper"><i class="fas fa-calendar-times"></i></div>
-                <div><div class="stat-num-value">{{ $vehicleStats['registration_overdue'] }}</div><div class="stat-label-title">Overdue (Registration)</div></div>
-            </div>
-            <div class="stat-card-modern c-unregistered">
-                <div class="stat-icon-wrapper"><i class="fas fa-folder-open"></i></div>
-                <div><div class="stat-num-value">{{ $vehicleStats['registration_not_on_file'] }}</div><div class="stat-label-title">No Registration on File</div></div>
-            </div>
-        </div>
-
-        <div class="section-heading"><i class="fas fa-gas-pump mr-1"></i> Fuel Monitoring</div>
-        <div class="fleet-stats-grid">
-            <div class="stat-card-modern c-fuel-logs">
-                <div class="stat-icon-wrapper"><i class="fas fa-gas-pump"></i></div>
-                <div><div class="stat-num-value">{{ $fuelStats['total_logs'] }}</div><div class="stat-label-title">Refuels Logged</div></div>
-            </div>
-            <div class="stat-card-modern c-fuel-liters">
-                <div class="stat-icon-wrapper"><i class="fas fa-tint"></i></div>
-                <div><div class="stat-num-value">{{ number_format($fuelStats['liters_month'] ?? 0, 0) }} L</div><div class="stat-label-title">Liters This Month</div></div>
-            </div>
-            <div class="stat-card-modern c-fuel-cost">
-                <div class="stat-icon-wrapper"><i class="fas fa-coins"></i></div>
-                <div><div class="stat-num-value">&#8369;{{ number_format($fuelStats['cost_month'] ?? 0, 0) }}</div><div class="stat-label-title">Fuel Cost This Month</div></div>
-            </div>
-            <div class="stat-card-modern c-fuel-kml">
-                <div class="stat-icon-wrapper"><i class="fas fa-chart-line"></i></div>
-                <div><div class="stat-num-value">{{ $fuelStats['avg_kml'] !== null ? number_format($fuelStats['avg_kml'], 2) : '—' }}</div><div class="stat-label-title">Avg. Efficiency (km/L)</div></div>
+            <div class="fuel-mini-stats">
+                <div class="fuel-mini-stat">
+                    <div class="fuel-mini-icon c-logs"><i class="fas fa-gas-pump"></i></div>
+                    <div><div class="fuel-mini-value">{{ $fuelStats['total_logs'] }}</div><div class="fuel-mini-label">Refuels Logged</div></div>
+                </div>
+                <div class="fuel-mini-stat">
+                    <div class="fuel-mini-icon c-liters"><i class="fas fa-tint"></i></div>
+                    <div><div class="fuel-mini-value">{{ number_format($fuelStats['liters_month'] ?? 0, 0) }} L</div><div class="fuel-mini-label">Liters This Month</div></div>
+                </div>
+                <div class="fuel-mini-stat">
+                    <div class="fuel-mini-icon c-cost"><i class="fas fa-coins"></i></div>
+                    <div><div class="fuel-mini-value">&#8369;{{ number_format($fuelStats['cost_month'] ?? 0, 0) }}</div><div class="fuel-mini-label">Fuel Cost This Month</div></div>
+                </div>
             </div>
         </div>
 

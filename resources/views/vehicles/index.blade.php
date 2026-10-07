@@ -363,8 +363,8 @@
 
         @if($priorityVehicles->isNotEmpty())
         <div class="priority-panel">
-            <div class="priority-panel-header"><i class="fas fa-bolt"></i> Priority Attention</div>
-            <div class="priority-panel-sub">Predicted from PMS due date, usage pace and service history — not just which vehicles happen to be overdue. Click one to find it below.</div>
+            <div class="priority-panel-header"><i class="fas fa-bolt"></i> Priority Attention — Preventive Maintenance (PMS)</div>
+            <div class="priority-panel-sub">These vehicles are most likely to need their next preventive maintenance service soon — not just the ones already overdue, but also those driven heavily or with a history of late services. Click a vehicle to find it in the table below.</div>
             @foreach($priorityVehicles as $p)
             <div class="priority-row" data-plate="{{ strtoupper($p['vehicle']->plate_number) }}" title="Click to find this vehicle in the table below">
                 <span class="priority-row-plate">{{ strtoupper($p['vehicle']->plate_number) }}</span>
