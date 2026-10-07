@@ -82,6 +82,14 @@ Route::middleware('auth')->group(function () {
         // reads straight from the same maintenance_records table those two already use.
         Route::get('/vehicles/{vehicle}/service-history', [VehicleController::class, 'serviceHistory'])->name('vehicles.service-history');
 
+        // The other three tabs of the "Vehicle Records" modal on Vehicle Inventory —
+        // same reasoning as service-history above, just pointed at Trip Logs, Fuel
+        // Monitoring and Accident Records, so every vehicle-related record is visible
+        // from one place without leaving the Vehicle Inventory page.
+        Route::get('/vehicles/{vehicle}/trip-logs-history', [VehicleController::class, 'tripLogsHistory'])->name('vehicles.trip-logs-history');
+        Route::get('/vehicles/{vehicle}/fuel-logs-history', [VehicleController::class, 'fuelLogsHistory'])->name('vehicles.fuel-logs-history');
+        Route::get('/vehicles/{vehicle}/accidents-history', [VehicleController::class, 'accidentsHistory'])->name('vehicles.accidents-history');
+
         // Serves uploaded OR/CR files directly (bypasses the public/storage symlink, which is
         // unreliable on Windows) and keeps document access behind login like everything else.
         Route::get('/vehicle-documents/{path}', [VehicleController::class, 'viewDocument'])

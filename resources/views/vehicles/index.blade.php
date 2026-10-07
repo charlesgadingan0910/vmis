@@ -183,6 +183,13 @@
   .history-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 12px; }
   .history-year { font-size: 18px; font-weight: 800; color: #0f172a; }
 
+  /* ---------- Vehicle Records modal — tab bar across the four record types ---------- */
+  .vr-tab-nav { border-bottom: 2px solid #eef1f6; gap: 4px; flex-wrap: wrap; }
+  .vr-tab-nav .nav-link { font-size: 13px; font-weight: 700; color: #64748b; padding: 9px 14px; border-radius: 10px 10px 0 0; border: none; margin-bottom: -2px; }
+  .vr-tab-nav .nav-link:hover { color: #334155; background: #f8fafc; }
+  .vr-tab-nav .nav-link.active { color: #1d4ed8; background: #eff6ff; border-bottom: 2px solid #1d4ed8; }
+  .vr-tab-pane .history-card .round-trip-chip{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:2px 7px;border-radius:5px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;margin-left:6px;white-space:nowrap;}
+
   /* ---------- Registration document icons (Register Vehicle / Add Registration forms) ---------- */
   .doc-field-icon { font-size: 12px; margin-right: 4px; }
   .doc-field-icon-or { color: #3b82f6; }
@@ -871,52 +878,180 @@
 
 <!-- SERVICE HISTORY MODAL (combined Maintenance & PMS + Repair) -->
 <div class="modal fade" id="serviceHistoryModal" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content modal-content-premium">
             <div class="modal-header-slate d-flex align-items-center justify-content-between">
-                <h5 id="serviceHistoryModalTitle"><i class="fas fa-wrench mr-2"></i> Maintenance &amp; Repair History</h5>
+                <h5 id="serviceHistoryModalTitle"><i class="fas fa-folder-open mr-2"></i> Vehicle Records</h5>
             </div>
             <div class="modal-body p-4">
-                <div id="serviceHistorySummary" class="row text-center mb-3" style="display:none;">
-                    <div class="col-4">
-                        <div class="font-weight-bold" style="font-size:20px;" id="shSummaryTotal">0</div>
-                        <div class="text-muted small">Total Jobs</div>
-                    </div>
-                    <div class="col-4">
-                        <div class="font-weight-bold" style="font-size:20px;" id="shSummaryMaintenance">0</div>
-                        <div class="text-muted small">Maintenance &amp; PMS</div>
-                    </div>
-                    <div class="col-4">
-                        <div class="font-weight-bold" style="font-size:20px;" id="shSummaryRepairs">0</div>
-                        <div class="text-muted small">Repairs</div>
-                    </div>
-                </div>
 
-                <!-- Search + module filter — only meaningful once there's more than a
-                     handful of records, but always shown so a vehicle's history stays
-                     browsable no matter how large it eventually grows. -->
-                <div class="d-flex flex-wrap mb-3" style="gap:8px;">
-                    <input type="text" id="shSearchInput" class="form-control form-control-sm" placeholder="Search description, control #, performed by..." style="flex:1; min-width:200px;">
-                    <select id="shModuleFilter" class="form-control form-control-sm" style="max-width:170px;">
-                        <option value="">All Jobs</option>
-                        <option value="MAINTENANCE">Maintenance &amp; PMS only</option>
-                        <option value="REPAIR">Repairs only</option>
-                    </select>
-                </div>
+                <!-- Everything ever logged against this vehicle, one tab per module, so an
+                     admin never has to leave Vehicle Inventory to piece the full picture
+                     together across Maintenance, Repairs, Trip Logs, Fuel Monitoring and
+                     Accident Records. -->
+                <ul class="nav nav-pills vr-tab-nav mb-3" id="vrTabNav">
+                    <li class="nav-item"><a href="#" class="nav-link active" data-tab="service"><i class="fas fa-tools mr-1"></i> Maintenance &amp; Repairs</a></li>
+                    <li class="nav-item"><a href="#" class="nav-link" data-tab="trips"><i class="fas fa-route mr-1"></i> Trip Logs</a></li>
+                    <li class="nav-item"><a href="#" class="nav-link" data-tab="fuel"><i class="fas fa-gas-pump mr-1"></i> Fuel Monitoring</a></li>
+                    <li class="nav-item"><a href="#" class="nav-link" data-tab="accidents"><i class="fas fa-car-crash mr-1"></i> Accidents</a></li>
+                </ul>
 
-                <div id="serviceHistoryBody">
-                    <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
-                </div>
+                <!-- ============ MAINTENANCE & REPAIRS TAB ============ -->
+                <div class="vr-tab-pane" id="vrPaneService">
+                    <div id="serviceHistorySummary" class="row text-center mb-3" style="display:none;">
+                        <div class="col-4">
+                            <div class="font-weight-bold" style="font-size:20px;" id="shSummaryTotal">0</div>
+                            <div class="text-muted small">Total Jobs</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="font-weight-bold" style="font-size:20px;" id="shSummaryMaintenance">0</div>
+                            <div class="text-muted small">Maintenance &amp; PMS</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="font-weight-bold" style="font-size:20px;" id="shSummaryRepairs">0</div>
+                            <div class="text-muted small">Repairs</div>
+                        </div>
+                    </div>
 
-                <div id="serviceHistoryPagination" class="mt-3 pt-2 border-top" style="display:none;">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="text-muted small" id="shPaginationInfo"></span>
-                        <div>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="shPrevBtn"><i class="fas fa-chevron-left"></i> Prev</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="shNextBtn">Next <i class="fas fa-chevron-right"></i></button>
+                    <!-- Search + module filter — only meaningful once there's more than a
+                         handful of records, but always shown so a vehicle's history stays
+                         browsable no matter how large it eventually grows. -->
+                    <div class="d-flex flex-wrap mb-3" style="gap:8px;">
+                        <input type="text" id="shSearchInput" class="form-control form-control-sm" placeholder="Search description, control #, performed by..." style="flex:1; min-width:200px;">
+                        <select id="shModuleFilter" class="form-control form-control-sm" style="max-width:170px;">
+                            <option value="">All Jobs</option>
+                            <option value="MAINTENANCE">Maintenance &amp; PMS only</option>
+                            <option value="REPAIR">Repairs only</option>
+                        </select>
+                    </div>
+
+                    <div id="serviceHistoryBody">
+                        <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+                    </div>
+
+                    <div id="serviceHistoryPagination" class="mt-3 pt-2 border-top" style="display:none;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small" id="shPaginationInfo"></span>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="shPrevBtn"><i class="fas fa-chevron-left"></i> Prev</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="shNextBtn">Next <i class="fas fa-chevron-right"></i></button>
+                            </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- ============ TRIP LOGS TAB ============ -->
+                <div class="vr-tab-pane" id="vrPaneTrips" style="display:none;">
+                    <div id="tripHistorySummary" class="row text-center mb-3" style="display:none;">
+                        <div class="col-4">
+                            <div class="font-weight-bold" style="font-size:20px;" id="thSummaryTotal">0</div>
+                            <div class="text-muted small">Total Trips</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="font-weight-bold" style="font-size:20px;" id="thSummaryRoundTrips">0</div>
+                            <div class="text-muted small">Round Trips</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="font-weight-bold" style="font-size:20px;" id="thSummaryDistance">0</div>
+                            <div class="text-muted small">Total Distance (km)</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap mb-3" style="gap:8px;">
+                        <input type="text" id="thSearchInput" class="form-control form-control-sm" placeholder="Search origin, destination, purpose..." style="flex:1; min-width:200px;">
+                    </div>
+
+                    <div id="tripHistoryBody">
+                        <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+                    </div>
+
+                    <div id="tripHistoryPagination" class="mt-3 pt-2 border-top" style="display:none;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small" id="thPaginationInfo"></span>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="thPrevBtn"><i class="fas fa-chevron-left"></i> Prev</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="thNextBtn">Next <i class="fas fa-chevron-right"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============ FUEL MONITORING TAB ============ -->
+                <div class="vr-tab-pane" id="vrPaneFuel" style="display:none;">
+                    <div id="fuelHistorySummary" class="row text-center mb-3" style="display:none;">
+                        <div class="col-3">
+                            <div class="font-weight-bold" style="font-size:20px;" id="fhSummaryTotal">0</div>
+                            <div class="text-muted small">Refuels</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="font-weight-bold" style="font-size:20px;" id="fhSummaryLiters">0</div>
+                            <div class="text-muted small">Total Liters</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="font-weight-bold" style="font-size:20px;" id="fhSummaryCost">&#8369;0</div>
+                            <div class="text-muted small">Total Cost</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="font-weight-bold" style="font-size:20px;" id="fhSummaryKml">&mdash;</div>
+                            <div class="text-muted small">Avg. km/L</div>
+                        </div>
+                    </div>
+
+                    <div id="fuelHistoryBody">
+                        <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+                    </div>
+
+                    <div id="fuelHistoryPagination" class="mt-3 pt-2 border-top" style="display:none;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small" id="fhPaginationInfo"></span>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="fhPrevBtn"><i class="fas fa-chevron-left"></i> Prev</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="fhNextBtn">Next <i class="fas fa-chevron-right"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============ ACCIDENTS TAB ============ -->
+                <div class="vr-tab-pane" id="vrPaneAccidents" style="display:none;">
+                    <div id="accidentHistorySummary" class="row text-center mb-3" style="display:none;">
+                        <div class="col-3">
+                            <div class="font-weight-bold" style="font-size:20px;" id="ahSummaryTotal">0</div>
+                            <div class="text-muted small">Total Reports</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="font-weight-bold text-info" style="font-size:20px;" id="ahSummaryMinor">0</div>
+                            <div class="text-muted small">Minor</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="font-weight-bold text-warning" style="font-size:20px;" id="ahSummaryModerate">0</div>
+                            <div class="text-muted small">Moderate</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="font-weight-bold text-danger" style="font-size:20px;" id="ahSummaryMajor">0</div>
+                            <div class="text-muted small">Major</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap mb-3" style="gap:8px;">
+                        <input type="text" id="ahSearchInput" class="form-control form-control-sm" placeholder="Search location, description, police report #..." style="flex:1; min-width:200px;">
+                    </div>
+
+                    <div id="accidentHistoryBody">
+                        <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+                    </div>
+
+                    <div id="accidentHistoryPagination" class="mt-3 pt-2 border-top" style="display:none;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small" id="ahPaginationInfo"></span>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="ahPrevBtn"><i class="fas fa-chevron-left"></i> Prev</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="ahNextBtn">Next <i class="fas fa-chevron-right"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
             <div class="modal-footer bg-light"><button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button></div>
         </div>
@@ -958,6 +1093,9 @@ $(document).ready(function() {
         registrations:"{{ route('vehicles.registrations.store', ':id') }}",
         qrData:       "{{ route('vehicles.qr-data', ':id') }}",
         serviceHistory:"{{ route('vehicles.service-history', ':id') }}",
+        tripLogsHistory:"{{ route('vehicles.trip-logs-history', ':id') }}",
+        fuelLogsHistory:"{{ route('vehicles.fuel-logs-history', ':id') }}",
+        accidentsHistory:"{{ route('vehicles.accidents-history', ':id') }}",
     };
     function vehicleRoute(name, id) {
         return routeTemplates[name].replace(':id', id);
@@ -1346,7 +1484,7 @@ $(document).ready(function() {
             search: state.search,
             module: state.module,
         }, function(data) {
-            $('#serviceHistoryModalTitle').html(`<i class="fas fa-wrench mr-2"></i> ${data.plate_number} — Maintenance &amp; Repair History`);
+            $('#serviceHistoryModalTitle').html(`<i class="fas fa-folder-open mr-2"></i> ${data.plate_number} — Vehicle Records`);
 
             $('#shSummaryTotal').text(data.summary.total);
             $('#shSummaryMaintenance').text(data.summary.maintenance);
@@ -1429,14 +1567,287 @@ $(document).ready(function() {
         });
     }
 
+    // ---------------- Trip Logs tab ----------------
+    let currentTripHistory = { vehicleId: null, start: 0, length: 10, search: '' };
+
+    function loadTripHistory() {
+        const state = currentTripHistory;
+        $('#tripHistoryBody').html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+        $('#tripHistoryPagination').hide();
+
+        $.get(vehicleRoute('tripLogsHistory', state.vehicleId), {
+            start: state.start,
+            length: state.length,
+            search: state.search,
+        }, function(data) {
+            $('#serviceHistoryModalTitle').html(`<i class="fas fa-folder-open mr-2"></i> ${data.plate_number} — Vehicle Records`);
+
+            $('#thSummaryTotal').text(data.summary.total);
+            $('#thSummaryRoundTrips').text(data.summary.round_trips);
+            $('#thSummaryDistance').text(Number(data.summary.total_distance_km).toLocaleString());
+            $('#tripHistorySummary').toggle(data.summary.total > 0);
+
+            if (data.summary.total === 0) {
+                $('#tripHistoryBody').html('<div class="alert alert-info">No trips logged for this vehicle yet.</div>');
+                return;
+            }
+            if (data.records.length === 0) {
+                $('#tripHistoryBody').html('<div class="alert alert-info">No trips match this search.</div>');
+                return;
+            }
+
+            let html = '';
+            data.records.forEach(function(r) {
+                const legChip = r.leg === 'outbound'
+                    ? '<span class="round-trip-chip">Round Trip &middot; Outbound</span>'
+                    : (r.leg === 'return' ? '<span class="round-trip-chip">Round Trip &middot; Return</span>' : '');
+                const timeLine = (r.departure_time || r.arrival_time)
+                    ? `<div><i class="fas fa-clock text-muted mr-1"></i> ${r.departure_time || '—'} to ${r.arrival_time || '—'}</div>`
+                    : '';
+                const odometerLine = (r.odometer_start !== null || r.odometer_end !== null)
+                    ? `<div><i class="fas fa-tachometer-alt text-muted mr-1"></i> ${r.odometer_start !== null ? Number(r.odometer_start).toLocaleString() : '—'} &rarr; ${r.odometer_end !== null ? Number(r.odometer_end).toLocaleString() : '—'}${r.distance_km !== null ? ` (${Number(r.distance_km).toLocaleString()} km)` : ''}</div>`
+                    : '';
+                const driverLine = r.driver_name
+                    ? `<div><i class="fas fa-id-card text-muted mr-1"></i> ${r.driver_name}</div>`
+                    : '';
+                const passengersLine = r.passengers
+                    ? `<div><i class="fas fa-users text-muted mr-1"></i> ${r.passengers}</div>`
+                    : '';
+
+                html += `
+                <div class="history-card">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap mb-2" style="gap:6px;">
+                        <div class="font-weight-bold">${r.origin} <i class="fas fa-arrow-right text-muted mx-1" style="font-size:11px;"></i> ${r.destination}${legChip}</div>
+                        <span class="text-muted small">${r.trip_date}</span>
+                    </div>
+                    ${r.purpose ? `<p class="mb-2">${r.purpose}</p>` : ''}
+                    <div class="small text-dark" style="line-height:1.9;">
+                        ${timeLine}
+                        ${odometerLine}
+                        ${driverLine}
+                        ${passengersLine}
+                    </div>
+                    ${r.remarks ? `<p class="text-muted small mb-0 mt-2"><i class="fas fa-sticky-note mr-1"></i> ${r.remarks}</p>` : ''}
+                    <p class="text-muted small mb-0 mt-2"><i class="fas fa-clock"></i> Logged on ${r.logged_at}</p>
+                </div>`;
+            });
+            $('#tripHistoryBody').html(html);
+
+            if (data.recordsFiltered > state.length) {
+                const shownFrom = state.start + 1;
+                const shownTo = Math.min(state.start + state.length, data.recordsFiltered);
+                $('#thPaginationInfo').text(`Showing ${shownFrom}–${shownTo} of ${data.recordsFiltered} trip${data.recordsFiltered === 1 ? '' : 's'}`);
+                $('#thPrevBtn').prop('disabled', state.start <= 0);
+                $('#thNextBtn').prop('disabled', state.start + state.length >= data.recordsFiltered);
+                $('#tripHistoryPagination').show();
+            } else {
+                $('#tripHistoryPagination').hide();
+            }
+        }).fail(function() {
+            $('#tripHistoryBody').html('<div class="alert alert-danger">Error loading trip logs. You may not have permission.</div>');
+            $('#tripHistoryPagination').hide();
+        });
+    }
+
+    // ---------------- Fuel Monitoring tab ----------------
+    let currentFuelHistory = { vehicleId: null, start: 0, length: 10 };
+
+    function loadFuelHistory() {
+        const state = currentFuelHistory;
+        $('#fuelHistoryBody').html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+        $('#fuelHistoryPagination').hide();
+
+        $.get(vehicleRoute('fuelLogsHistory', state.vehicleId), {
+            start: state.start,
+            length: state.length,
+        }, function(data) {
+            $('#serviceHistoryModalTitle').html(`<i class="fas fa-folder-open mr-2"></i> ${data.plate_number} — Vehicle Records`);
+
+            $('#fhSummaryTotal').text(data.summary.total);
+            $('#fhSummaryLiters').text(Number(data.summary.total_liters).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' L');
+            $('#fhSummaryCost').html('&#8369;' + Number(data.summary.total_cost).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+            $('#fhSummaryKml').text(data.summary.avg_kml !== null ? Number(data.summary.avg_kml).toFixed(2) : '—');
+            $('#fuelHistorySummary').toggle(data.summary.total > 0);
+
+            if (data.summary.total === 0) {
+                $('#fuelHistoryBody').html('<div class="alert alert-info">No refuels logged for this vehicle yet.</div>');
+                return;
+            }
+
+            let html = '';
+            data.records.forEach(function(r) {
+                const effLine = (r.km_per_liter !== null && r.distance_km !== null)
+                    ? `<div><i class="fas fa-bolt text-muted mr-1"></i> ${Number(r.distance_km).toLocaleString()} km since last &middot; ${Number(r.km_per_liter).toFixed(2)} km/L</div>`
+                    : `<div class="text-muted"><i class="fas fa-bolt mr-1"></i> First logged refuel for this vehicle</div>`;
+                const driverLine = r.driver_name
+                    ? `<div><i class="fas fa-id-card text-muted mr-1"></i> ${r.driver_name}</div>`
+                    : '';
+                const receiptLine = r.receipt_url
+                    ? `<div><a href="${r.receipt_url}" target="_blank"><i class="fas fa-receipt mr-1"></i> View Receipt</a></div>`
+                    : '';
+
+                html += `
+                <div class="history-card">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap mb-2" style="gap:6px;">
+                        <div class="font-weight-bold">${Number(r.liters).toFixed(2)} L &middot; &#8369;${Number(r.total_cost).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                        <span class="text-muted small">${r.refuel_date}</span>
+                    </div>
+                    <div class="small text-dark" style="line-height:1.9;">
+                        <div><i class="fas fa-tachometer-alt text-muted mr-1"></i> ${Number(r.odometer_reading).toLocaleString()} km</div>
+                        ${effLine}
+                        ${r.price_per_liter !== null ? `<div><i class="fas fa-coins text-muted mr-1"></i> &#8369;${Number(r.price_per_liter).toFixed(2)}/L</div>` : ''}
+                        ${driverLine}
+                        ${receiptLine}
+                    </div>
+                    <p class="text-muted small mb-0 mt-2"><i class="fas fa-clock"></i> Logged on ${r.logged_at}</p>
+                </div>`;
+            });
+            $('#fuelHistoryBody').html(html);
+
+            if (data.recordsFiltered > state.length) {
+                const shownFrom = state.start + 1;
+                const shownTo = Math.min(state.start + state.length, data.recordsFiltered);
+                $('#fhPaginationInfo').text(`Showing ${shownFrom}–${shownTo} of ${data.recordsFiltered} refuel${data.recordsFiltered === 1 ? '' : 's'}`);
+                $('#fhPrevBtn').prop('disabled', state.start <= 0);
+                $('#fhNextBtn').prop('disabled', state.start + state.length >= data.recordsFiltered);
+                $('#fuelHistoryPagination').show();
+            } else {
+                $('#fuelHistoryPagination').hide();
+            }
+        }).fail(function() {
+            $('#fuelHistoryBody').html('<div class="alert alert-danger">Error loading fuel logs. You may not have permission.</div>');
+            $('#fuelHistoryPagination').hide();
+        });
+    }
+
+    // ---------------- Accidents tab ----------------
+    let currentAccidentHistory = { vehicleId: null, start: 0, length: 10, search: '' };
+
+    function loadAccidentHistory() {
+        const state = currentAccidentHistory;
+        $('#accidentHistoryBody').html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+        $('#accidentHistoryPagination').hide();
+
+        $.get(vehicleRoute('accidentsHistory', state.vehicleId), {
+            start: state.start,
+            length: state.length,
+            search: state.search,
+        }, function(data) {
+            $('#serviceHistoryModalTitle').html(`<i class="fas fa-folder-open mr-2"></i> ${data.plate_number} — Vehicle Records`);
+
+            $('#ahSummaryTotal').text(data.summary.total);
+            $('#ahSummaryMinor').text(data.summary.minor);
+            $('#ahSummaryModerate').text(data.summary.moderate);
+            $('#ahSummaryMajor').text(data.summary.major);
+            $('#accidentHistorySummary').toggle(data.summary.total > 0);
+
+            if (data.summary.total === 0) {
+                $('#accidentHistoryBody').html('<div class="alert alert-info">No accidents logged for this vehicle yet.</div>');
+                return;
+            }
+            if (data.records.length === 0) {
+                $('#accidentHistoryBody').html('<div class="alert alert-info">No reports match this search.</div>');
+                return;
+            }
+
+            const severityBadge = { MINOR: 'badge-info', MODERATE: 'badge-warning', MAJOR: 'badge-danger' };
+
+            let html = '';
+            data.records.forEach(function(r) {
+                const badgeClass = severityBadge[r.severity] || 'badge-secondary';
+                const costLine = r.estimated_cost !== null
+                    ? `<div><i class="fas fa-coins text-muted mr-1"></i> &#8369;${Number(r.estimated_cost).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} estimated</div>`
+                    : '';
+                const driverLine = r.driver_name
+                    ? `<div><i class="fas fa-id-card text-muted mr-1"></i> ${r.driver_name}</div>`
+                    : '';
+                const reportLine = r.police_report_no
+                    ? `<div><i class="fas fa-file-alt text-muted mr-1"></i> Police Report #${r.police_report_no}</div>`
+                    : '';
+                const photoLine = r.photo_url
+                    ? `<div><a href="${r.photo_url}" target="_blank"><i class="fas fa-image mr-1"></i> View Photo</a></div>`
+                    : '';
+
+                html += `
+                <div class="history-card">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap mb-2" style="gap:6px;">
+                        <div><span class="badge ${badgeClass} px-2 py-1">${r.severity_label}</span> <span class="font-weight-bold ml-1">${r.location}</span></div>
+                        <span class="text-muted small">${r.accident_date}${r.accident_time ? ' · ' + r.accident_time : ''}</span>
+                    </div>
+                    ${r.description ? `<p class="mb-2">${r.description}</p>` : ''}
+                    <div class="small text-dark" style="line-height:1.9;">
+                        ${costLine}
+                        ${driverLine}
+                        ${reportLine}
+                        ${photoLine}
+                    </div>
+                    <p class="text-muted small mb-0 mt-2"><i class="fas fa-clock"></i> Logged on ${r.logged_at}</p>
+                </div>`;
+            });
+            $('#accidentHistoryBody').html(html);
+
+            if (data.recordsFiltered > state.length) {
+                const shownFrom = state.start + 1;
+                const shownTo = Math.min(state.start + state.length, data.recordsFiltered);
+                $('#ahPaginationInfo').text(`Showing ${shownFrom}–${shownTo} of ${data.recordsFiltered} report${data.recordsFiltered === 1 ? '' : 's'}`);
+                $('#ahPrevBtn').prop('disabled', state.start <= 0);
+                $('#ahNextBtn').prop('disabled', state.start + state.length >= data.recordsFiltered);
+                $('#accidentHistoryPagination').show();
+            } else {
+                $('#accidentHistoryPagination').hide();
+            }
+        }).fail(function() {
+            $('#accidentHistoryBody').html('<div class="alert alert-danger">Error loading accident records. You may not have permission.</div>');
+            $('#accidentHistoryPagination').hide();
+        });
+    }
+
+    // ---------------- Tab switching ----------------
+    // Each tab's data loads lazily, the first time it's activated for the
+    // currently-open vehicle — vrLoadedTabs is reset every time the modal is
+    // opened (possibly for a different vehicle) so switching back to an
+    // already-loaded tab doesn't re-fetch anything already on screen.
+    let vrLoadedTabs = {};
+    const vrPanes = { service: '#vrPaneService', trips: '#vrPaneTrips', fuel: '#vrPaneFuel', accidents: '#vrPaneAccidents' };
+    const vrLoaders = { service: loadServiceHistory, trips: loadTripHistory, fuel: loadFuelHistory, accidents: loadAccidentHistory };
+
+    $('#vrTabNav').on('click', '.nav-link', function(e) {
+        e.preventDefault();
+        const tab = $(this).data('tab');
+        if ($(this).hasClass('active')) return;
+
+        $('#vrTabNav .nav-link').removeClass('active');
+        $(this).addClass('active');
+        $.each(vrPanes, function(key, selector) { $(selector).toggle(key === tab); });
+
+        if (!vrLoadedTabs[tab]) {
+            vrLoadedTabs[tab] = true;
+            vrLoaders[tab]();
+        }
+    });
+
     $('#vehiclesTable').on('click', '.btn-service-history', function() {
         let id = $(this).data('id');
         // Fresh page/filter state every time the modal opens — otherwise a search
         // or page position left over from a previous vehicle (or an earlier look
         // at this same one) would carry over and quietly hide records.
         currentServiceHistory = { vehicleId: id, start: 0, length: 10, search: '', module: '' };
+        currentTripHistory = { vehicleId: id, start: 0, length: 10, search: '' };
+        currentFuelHistory = { vehicleId: id, start: 0, length: 10 };
+        currentAccidentHistory = { vehicleId: id, start: 0, length: 10, search: '' };
+        vrLoadedTabs = { service: true };
+
         $('#shSearchInput').val('');
         $('#shModuleFilter').val('');
+        $('#thSearchInput').val('');
+        $('#ahSearchInput').val('');
+
+        // Always reopen on the Maintenance & Repairs tab, same starting point
+        // regardless of which tab was active the last time this modal closed.
+        $('#vrTabNav .nav-link').removeClass('active');
+        $('#vrTabNav .nav-link[data-tab="service"]').addClass('active');
+        $.each(vrPanes, function(key, selector) { $(selector).toggle(key === 'service'); });
+
         $('#serviceHistoryModal').modal('show');
         loadServiceHistory();
     });
@@ -1468,6 +1879,64 @@ $(document).ready(function() {
         if ($(this).prop('disabled')) return;
         currentServiceHistory.start += currentServiceHistory.length;
         loadServiceHistory();
+    });
+
+    let thSearchDebounce;
+    $('#thSearchInput').on('keyup input', function() {
+        clearTimeout(thSearchDebounce);
+        const value = $(this).val();
+        thSearchDebounce = setTimeout(function() {
+            currentTripHistory.search = value;
+            currentTripHistory.start = 0;
+            loadTripHistory();
+        }, 300);
+    });
+
+    $('#thPrevBtn').on('click', function() {
+        if ($(this).prop('disabled')) return;
+        currentTripHistory.start = Math.max(0, currentTripHistory.start - currentTripHistory.length);
+        loadTripHistory();
+    });
+
+    $('#thNextBtn').on('click', function() {
+        if ($(this).prop('disabled')) return;
+        currentTripHistory.start += currentTripHistory.length;
+        loadTripHistory();
+    });
+
+    $('#fhPrevBtn').on('click', function() {
+        if ($(this).prop('disabled')) return;
+        currentFuelHistory.start = Math.max(0, currentFuelHistory.start - currentFuelHistory.length);
+        loadFuelHistory();
+    });
+
+    $('#fhNextBtn').on('click', function() {
+        if ($(this).prop('disabled')) return;
+        currentFuelHistory.start += currentFuelHistory.length;
+        loadFuelHistory();
+    });
+
+    let ahSearchDebounce;
+    $('#ahSearchInput').on('keyup input', function() {
+        clearTimeout(ahSearchDebounce);
+        const value = $(this).val();
+        ahSearchDebounce = setTimeout(function() {
+            currentAccidentHistory.search = value;
+            currentAccidentHistory.start = 0;
+            loadAccidentHistory();
+        }, 300);
+    });
+
+    $('#ahPrevBtn').on('click', function() {
+        if ($(this).prop('disabled')) return;
+        currentAccidentHistory.start = Math.max(0, currentAccidentHistory.start - currentAccidentHistory.length);
+        loadAccidentHistory();
+    });
+
+    $('#ahNextBtn').on('click', function() {
+        if ($(this).prop('disabled')) return;
+        currentAccidentHistory.start += currentAccidentHistory.length;
+        loadAccidentHistory();
     });
 
     $('#toggleAddRegistrationBtn').click(function() {

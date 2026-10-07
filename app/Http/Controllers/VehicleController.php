@@ -10,6 +10,9 @@ use App\Models\VehicleQrPrint;
 use App\Models\Unit;
 use App\Models\Station;
 use App\Models\MaintenanceRecord;
+use App\Models\TripLog;
+use App\Models\FuelLog;
+use App\Models\VehicleAccident;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
@@ -294,10 +297,14 @@ class VehicleController extends Controller
                     $docsHtml .= '<div class="vehicle-sub-info mt-1"><i class="fas fa-info-circle"></i> No registration on file</div>';
                 }
 
-                // Combined Maintenance & PMS + Repair history (serviceHistory() above) —
-                // read-only, so it's offered to every role including Viewer, same
-                // reasoning as the QR Code button right next to it.
-                $serviceHistoryBtn = '<button type="button" class="btn btn-sm btn-light border text-info btn-service-history" data-id="'.$vehicle->id.'" title="Maintenance &amp; Repair History"><i class="fas fa-wrench"></i></button>';
+                // "Vehicle Records" — a tabbed modal combining Maintenance & PMS, Repairs,
+                // Trip Logs, Fuel Monitoring and Accident Records for this one vehicle
+                // (serviceHistory()/tripLogsHistory()/fuelLogsHistory()/accidentsHistory()
+                // above) — read-only, so it's offered to every role including Viewer, same
+                // reasoning as the QR Code button right next to it. This is the one place
+                // an admin can see everything ever logged against a vehicle without
+                // leaving Vehicle Inventory to open four separate modules.
+                $serviceHistoryBtn = '<button type="button" class="btn btn-sm btn-light border text-info btn-service-history" data-id="'.$vehicle->id.'" title="Vehicle Records"><i class="fas fa-folder-open"></i></button>';
 
                 if ($role === self::ROLE_VIEWER) {
                     $actionsHtml = '
@@ -789,6 +796,213 @@ class VehicleController extends Controller
                     'next_due_date'       => optional($record->next_due_date)->format('M d, Y'),
                     'logged_by'           => optional($record->recorder)->fullname ?? 'System',
                     'logged_at'           => $record->created_at->format('M d, Y'),
+                ];
+            })->values(),
+        ]);
+    }
+
+    /**
+     * Trip Logs for this vehicle, for the "Vehicle Records" modal on Vehicle
+     * Inventory — the same read-only, server-side-paginated pattern as
+     * serviceHistory() above, just pointed at a different table, so an admin
+     * never has to leave this page to see a vehicle's full usage/driving
+     * history, not just its maintenance jobs.
+     */
+    public function tripLogsHistory(Request $request, $id): JsonResponse
+    {
+        $user = auth()->user();
+        $role = $this->role($user);
+        $vehicle = Vehicle::findOrFail($id);
+
+        if (! $this->canView($vehicle, $user, $role)) {
+            return response()->json(['error' => 'Unauthorized Access'], 403);
+        }
+
+        $allForVehicle = TripLog::where('vehicle_id', $vehicle->id)->get(['round_trip_group', 'odometer_start', 'odometer_end', 'trip_date']);
+        $summary = [
+            'total'       => $allForVehicle->count(),
+            // Each round trip is two linked rows sharing a round_trip_group — counted
+            // once per distinct group, not once per leg, so this reads as "round trips
+            // taken", not "round-trip legs logged".
+            'round_trips' => $allForVehicle->whereNotNull('round_trip_group')->pluck('round_trip_group')->unique()->count(),
+            'total_distance_km' => (int) $allForVehicle->filter(fn ($t) => $t->odometer_start !== null && $t->odometer_end !== null && $t->odometer_end >= $t->odometer_start)
+                ->sum(fn ($t) => $t->odometer_end - $t->odometer_start),
+            'last_trip_date' => $allForVehicle->isNotEmpty() ? optional($allForVehicle->sortByDesc('trip_date')->first()->trip_date)->format('M d, Y') : null,
+        ];
+
+        $query = TripLog::with('driver')->where('vehicle_id', $vehicle->id);
+
+        if ($search = trim((string) $request->get('search'))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('origin', 'like', "%{$search}%")
+                  ->orWhere('destination', 'like', "%{$search}%")
+                  ->orWhere('purpose', 'like', "%{$search}%")
+                  ->orWhere('passengers', 'like', "%{$search}%");
+            });
+        }
+
+        $recordsFiltered = (clone $query)->count();
+
+        $start  = max(0, (int) $request->get('start', 0));
+        $length = min(50, max(1, (int) $request->get('length', 10)));
+
+        $trips = $query->orderByDesc('trip_date')->orderByDesc('id')->skip($start)->take($length)->get();
+
+        return response()->json([
+            'plate_number'    => $vehicle->plate_number,
+            'summary'         => $summary,
+            'recordsTotal'    => $summary['total'],
+            'recordsFiltered' => $recordsFiltered,
+            'start'           => $start,
+            'length'          => $length,
+            'records'         => $trips->map(function (TripLog $trip) {
+                $distance = ($trip->odometer_start !== null && $trip->odometer_end !== null && $trip->odometer_end >= $trip->odometer_start)
+                    ? $trip->odometer_end - $trip->odometer_start
+                    : null;
+
+                return [
+                    'id'              => $trip->id,
+                    'trip_date'       => $trip->trip_date->format('M d, Y'),
+                    'departure_time'  => $trip->departure_time ? date('h:i A', strtotime($trip->departure_time)) : null,
+                    'arrival_time'    => $trip->arrival_time ? date('h:i A', strtotime($trip->arrival_time)) : null,
+                    'origin'          => $trip->origin,
+                    'destination'     => $trip->destination,
+                    'is_round_trip'   => $trip->isRoundTrip(),
+                    'leg'             => $trip->leg,
+                    'purpose'         => $trip->purpose,
+                    'odometer_start'  => $trip->odometer_start,
+                    'odometer_end'    => $trip->odometer_end,
+                    'distance_km'     => $distance,
+                    'passengers'      => $trip->passengers,
+                    'remarks'         => $trip->remarks,
+                    'driver_name'     => $trip->driver ? trim($trip->driver->firstname . ' ' . $trip->driver->lastname) : null,
+                    'logged_at'       => $trip->created_at->format('M d, Y'),
+                ];
+            })->values(),
+        ]);
+    }
+
+    /**
+     * Fuel Logs for this vehicle, for the "Vehicle Records" modal — mirrors
+     * tripLogsHistory() above; efficiency figures reuse FuelLog's own
+     * kmPerLiter()/distanceSinceLastRefuel() helpers so this modal can never
+     * disagree with the Fuel Monitoring module's own numbers.
+     */
+    public function fuelLogsHistory(Request $request, $id): JsonResponse
+    {
+        $user = auth()->user();
+        $role = $this->role($user);
+        $vehicle = Vehicle::findOrFail($id);
+
+        if (! $this->canView($vehicle, $user, $role)) {
+            return response()->json(['error' => 'Unauthorized Access'], 403);
+        }
+
+        $allForVehicle = FuelLog::where('vehicle_id', $vehicle->id)->get();
+        $kmlValues = $allForVehicle->map(fn ($log) => $log->kmPerLiter())->filter(fn ($v) => $v !== null);
+
+        $summary = [
+            'total'        => $allForVehicle->count(),
+            'total_liters' => (float) $allForVehicle->sum('liters'),
+            'total_cost'   => (float) $allForVehicle->sum('total_cost'),
+            'avg_kml'      => $kmlValues->isNotEmpty() ? round($kmlValues->avg(), 2) : null,
+        ];
+
+        $query = FuelLog::with('driver')->where('vehicle_id', $vehicle->id);
+
+        $recordsFiltered = (clone $query)->count();
+
+        $start  = max(0, (int) $request->get('start', 0));
+        $length = min(50, max(1, (int) $request->get('length', 10)));
+
+        $logs = $query->orderByDesc('refuel_date')->orderByDesc('id')->skip($start)->take($length)->get();
+
+        return response()->json([
+            'plate_number'    => $vehicle->plate_number,
+            'summary'         => $summary,
+            'recordsTotal'    => $summary['total'],
+            'recordsFiltered' => $recordsFiltered,
+            'start'           => $start,
+            'length'          => $length,
+            'records'         => $logs->map(function (FuelLog $log) {
+                return [
+                    'id'                => $log->id,
+                    'refuel_date'       => $log->refuel_date->format('M d, Y'),
+                    'liters'            => (float) $log->liters,
+                    'total_cost'        => (float) $log->total_cost,
+                    'price_per_liter'   => $log->pricePerLiter(),
+                    'odometer_reading'  => $log->odometer_reading,
+                    'distance_km'       => $log->distanceSinceLastRefuel(),
+                    'km_per_liter'      => $log->kmPerLiter(),
+                    'receipt_url'       => $log->receipt_path ? route('fuel-logs.document', ['path' => $log->receipt_path]) : null,
+                    'driver_name'       => $log->driver ? trim($log->driver->firstname . ' ' . $log->driver->lastname) : null,
+                    'logged_at'         => $log->created_at->format('M d, Y'),
+                ];
+            })->values(),
+        ]);
+    }
+
+    /**
+     * Accident Records for this vehicle, for the "Vehicle Records" modal —
+     * mirrors tripLogsHistory()/fuelLogsHistory() above.
+     */
+    public function accidentsHistory(Request $request, $id): JsonResponse
+    {
+        $user = auth()->user();
+        $role = $this->role($user);
+        $vehicle = Vehicle::findOrFail($id);
+
+        if (! $this->canView($vehicle, $user, $role)) {
+            return response()->json(['error' => 'Unauthorized Access'], 403);
+        }
+
+        $allForVehicle = VehicleAccident::where('vehicle_id', $vehicle->id)->get(['severity', 'estimated_cost']);
+        $summary = [
+            'total'               => $allForVehicle->count(),
+            'minor'               => $allForVehicle->where('severity', VehicleAccident::SEVERITY_MINOR)->count(),
+            'moderate'            => $allForVehicle->where('severity', VehicleAccident::SEVERITY_MODERATE)->count(),
+            'major'               => $allForVehicle->where('severity', VehicleAccident::SEVERITY_MAJOR)->count(),
+            'total_estimated_cost'=> (float) $allForVehicle->sum('estimated_cost'),
+        ];
+
+        $query = VehicleAccident::with('driver')->where('vehicle_id', $vehicle->id);
+
+        if ($search = trim((string) $request->get('search'))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('location', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('police_report_no', 'like', "%{$search}%");
+            });
+        }
+
+        $recordsFiltered = (clone $query)->count();
+
+        $start  = max(0, (int) $request->get('start', 0));
+        $length = min(50, max(1, (int) $request->get('length', 10)));
+
+        $accidents = $query->orderByDesc('accident_date')->orderByDesc('id')->skip($start)->take($length)->get();
+
+        return response()->json([
+            'plate_number'    => $vehicle->plate_number,
+            'summary'         => $summary,
+            'recordsTotal'    => $summary['total'],
+            'recordsFiltered' => $recordsFiltered,
+            'start'           => $start,
+            'length'          => $length,
+            'records'         => $accidents->map(function (VehicleAccident $accident) {
+                return [
+                    'id'                => $accident->id,
+                    'accident_date'     => $accident->accident_date->format('M d, Y'),
+                    'accident_time'     => $accident->accident_time ? date('h:i A', strtotime($accident->accident_time)) : null,
+                    'location'          => $accident->location,
+                    'description'       => $accident->description,
+                    'severity'          => $accident->severity,
+                    'severity_label'    => VehicleAccident::SEVERITIES[$accident->severity] ?? $accident->severity,
+                    'estimated_cost'    => $accident->estimated_cost !== null ? (float) $accident->estimated_cost : null,
+                    'police_report_no'  => $accident->police_report_no,
+                    'photo_url'         => $accident->photo_path ? route('accidents.document', ['path' => $accident->photo_path]) : null,
+                    'driver_name'       => $accident->driver ? trim($accident->driver->firstname . ' ' . $accident->driver->lastname) : null,
+                    'logged_at'         => $accident->created_at->format('M d, Y'),
                 ];
             })->values(),
         ]);
