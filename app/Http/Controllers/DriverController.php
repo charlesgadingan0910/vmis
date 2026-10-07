@@ -131,8 +131,10 @@ class DriverController extends Controller
         ];
 
         $ranks = Rank::orderBy('rank_level', 'asc')->get();
+        $dlCodes = Driver::DL_CODES;
+        $restrictionCodes = Driver::RESTRICTION_CODES;
 
-        return view('drivers.index', compact('stats', 'ranks'));
+        return view('drivers.index', compact('stats', 'ranks', 'dlCodes', 'restrictionCodes'));
     }
 
     /**
@@ -179,6 +181,13 @@ class DriverController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        // Unchecked checkbox groups aren't submitted at all, so normalize them
+        // to an empty array rather than letting the key go missing.
+        $request->merge([
+            'dl_codes'          => $request->input('dl_codes', []),
+            'restriction_codes' => $request->input('restriction_codes', []),
+        ]);
+
         $validated = $request->validate([
             'rank'                    => ['required', 'string', 'max:50'],
             'firstname'               => ['required', 'string', 'max:50'],
@@ -188,7 +197,15 @@ class DriverController extends Controller
             'license_number'          => ['nullable', 'string', 'max:50', 'unique:drivers,license_number'],
             'license_expiration_date' => ['nullable', 'date'],
             'license_type'            => ['required', 'string', 'max:50'],
+            'dl_codes'                => ['nullable', 'array'],
+            'dl_codes.*'              => ['string', Rule::in(array_keys(Driver::DL_CODES))],
+            'restriction_codes'       => ['nullable', 'array'],
+            'restriction_codes.*'     => ['string', Rule::in(array_keys(Driver::RESTRICTION_CODES))],
+            'license_serial_number'   => ['nullable', 'string', 'max:50'],
             'contact_number'          => ['required', 'string', 'max:20'],
+            'emergency_contact_name'    => ['nullable', 'string', 'max:100'],
+            'emergency_contact_address' => ['nullable', 'string', 'max:255'],
+            'emergency_contact_number'  => ['nullable', 'string', 'max:20'],
             'status'                  => ['required', 'in:active,inactive'],
             'photo'                   => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
         ]);
@@ -211,7 +228,14 @@ class DriverController extends Controller
     }
 
     public function update(Request $request, Driver $driver): RedirectResponse
-    {   
+    {
+        // Unchecked checkbox groups aren't submitted at all, so normalize them
+        // to an empty array rather than leaving the driver's old codes in place.
+        $request->merge([
+            'dl_codes'          => $request->input('dl_codes', []),
+            'restriction_codes' => $request->input('restriction_codes', []),
+        ]);
+
         $validated = $request->validate([
             'rank'                    => ['required', 'string', 'max:50'],
             'firstname'               => ['required', 'string', 'max:50'],
@@ -221,7 +245,15 @@ class DriverController extends Controller
             'license_number'          => ['nullable', 'string', 'max:50', Rule::unique('drivers', 'license_number')->ignore($driver->id)],
             'license_expiration_date' => ['nullable', 'date'],
             'license_type'            => ['required', 'string', 'max:50'],
+            'dl_codes'                => ['nullable', 'array'],
+            'dl_codes.*'              => ['string', Rule::in(array_keys(Driver::DL_CODES))],
+            'restriction_codes'       => ['nullable', 'array'],
+            'restriction_codes.*'     => ['string', Rule::in(array_keys(Driver::RESTRICTION_CODES))],
+            'license_serial_number'   => ['nullable', 'string', 'max:50'],
             'contact_number'          => ['required', 'string', 'max:20'],
+            'emergency_contact_name'    => ['nullable', 'string', 'max:100'],
+            'emergency_contact_address' => ['nullable', 'string', 'max:255'],
+            'emergency_contact_number'  => ['nullable', 'string', 'max:20'],
             'status'                  => ['required', 'in:active,inactive'],
             'photo'                   => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'remove_photo'            => ['nullable', 'boolean'],

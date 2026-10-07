@@ -83,8 +83,9 @@
         // A DRIVER's nav is deliberately minimal — Dashboard, Scan QR, and Trip
         // Logs only. Every section/link hidden here is backed by a matching
         // abort(403) inside its own controller (see VehicleController,
-        // MaintenanceController, DriverController, VehicleTypeController,
-        // UserController), so this is UX polish, not the actual access control.
+        // MaintenanceController, RepairController, DriverController,
+        // VehicleTypeController, UserController), so this is UX polish, not
+        // the actual access control.
         $__navRole = auth()->check() ? strtoupper(trim(Auth::user()->account_type)) : null;
         $__isDriver = $__navRole === 'DRIVER';
     @endphp
@@ -127,6 +128,22 @@
             <a href="{{ route('maintenance.index') }}" class="nav-link {{ request()->routeIs('maintenance.*') ? 'active' : '' }}">
                 <i class="nav-icon fas fa-tools"></i>
                 <p>Maintenance &amp; PMS</p>
+            </a>
+        </li>
+        @endunless
+        @unless($__isDriver)
+        <li class="nav-item">
+            <a href="{{ route('repairs.index') }}" class="nav-link {{ request()->routeIs('repairs.*') ? 'active' : '' }}">
+                <i class="nav-icon fas fa-wrench"></i>
+                <p>Repairs</p>
+            </a>
+        </li>
+        @endunless
+        @unless($__isDriver)
+        <li class="nav-item">
+            <a href="{{ route('accidents.index') }}" class="nav-link {{ request()->routeIs('accidents.*') ? 'active' : '' }}">
+                <i class="nav-icon fas fa-car-crash"></i>
+                <p>Accident Records</p>
             </a>
         </li>
         @endunless

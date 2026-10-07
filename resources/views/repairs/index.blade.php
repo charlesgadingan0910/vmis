@@ -3,7 +3,7 @@
 @section('title')
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VMIS | Maintenance &amp; PMS</title>
+<title>VMIS | Repairs</title>
 <link href="{{ asset('dist/img/kasurog.png') }}" rel="icon">
 @endsection
 
@@ -15,34 +15,14 @@
 
   .stat-card-modern { background: #ffffff; border-radius: 14px; padding: 18px 20px; border: 1px solid #eef1f6; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.03); display: flex; align-items: center; gap: 16px; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
   .stat-icon-wrapper { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
-  .stat-card-modern.total .stat-icon-wrapper { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
-  .stat-card-modern.soon .stat-icon-wrapper { background: rgba(245, 158, 11, 0.14); color: #d97706; }
-  .stat-card-modern.overdue .stat-icon-wrapper { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
-  .stat-card-modern.month .stat-icon-wrapper { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
+  .stat-card-modern.total .stat-icon-wrapper { background: rgba(217, 119, 6, 0.14); color: #d97706; }
+  .stat-card-modern.month .stat-icon-wrapper { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+  .stat-card-modern.month-cost .stat-icon-wrapper { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
+  .stat-card-modern.year-cost .stat-icon-wrapper { background: rgba(99, 102, 241, 0.12); color: #6366f1; }
   .stat-num-value { font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1.1; }
   .stat-label-title { font-size: 12px; font-weight: 600; color: #64748b; margin-top: 3px; }
 
-  /* ---------------- Monitoring panel ---------------- */
-  .monitor-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 22px; }
-  @media (max-width: 767.98px) { .monitor-panel { grid-template-columns: 1fr; } }
-  .monitor-column { background: #ffffff; border-radius: 14px; border: 1px solid #eef1f6; box-shadow: 0 1px 3px rgba(15,23,42,0.04); overflow: hidden; }
-  .monitor-column-header { padding: 14px 18px; font-size: 12.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; }
-  .monitor-column.soon .monitor-column-header { color: #d97706; background: #fffbeb; }
-  .monitor-column.overdue .monitor-column-header { color: #dc2626; background: #fef2f2; }
-  .monitor-column-count { background: rgba(0,0,0,0.06); border-radius: 20px; padding: 2px 10px; font-size: 11px; }
-  .monitor-list { max-height: 260px; overflow-y: auto; }
-  .monitor-empty { padding: 24px 18px; text-align: center; color: #94a3b8; font-size: 13px; }
-  .monitor-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 18px; border-bottom: 1px solid #f8fafc; }
-  .monitor-item:last-child { border-bottom: none; }
-  .monitor-item-info { min-width: 0; }
-  .monitor-item .plate-badge-sm { font-family: 'Courier New', monospace; font-weight: 800; font-size: 11.5px; background: #1e293b; color: #fff; padding: 3px 8px; border-radius: 5px; }
-  .monitor-item-name { font-size: 12.5px; color: #64748b; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .monitor-item-days { font-size: 11px; font-weight: 700; white-space: nowrap; }
-  .monitor-column.soon .monitor-item-days { color: #d97706; }
-  .monitor-column.overdue .monitor-item-days { color: #dc2626; }
-  .btn-log-quick { flex-shrink: 0; }
-
-  /* ---------------- Toolbar / table (matches Vehicle Inventory & Driver Management) ---------------- */
+  /* ---------------- Toolbar / table (matches Maintenance & PMS / Vehicle Inventory) ---------------- */
   .fleet-card-container { background: #ffffff; border-radius: 16px; border: 1px solid #eef1f6; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04); overflow: hidden; }
   .toolbar-header { padding: 22px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #eef1f6;}
   .toolbar-title h5 { font-weight: 800; color: #0f172a; margin: 0; font-size: 16px; }
@@ -59,12 +39,6 @@
   .vehicle-main-name { font-weight: 700; color: #0f172a; font-size: 14px; }
   .vehicle-sub-info { font-size: 12px; color: #64748b; margin-top: 2px; }
 
-  .due-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; padding: 5px 12px; border-radius: 20px; }
-  .due-overdue { background: #fcedec; color: #dc2626; }
-  .due-soon { background: #fff4e5; color: #d97706; }
-  .due-normal { background: #eaf6ef; color: #16a34a; }
-  .due-none { background: #f1f5f9; color: #94a3b8; }
-
   .modal-content-premium { border-radius: 16px; border: none; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden; }
   .modal-header-slate { background: linear-gradient(135deg, #1e293b, #0f172a); color: #ffffff; padding: 20px 24px; border-bottom: none; }
   .modal-header-slate h5 { font-weight: 800; font-size: 17px; margin: 0; }
@@ -75,9 +49,6 @@
   .live-checker-banner { display: none; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; font-weight: 600; align-items: center; gap: 10px; }
   .live-checker-banner.warning { display: flex; background: #fef2f2; border: 1.5px solid #fecaca; color: #991b1b; }
   .current-odo-hint { font-size: 11.5px; color: #94a3b8; margin-top: 4px; display: block; }
-  /* Default select2 height matches the toolbar's plain filter dropdowns (38px) so the
-     Vehicle filter doesn't sit taller than its siblings in the same row; the modal forms
-     override this back up to 42px to match their own .form-control-modern fields instead. */
   .select2-container .select2-selection--single { height: 38px !important; border: 1.5px solid #e2e8f0 !important; border-radius: 9px !important; }
   .select2-container--bootstrap4 .select2-selection--single .select2-selection__rendered { line-height: 36px !important; font-size: 13px; }
   .select2-container--bootstrap4 .select2-selection--single .select2-selection__arrow { height: 36px !important; }
@@ -140,10 +111,10 @@
     .fleet-table td:last-child { padding-bottom: 14px !important; }
 
     .fleet-table td:nth-child(2)::before { content: "Stage"; }
-    .fleet-table td:nth-child(3)::before { content: "Maintenance"; }
+    .fleet-table td:nth-child(3)::before { content: "Description"; }
     .fleet-table td:nth-child(4)::before { content: "Service Date"; }
     .fleet-table td:nth-child(5)::before { content: "Cost"; }
-    .fleet-table td:nth-child(6)::before { content: "Next Due"; }
+    .fleet-table td:nth-child(6)::before { content: "Performed By"; }
     .fleet-table td:nth-child(7)::before { content: "Logged By"; }
     .fleet-table td::before {
       display: block; font-size: 10px; font-weight: 700; text-transform: uppercase;
@@ -156,12 +127,12 @@
 </style>
 @endsection
 
-@section('nav-title', 'VMIS | Maintenance & PMS')
+@section('nav-title', 'VMIS | Repairs')
 
 @section('nav-actions')
 @if (! $isViewer)
-<button class="btn btn-primary font-weight-bold shadow-sm" style="border-radius:8px;" data-toggle="modal" data-target="#logMaintenanceModal">
-  <i class="fas fa-plus"></i> <span class="btn-label">Log Maintenance</span>
+<button class="btn btn-primary font-weight-bold shadow-sm" style="border-radius:8px;" data-toggle="modal" data-target="#logRepairModal">
+  <i class="fas fa-plus"></i> <span class="btn-label">Log Repair</span>
 </button>
 @endif
 @endsection
@@ -172,47 +143,26 @@
 
         <div class="fleet-stats-grid">
             <div class="stat-card-modern total">
-                <div class="stat-icon-wrapper"><i class="fas fa-clipboard-list"></i></div>
-                <div><div class="stat-num-value" id="statTotalRecords">{{ $stats['total_records'] }}</div><div class="stat-label-title">Total Records</div></div>
-            </div>
-            <div class="stat-card-modern soon">
-                <div class="stat-icon-wrapper"><i class="fas fa-clock"></i></div>
-                <div><div class="stat-num-value" id="statDueSoon">{{ $stats['due_soon'] }}</div><div class="stat-label-title">Due Soon (14 days)</div></div>
-            </div>
-            <div class="stat-card-modern overdue">
-                <div class="stat-icon-wrapper"><i class="fas fa-exclamation-triangle"></i></div>
-                <div><div class="stat-num-value" id="statOverdue">{{ $stats['overdue'] }}</div><div class="stat-label-title">Overdue</div></div>
+                <div class="stat-icon-wrapper"><i class="fas fa-wrench"></i></div>
+                <div><div class="stat-num-value" id="statTotalRecords">{{ $stats['total_records'] }}</div><div class="stat-label-title">Total Repairs</div></div>
             </div>
             <div class="stat-card-modern month">
-                <div class="stat-icon-wrapper"><i class="fas fa-check-circle"></i></div>
-                <div><div class="stat-num-value" id="statServicedMonth">{{ $stats['serviced_month'] }}</div><div class="stat-label-title">Serviced This Month</div></div>
+                <div class="stat-icon-wrapper"><i class="fas fa-calendar-check"></i></div>
+                <div><div class="stat-num-value" id="statThisMonth">{{ $stats['this_month'] }}</div><div class="stat-label-title">Repairs This Month</div></div>
             </div>
-        </div>
-
-        <div class="monitor-panel">
-            <div class="monitor-column soon">
-                <div class="monitor-column-header">
-                    <span><i class="fas fa-clock mr-1"></i> Due Soon</span>
-                    <span class="monitor-column-count" id="monitorSoonCount">0</span>
-                </div>
-                <div class="monitor-list" id="monitorSoonList">
-                    <div class="monitor-empty">Loading…</div>
-                </div>
+            <div class="stat-card-modern month-cost">
+                <div class="stat-icon-wrapper"><i class="fas fa-money-bill-wave"></i></div>
+                <div><div class="stat-num-value" id="statThisMonthCost">&#8369;{{ number_format($stats['this_month_cost'] ?? 0, 0) }}</div><div class="stat-label-title">Spent This Month</div></div>
             </div>
-            <div class="monitor-column overdue">
-                <div class="monitor-column-header">
-                    <span><i class="fas fa-exclamation-triangle mr-1"></i> Overdue</span>
-                    <span class="monitor-column-count" id="monitorOverdueCount">0</span>
-                </div>
-                <div class="monitor-list" id="monitorOverdueList">
-                    <div class="monitor-empty">Loading…</div>
-                </div>
+            <div class="stat-card-modern year-cost">
+                <div class="stat-icon-wrapper"><i class="fas fa-coins"></i></div>
+                <div><div class="stat-num-value" id="statThisYearCost">&#8369;{{ number_format($stats['this_year_cost'] ?? 0, 0) }}</div><div class="stat-label-title">Spent This Year</div></div>
             </div>
         </div>
 
         <div class="fleet-card-container">
             <div class="toolbar-header">
-                <div class="toolbar-title"><h5>Maintenance Records</h5></div>
+                <div class="toolbar-title"><h5>Repair Records</h5></div>
                 <div class="filter-bar">
                     <div class="search-input-shell">
                         <i class="fas fa-search"></i>
@@ -223,14 +173,6 @@
                         <option value="">All Vehicles</option>
                         @foreach ($vehicles as $v)
                             <option value="{{ $v->id }}">{{ strtoupper($v->plate_number) }} — {{ trim($v->make.' '.$v->model) }}</option>
-                        @endforeach
-                    </select>
-
-                    <select id="filterMaintenanceType" class="form-control custom-filter-select" style="width:170px;">
-                        <option value="">All Types</option>
-                        @foreach (\App\Models\MaintenanceRecord::TYPES as $key => $label)
-                            @continue($key === 'REPAIR')
-                            <option value="{{ $key }}">{{ $label }}</option>
                         @endforeach
                     </select>
 
@@ -258,15 +200,15 @@
             </div>
 
             <div class="table-responsive">
-                <table class="table fleet-table" id="maintenanceTable">
+                <table class="table fleet-table" id="repairsTable">
                     <thead>
                         <tr>
                             <th>Vehicle</th>
                             <th>Stage</th>
-                            <th>Maintenance</th>
+                            <th>Description</th>
                             <th>Service Date</th>
                             <th>Cost</th>
-                            <th>Next Due</th>
+                            <th>Performed By</th>
                             <th>Logged By</th>
                             <th>Actions</th>
                         </tr>
@@ -279,21 +221,21 @@
 </section>
 
 @if (! $isViewer)
-<!-- LOG MAINTENANCE MODAL -->
-<div class="modal fade" id="logMaintenanceModal" tabindex="-1" role="dialog" aria-hidden="true">
+<!-- LOG REPAIR MODAL -->
+<div class="modal fade" id="logRepairModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
         <div class="modal-content modal-content-premium">
             <div class="modal-header-slate">
-                <h5><i class="fas fa-tools mr-2 text-primary"></i> Log Maintenance Activity</h5>
+                <h5><i class="fas fa-wrench mr-2 text-primary"></i> Log Repair</h5>
             </div>
 
-            <form id="logMaintenanceForm" enctype="multipart/form-data">
+            <form id="logRepairForm" enctype="multipart/form-data">
                 <div class="modal-body p-4">
                     <div id="logModalErrorBanner" class="live-checker-banner warning"></div>
 
-                    <div class="modal-section-divider mt-0"><i class="fas fa-car"></i> Vehicle & Activity</div>
+                    <div class="modal-section-divider mt-0"><i class="fas fa-car"></i> Vehicle &amp; Repair</div>
                     <div class="row">
-                        <div class="col-md-6 form-group">
+                        <div class="col-md-12 form-group">
                             <label class="field-label">Vehicle <span class="text-danger">*</span></label>
                             <select name="vehicle_id" id="log_vehicle_id" class="form-control" style="width:100%;" required>
                                 <option value="">Select vehicle...</option>
@@ -302,31 +244,22 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-6 form-group">
-                            <label class="field-label">Maintenance Type <span class="text-danger">*</span></label>
-                            <select name="maintenance_type" id="log_maintenance_type" class="form-control form-control-modern" required>
-                                @foreach (\App\Models\MaintenanceRecord::TYPES as $key => $label)
-                                    @continue($key === 'REPAIR')
-                                    <option value="{{ $key }}">{{ $label }}</option>
-                                @endforeach
-                            </select>
-                            <small class="text-muted d-block mt-1">Logging a repair? Use the <a href="{{ route('repairs.index') }}">Repairs</a> module instead.</small>
-                        </div>
                     </div>
                     <div class="row">
                         <div class="col-md-12 form-group">
                             <label class="field-label">Description / Notes</label>
-                            <textarea name="description" id="log_description" rows="2" class="form-control form-control-modern" placeholder="What was done..."></textarea>
+                            <textarea name="description" id="log_description" rows="2" class="form-control form-control-modern" placeholder="What was repaired..."></textarea>
                         </div>
                     </div>
 
                     {{--
                         Process-flow redesign (Step 1: digitized Motorpool Service Request
-                        Form). Only request-stage fields are collected here now — service
-                        date, odometer, cost, performed-by and next-schedule all belong to
+                        Form, same as Maintenance & PMS — see
+                        MaintenanceController::store()'s docblock and RepairController::store()).
+                        Only request-stage fields are collected here now — service date,
+                        odometer, cost, performed-by and the receipt all belong to
                         completeService() instead, unlocked once the Technical Inspection
-                        (and Requisition Slip, if parts are needed) are filled in. See
-                        MaintenanceController::store()'s docblock.
+                        (and Requisition Slip, if parts are needed) are filled in.
                     --}}
                     <div class="modal-section-divider"><i class="fas fa-file-signature"></i> Request Details</div>
                     <div class="row">
@@ -364,7 +297,7 @@
                         </div>
                     </div>
                     <div class="alert alert-light border small text-muted mb-0">
-                        <i class="fas fa-info-circle mr-1"></i> After this request is saved, fill out the Technical Inspection checklist next — that's what determines whether a Requisition Slip is needed before this job can be marked Completed.
+                        <i class="fas fa-info-circle mr-1"></i> After this request is saved, fill out the Technical Inspection checklist next — that's what determines whether a Requisition Slip is needed before this repair can be marked Completed.
                     </div>
                 </div>
                 <div class="modal-footer border-top p-3 bg-light">
@@ -376,25 +309,24 @@
     </div>
 </div>
 
-<!-- EDIT MAINTENANCE MODAL -->
-<div class="modal fade" id="editMaintenanceModal" tabindex="-1" role="dialog" aria-hidden="true">
+<!-- EDIT REPAIR MODAL -->
+<div class="modal fade" id="editRepairModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
         <div class="modal-content modal-content-premium">
             <div class="modal-header-slate">
-                <h5><i class="fas fa-edit mr-2 text-primary"></i> Edit Maintenance Record</h5>
+                <h5><i class="fas fa-edit mr-2 text-primary"></i> Edit Repair Record</h5>
                 <div class="mr-header-sub" id="editHeaderSub"></div>
             </div>
 
-            <form id="editMaintenanceForm" enctype="multipart/form-data">
-                <input type="hidden" id="edit_maintenance_id" name="id">
+            <form id="editRepairForm" enctype="multipart/form-data">
+                <input type="hidden" id="edit_repair_id" name="id">
                 <input type="hidden" name="_method" value="PUT">
                 <div class="modal-body p-4">
                     <div id="editLogErrorBanner" class="live-checker-banner warning"></div>
 
                     {{--
-                        Read-only process-flow status — lets whoever's editing see at a
-                        glance where this record sits (Requested/Inspected/Awaiting Parts/
-                        Completed) without leaving the modal. See MaintenanceRecord::STAGE_*.
+                        Read-only process-flow status — see the matching block in
+                        maintenance/index.blade.php's Edit modal.
                     --}}
                     <div class="mr-stage-stepper" id="editStageStepper">
                         <div class="mr-step" data-stage="REQUESTED">
@@ -422,23 +354,14 @@
                         <span id="edit_blocked_hint" class="mr-blocked-hint" style="display:none;"></span>
                     </div>
 
-                    <div class="modal-section-divider mt-0"><i class="fas fa-car"></i> Vehicle & Activity</div>
+                    <div class="modal-section-divider mt-0"><i class="fas fa-car"></i> Vehicle &amp; Repair</div>
                     <div class="row">
-                        <div class="col-md-6 form-group">
+                        <div class="col-md-12 form-group">
                             <label class="field-label">Vehicle <span class="text-danger">*</span></label>
                             <select name="vehicle_id" id="edit_log_vehicle_id" class="form-control" style="width:100%;" required>
                                 <option value="">Select vehicle...</option>
                                 @foreach ($vehicles as $v)
                                     <option value="{{ $v->id }}">{{ strtoupper($v->plate_number) }} — {{ trim($v->make.' '.$v->model) }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-6 form-group">
-                            <label class="field-label">Maintenance Type <span class="text-danger">*</span></label>
-                            <select name="maintenance_type" id="edit_maintenance_type" class="form-control form-control-modern" required>
-                                @foreach (\App\Models\MaintenanceRecord::TYPES as $key => $label)
-                                    @continue($key === 'REPAIR')
-                                    <option value="{{ $key }}">{{ $label }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -547,18 +470,6 @@
                             <small class="text-muted d-block mt-1">Upload the filled-out/scanned copy, if already on hand. <a href="{{ asset('forms/vehicle-repair-requisition-slip.pdf') }}" target="_blank"><i class="fas fa-download mr-1"></i>Download blank form</a></small>
                         </div>
                     </div>
-
-                    <div class="modal-section-divider"><i class="fas fa-calendar-alt"></i> Next Schedule</div>
-                    <div class="row">
-                        <div class="col-md-6 form-group">
-                            <label class="field-label">Next Due Date</label>
-                            <input type="date" name="next_due_date" id="edit_next_due_date" class="form-control form-control-modern">
-                        </div>
-                        <div class="col-md-6 form-group">
-                            <label class="field-label">Next Due Odometer (km)</label>
-                            <input type="number" name="next_due_odometer_km" id="edit_next_due_odometer_km" class="form-control form-control-modern" min="0">
-                        </div>
-                    </div>
                 </div>
                 <div class="modal-footer border-top p-3 bg-light">
                     <button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>
@@ -570,30 +481,28 @@
 </div>
 
 {{--
-    Step 4 of the process flow: the actual service/repair details (cost,
-    performed-by, odometer, receipt, next schedule) — everything the old
-    single-step Log modal used to collect, now only reachable once
-    MaintenanceRecord::canComplete() allows it (Technical Inspection done,
-    and Requisition Slip on file if parts were flagged as needed). See
-    MaintenanceController::completeService().
+    Step 4 of the process flow: the actual repair details (cost, performed-by,
+    odometer, receipt) — everything the old single-step Log modal used to
+    collect, now only reachable once MaintenanceRecord::canComplete() allows
+    it. See RepairController::completeService().
 --}}
-<div class="modal fade" id="completeMaintenanceModal" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal fade" id="completeRepairModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
         <div class="modal-content modal-content-premium">
             <div class="modal-header-slate">
-                <h5><i class="fas fa-check-circle mr-2 text-success"></i> Complete Service</h5>
+                <h5><i class="fas fa-check-circle mr-2 text-success"></i> Complete Repair</h5>
                 <div class="mr-header-sub" id="completeHeaderSub"></div>
             </div>
 
-            <form id="completeMaintenanceForm" enctype="multipart/form-data">
-                <input type="hidden" id="complete_maintenance_id" name="id">
+            <form id="completeRepairForm" enctype="multipart/form-data">
+                <input type="hidden" id="complete_repair_id" name="id">
                 <div class="modal-body p-4">
                     <div id="completeErrorBanner" class="live-checker-banner warning"></div>
                     <div class="mr-ready-banner">
                         <div class="mr-ready-icon"><i class="fas fa-check"></i></div>
                         <div class="mr-ready-banner-text">
                             <span id="completeVehicleLabel" style="display:block;"></span>
-                            <small>Inspection requirements are satisfied — log the final service details below to close this record.</small>
+                            <small>Inspection requirements are satisfied — log the final repair details below to close this record.</small>
                         </div>
                     </div>
 
@@ -627,44 +536,19 @@
                         </div>
                     </div>
 
-                    <div class="modal-section-divider"><i class="fas fa-calendar-alt"></i> Next Schedule</div>
-                    <div class="row">
-                        <div class="col-md-6 form-group">
-                            <label class="field-label">Next Due Date</label>
-                            <input type="date" name="next_due_date" id="complete_next_due_date" class="form-control form-control-modern">
-                        </div>
-                        <div class="col-md-6 form-group">
-                            <label class="field-label">Next Due Odometer (km)</label>
-                            <input type="number" name="next_due_odometer_km" id="complete_next_due_odometer_km" class="form-control form-control-modern" min="0">
-                        </div>
-                    </div>
-                    <div class="alert alert-light border small text-muted mb-0">
-                        <i class="fas fa-info-circle mr-1"></i> Setting a Next Due Date/Odometer here updates this vehicle's PMS schedule shown on the Vehicle Inventory page.
-                    </div>
-
                     {{--
                         Part IV "Certification of Completion" on the Motorpool Service
-                        Request Form — "I hereby certify that the requested ... service
-                        have been successfully performed ... Date Completed / Inspected
-                        and Received by." Date Completed is the Service Date above;
-                        this is the signee. See MaintenanceRecord::$fillable's
-                        received_by and MaintenanceController::completeService().
+                        Request Form — see the matching block in maintenance/index.blade.php.
                     --}}
                     <div class="modal-section-divider"><i class="fas fa-stamp"></i> Part IV — Certification of Completion</div>
                     <div class="row">
                         <div class="col-md-12 form-group">
                             <label class="field-label">Inspected and Received By <span class="text-danger">*</span></label>
                             <input type="text" name="received_by" id="complete_received_by" class="form-control form-control-modern" placeholder="Driver / Representative" required>
-                            <small class="text-muted d-block mt-1">Signature over printed name of the driver/representative certifying the completed service.</small>
+                            <small class="text-muted d-block mt-1">Signature over printed name of the driver/representative certifying the completed repair.</small>
                         </div>
                     </div>
 
-                    {{--
-                        Supporting documents: scanned/signed copies of the three official
-                        PRO5/RLRDD forms, attached now that the job is done. Each can
-                        already have been uploaded earlier (Log/Edit); this is just where
-                        the process flow now points admins to do it.
-                    --}}
                     <div class="modal-section-divider"><i class="fas fa-paperclip"></i> Supporting Documents</div>
                     <div class="row">
                         <div class="col-md-6 form-group">
@@ -728,19 +612,19 @@ $(document).ready(function() {
     $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') } });
 
     const routeTemplates = {
-        editData: "{{ route('maintenance.edit-data', ':id') }}",
-        update:   "{{ route('maintenance.update', ':id') }}",
-        destroy:  "{{ route('maintenance.destroy', ':id') }}",
-        complete: "{{ route('maintenance.complete', ':id') }}",
+        editData: "{{ route('repairs.edit-data', ':id') }}",
+        update:   "{{ route('repairs.update', ':id') }}",
+        destroy:  "{{ route('repairs.destroy', ':id') }}",
+        complete: "{{ route('repairs.complete', ':id') }}",
     };
-    function maintenanceRoute(name, id) {
+    function repairRoute(name, id) {
         return routeTemplates[name].replace(':id', id);
     }
 
     // Renders the Requested → Inspected → Awaiting Parts → Completed stepper in the
     // Edit modal. "Awaiting Parts" is marked skipped (dashed, struck through) rather
     // than done/pending when the Technical Inspection never flagged parts as needed —
-    // see MaintenanceRecord::STAGE_* / parts_needed.
+    // see the matching helper in maintenance/index.blade.php.
     function mrRenderStageStepper($stepper, stage, partsNeeded) {
         const order = ['REQUESTED', 'INSPECTED', 'AWAITING_PARTS', 'COMPLETED'];
         const currentIndex = order.indexOf(stage);
@@ -762,9 +646,6 @@ $(document).ready(function() {
     }
 
     if ($.fn.select2) {
-        // Modal dropdowns fill their form column; the toolbar filter keeps its own
-        // fixed width (set inline on the element) so it sits in line with the other
-        // filter dropdowns instead of stretching to fill the flex row.
         $('#log_vehicle_id, #edit_log_vehicle_id').select2({
             theme: 'bootstrap4',
             width: '100%',
@@ -782,78 +663,24 @@ $(document).ready(function() {
         toastr.success(@json(session('success')));
     @endif
 
-    // ---------------- Stat cards + monitoring panel ----------------
+    // ---------------- Stat cards ----------------
     function updateStatCards(stats) {
         if (!stats) return;
         $('#statTotalRecords').text(stats.total_records);
-        $('#statDueSoon').text(stats.due_soon);
-        $('#statOverdue').text(stats.overdue);
-        $('#statServicedMonth').text(stats.serviced_month);
+        $('#statThisMonth').text(stats.this_month);
+        $('#statThisMonthCost').text('₱' + Number(stats.this_month_cost || 0).toLocaleString());
+        $('#statThisYearCost').text('₱' + Number(stats.this_year_cost || 0).toLocaleString());
     }
-
-    function renderMonitorList($list, $count, items, variant) {
-        $count.text(items.length);
-        $list.empty();
-
-        if (!items.length) {
-            $list.append('<div class="monitor-empty">Nothing here — all clear.</div>');
-            return;
-        }
-
-        items.forEach(function (item) {
-            const dayLabel = variant === 'overdue'
-                ? Math.abs(item.days) + (Math.abs(item.days) === 1 ? ' day overdue' : ' days overdue')
-                : (item.days === 0 ? 'Due today' : 'in ' + item.days + (item.days === 1 ? ' day' : ' days'));
-
-            const $row = $('<div class="monitor-item"></div>');
-            $row.append(
-                $('<div class="monitor-item-info"></div>').append(
-                    $('<span class="plate-badge-sm"></span>').text(item.plate_number),
-                    $('<div class="monitor-item-name"></div>').text(item.make_model + ' · ' + item.next_pms_date)
-                )
-            );
-            const $right = $('<div class="d-flex align-items-center" style="gap:10px;"></div>');
-            $right.append($('<span class="monitor-item-days"></span>').text(dayLabel));
-            @if (! $isViewer)
-            $right.append(
-                $('<button type="button" class="btn btn-sm btn-light border btn-log-quick" title="Log maintenance for this vehicle"><i class="fas fa-plus"></i></button>')
-                    .attr('data-vehicle-id', item.id)
-            );
-            @endif
-            $row.append($right);
-            $list.append($row);
-        });
-    }
-
-    function updateMonitoring(monitoring) {
-        if (!monitoring) return;
-        renderMonitorList($('#monitorSoonList'), $('#monitorSoonCount'), monitoring.due_soon || [], 'soon');
-        renderMonitorList($('#monitorOverdueList'), $('#monitorOverdueCount'), monitoring.overdue || [], 'overdue');
-    }
-
-    $(document).on('click', '.btn-log-quick', function () {
-        const vehicleId = $(this).data('vehicle-id');
-        $('#logMaintenanceForm')[0].reset();
-        $('#log_request_date').val(new Date().toISOString().slice(0, 10));
-        $('#logModalErrorBanner').hide().text('');
-        $('#log_vehicle_id').val(String(vehicleId)).trigger('change');
-        $('#logMaintenanceModal').modal('show');
-    });
 
     // ---------------- DataTable ----------------
-    const table = $('#maintenanceTable').DataTable({
+    const table = $('#repairsTable').DataTable({
         processing: true,
         serverSide: true,
-        // See vehicles/index.blade.php for why this matters: without it,
-        // DataTables locks the <table> to an inline pixel width at init time,
-        // which overrides our CSS width:100% and breaks the mobile "stack
-        // into cards" layout below.
         autoWidth: false,
         ajax: {
-            url: "{{ route('maintenance.index') }}",
+            url: "{{ route('repairs.index') }}",
             data: function (d) {
                 d.vehicle_id = $('#filterVehicle').val();
-                d.maintenance_type = $('#filterMaintenanceType').val();
                 @if ($hasBroadVisibility)
                     d.unit_id = $('#filterUnit').val();
                 @endif
@@ -863,32 +690,26 @@ $(document).ready(function() {
             },
             dataSrc: function (json) {
                 updateStatCards(json.stats);
-                updateMonitoring(json.monitoring);
                 return json.data;
             }
         },
         columns: [
             { data: 'vehicle_html', name: 'vehicle', orderable: false },
             { data: 'stage_html', name: 'stage', orderable: false },
-            { data: 'type_html', name: 'maintenance_type', orderable: false },
+            { data: 'desc_html', name: 'description', orderable: false },
             { data: 'service_html', name: 'service_date' },
             { data: 'cost_html', name: 'cost' },
-            { data: 'next_due_html', name: 'next_due_date' },
+            { data: 'shop_html', name: 'performed_by', orderable: false, searchable: false },
             { data: 'logged_html', name: 'logged', orderable: false, searchable: false },
             { data: 'actions_html', name: 'actions', orderable: false, searchable: false }
         ],
         order: [[3, 'desc']],
         dom: '<"row"<"col-sm-12"tr>><"row pt-3"<"col-sm-5"i><"col-sm-7"p>>',
     });
-    // Exposed globally so the shared modal partials (technical-inspections/_modal.blade.php,
-    // vehicle-requisitions/_modal.blade.php) — each their own separate <script> tag, included
-    // outside this closure — can reload this row's data after they save, instead of the reload
-    // silently no-op'ing because their own `typeof table !== 'undefined'` check can't see a
-    // `const` declared inside this one.
+    // See the matching comment in maintenance/index.blade.php — exposes this
+    // to the shared modal partials' own separate <script> tags.
     window.table = table;
 
-    // Fast search: debounced so a burst of keystrokes fires one query, not one per key —
-    // keeps the table responsive instead of hammering the server on every character.
     let searchDebounce;
     $('#customSearchBox').on('keyup input', function() {
         clearTimeout(searchDebounce);
@@ -896,7 +717,7 @@ $(document).ready(function() {
         searchDebounce = setTimeout(function () { table.search(value).draw(); }, 300);
     });
 
-    $('#filterVehicle, #filterMaintenanceType, #filterUnit, #filterStation, #filterDateFrom, #filterDateTo').on('change', function() {
+    $('#filterVehicle, #filterUnit, #filterStation, #filterDateFrom, #filterDateTo').on('change', function() {
         table.draw();
     });
 
@@ -912,7 +733,7 @@ $(document).ready(function() {
     $('#filterUnit').trigger('change');
 
     $('#resetFiltersBtn').click(function() {
-        $('#customSearchBox, #filterMaintenanceType, #filterStation, #filterDateFrom, #filterDateTo').val('');
+        $('#customSearchBox, #filterStation, #filterDateFrom, #filterDateTo').val('');
         $('#filterVehicle').val('').trigger('change');
         @if ($hasBroadVisibility)
             $('#filterUnit').val('');
@@ -921,29 +742,22 @@ $(document).ready(function() {
         table.search('').draw();
     });
 
-    // ---------------- Log Maintenance (create) ----------------
-    $('#logMaintenanceModal').on('show.bs.modal', function (e) {
-        if (!e.relatedTarget) return; // opened programmatically (btn-log-quick) — it sets its own state
-        $('#logMaintenanceForm')[0].reset();
+    // ---------------- Log Repair (create) ----------------
+    $('#logRepairModal').on('show.bs.modal', function (e) {
+        $('#logRepairForm')[0].reset();
         $('#log_request_date').val(new Date().toISOString().slice(0, 10));
         $('#logModalErrorBanner').hide().text('');
         $('#log_vehicle_id').val('').trigger('change');
     });
 
     // ---------------- AI Document Intelligence: auto-fill from receipt photo ----------------
-    // Reuses the same file already being attached as the Complete Service record's
-    // receipt/invoice — as soon as it's chosen, it's read and whatever comes back
-    // pre-fills the fields below, which stay normal editable inputs so a misread is
-    // just corrected before Save. Gated on the same server-side flag as the hint text
-    // above: when no API key is configured yet, this stays completely silent instead
-    // of firing a call just to show a "not configured" message on every single upload.
+    // Reuses the same file already being attached as the Complete Repair record's
+    // receipt/invoice — see the matching block in maintenance/index.blade.php.
     const aiDocumentScanningEnabled = @json($aiDocumentScanningEnabled ?? false);
 
     $('#complete_attachment').on('change', function () {
         const file = this.files && this.files[0];
         const statusEl = $('#completeAttachmentScanStatus');
-        // Accept photos as well as PDF exports — a saved receipt/invoice is
-        // very commonly a PDF, and the backend now reads both the same way.
         const isScannable = file && (/^image\//.test(file.type) || file.type === 'application/pdf');
         if (!aiDocumentScanningEnabled || !isScannable) {
             statusEl.hide();
@@ -991,12 +805,12 @@ $(document).ready(function() {
         });
     });
 
-    $('#logMaintenanceForm').on('submit', function (e) {
+    $('#logRepairForm').on('submit', function (e) {
         e.preventDefault();
         const form = this;
 
         Swal.fire({
-            title: 'Save this service request?',
+            title: 'Save this repair request?',
             text: 'This opens a new Requested record — fill out the Technical Inspection checklist next to move it forward.',
             icon: 'question',
             showCancelButton: true,
@@ -1012,14 +826,14 @@ $(document).ready(function() {
             $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Saving...');
 
             $.ajax({
-                url: "{{ route('maintenance.store') }}",
+                url: "{{ route('repairs.store') }}",
                 type: 'POST',
                 data: formData,
                 processData: false,
                 contentType: false,
             }).done(function (res) {
                 toastr.success(res.message);
-                $('#logMaintenanceModal').modal('hide');
+                $('#logRepairModal').modal('hide');
                 table.ajax.reload(null, false);
             }).fail(function (xhr) {
                 const msg = xhr.responseJSON?.errors
@@ -1033,13 +847,12 @@ $(document).ready(function() {
     });
 
     // ---------------- Edit ----------------
-    $('#maintenanceTable').on('click', '.btn-edit-maintenance', function () {
+    $('#repairsTable').on('click', '.btn-edit-repair', function () {
         const id = $(this).data('id');
 
-        $.get(maintenanceRoute('editData', id), function (data) {
-            $('#edit_maintenance_id').val(data.id);
+        $.get(repairRoute('editData', id), function (data) {
+            $('#edit_repair_id').val(data.id);
             $('#edit_log_vehicle_id').val(data.vehicle_id).trigger('change');
-            $('#edit_maintenance_type').val(data.maintenance_type);
             $('#edit_description').val(data.description);
             $('#edit_request_date').val(data.request_date);
             $('#edit_requested_by').val(data.requested_by);
@@ -1057,20 +870,10 @@ $(document).ready(function() {
             $('#edit_odometer_km').val(data.odometer_km);
             $('#edit_cost').val(data.cost);
             $('#edit_performed_by').val(data.performed_by);
-            $('#edit_next_due_date').val(data.next_due_date);
-            $('#edit_next_due_odometer_km').val(data.next_due_odometer_km);
             $('#edit_remove_attachment').val('0');
             $('#edit_remove_technical_inspection').val('0');
             $('#edit_remove_service_request_form').val('0');
             $('#edit_remove_requisition_slip').val('0');
-
-            $('#edit_requisition_wrapper').toggle(!!data.can_fill_requisition);
-            if (data.has_requisition_slip) {
-                $('#editRequisitionLink').attr('href', data.requisition_slip_url);
-                $('#editRequisitionCurrent').show();
-            } else {
-                $('#editRequisitionCurrent').hide();
-            }
 
             if (data.has_attachment) {
                 $('#editAttachmentLink').attr('href', data.attachment_url);
@@ -1093,8 +896,16 @@ $(document).ready(function() {
                 $('#editServiceRequestCurrent').hide();
             }
 
+            $('#edit_requisition_wrapper').toggle(!!data.can_fill_requisition);
+            if (data.has_requisition_slip) {
+                $('#editRequisitionLink').attr('href', data.requisition_slip_url);
+                $('#editRequisitionCurrent').show();
+            } else {
+                $('#editRequisitionCurrent').hide();
+            }
+
             $('#editLogErrorBanner').hide().text('');
-            $('#editMaintenanceModal').modal('show');
+            $('#editRepairModal').modal('show');
         }).fail(function () {
             toastr.error('Could not load this record\'s details.');
         });
@@ -1125,10 +936,10 @@ $(document).ready(function() {
         e.preventDefault();
         $('#edit_remove_requisition_slip').val('1');
         $('#editRequisitionCurrent').hide();
-        toastr.info('Requisition Slip will be removed when you save.');
+        toastr.info('Repair Requisition Slip will be removed when you save.');
     });
 
-    $('#editMaintenanceForm').on('submit', function (e) {
+    $('#editRepairForm').on('submit', function (e) {
         e.preventDefault();
         const form = this;
 
@@ -1142,21 +953,21 @@ $(document).ready(function() {
         }).then(function (result) {
             if (!result.isConfirmed) return;
 
-            const id = $('#edit_maintenance_id').val();
+            const id = $('#edit_repair_id').val();
             const formData = new FormData(form);
             const $btn = $('#btnSubmitEditLog');
             $('#editLogErrorBanner').hide().text('');
             $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Saving...');
 
             $.ajax({
-                url: maintenanceRoute('update', id),
-                type: 'POST', // spoofed to PUT via the _method field — needed for the file upload
+                url: repairRoute('update', id),
+                type: 'POST',
                 data: formData,
                 processData: false,
                 contentType: false,
             }).done(function (res) {
                 toastr.success(res.message);
-                $('#editMaintenanceModal').modal('hide');
+                $('#editRepairModal').modal('hide');
                 table.ajax.reload(null, false);
             }).fail(function (xhr) {
                 const msg = xhr.responseJSON?.errors
@@ -1169,14 +980,14 @@ $(document).ready(function() {
         });
     });
 
-    // ---------------- Complete Service (Step 4 of the process flow) ----------------
-    // Reuses the same edit-data endpoint (it already returns vehicle_label/service_date/
-    // etc.) rather than a separate lookup just for this modal.
-    $('#maintenanceTable').on('click', '.btn-complete-maintenance', function () {
+    // ---------------- Complete Repair (Step 4 of the process flow) ----------------
+    // Reuses the same edit-data endpoint — see the matching handler in
+    // maintenance/index.blade.php.
+    $('#repairsTable').on('click', '.btn-complete-repair', function () {
         const id = $(this).data('id');
 
-        $.get(maintenanceRoute('editData', id), function (data) {
-            $('#complete_maintenance_id').val(data.id);
+        $.get(repairRoute('editData', id), function (data) {
+            $('#complete_repair_id').val(id);
             $('#completeHeaderSub').text(data.control_number || '');
             $('#completeVehicleLabel').text(data.vehicle_label || '');
             // A Requested/Inspected/Awaiting-Parts record's service_date is just its
@@ -1187,12 +998,8 @@ $(document).ready(function() {
             $('#complete_cost').val(data.cost);
             $('#complete_performed_by').val(data.performed_by);
             $('#complete_received_by').val(data.received_by);
-            $('#complete_next_due_date').val(data.next_due_date);
-            $('#complete_next_due_odometer_km').val(data.next_due_odometer_km);
             $('#completeAttachmentScanStatus').hide();
 
-            // Supporting documents — same current-file/remove pattern as the Edit
-            // modal, reset per-open since this modal is reused across records.
             $('#complete_remove_technical_inspection, #complete_remove_service_request_form, #complete_remove_requisition_slip').val('0');
             if (data.has_technical_inspection) {
                 $('#completeInspectionLink').attr('href', data.technical_inspection_url);
@@ -1215,7 +1022,7 @@ $(document).ready(function() {
             }
 
             $('#completeErrorBanner').hide().text('');
-            $('#completeMaintenanceModal').modal('show');
+            $('#completeRepairModal').modal('show');
         }).fail(function () {
             toastr.error('Could not load this record\'s details.');
         });
@@ -1242,13 +1049,13 @@ $(document).ready(function() {
         toastr.info('Requisition Slip will be removed when you save.');
     });
 
-    $('#completeMaintenanceForm').on('submit', function (e) {
+    $('#completeRepairForm').on('submit', function (e) {
         e.preventDefault();
         const form = this;
 
         Swal.fire({
-            title: 'Mark this job Completed?',
-            text: 'This records the final service details and updates the vehicle\'s PMS schedule if a next due date was set.',
+            title: 'Mark this repair Completed?',
+            text: 'This records the final repair details.',
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Mark Completed',
@@ -1257,21 +1064,21 @@ $(document).ready(function() {
         }).then(function (result) {
             if (!result.isConfirmed) return;
 
-            const id = $('#complete_maintenance_id').val();
+            const id = $('#complete_repair_id').val();
             const formData = new FormData(form);
             const $btn = $('#btnSubmitComplete');
             $('#completeErrorBanner').hide().text('');
             $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Saving...');
 
             $.ajax({
-                url: maintenanceRoute('complete', id),
+                url: repairRoute('complete', id),
                 type: 'POST',
                 data: formData,
                 processData: false,
                 contentType: false,
             }).done(function (res) {
                 toastr.success(res.message);
-                $('#completeMaintenanceModal').modal('hide');
+                $('#completeRepairModal').modal('hide');
                 table.ajax.reload(null, false);
             }).fail(function (xhr) {
                 const msg = xhr.responseJSON?.errors
@@ -1285,12 +1092,12 @@ $(document).ready(function() {
     });
 
     // ---------------- Delete ----------------
-    $('#maintenanceTable').on('click', '.btn-delete-maintenance', function () {
+    $('#repairsTable').on('click', '.btn-delete-repair', function () {
         const id = $(this).data('id');
 
         Swal.fire({
-            title: 'Delete this maintenance record?',
-            text: 'This cannot be undone. The vehicle\'s PMS schedule will be recalculated from its remaining history.',
+            title: 'Delete this repair record?',
+            text: 'This cannot be undone.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Delete',
@@ -1300,7 +1107,7 @@ $(document).ready(function() {
             if (!result.isConfirmed) return;
 
             $.ajax({
-                url: maintenanceRoute('destroy', id),
+                url: repairRoute('destroy', id),
                 type: 'DELETE',
             }).done(function (res) {
                 toastr.success(res.message);

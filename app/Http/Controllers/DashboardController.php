@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Driver;
 use App\Models\MaintenanceRecord;
 use App\Models\Station;
+use App\Models\TechnicalInspection;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Vehicle;
@@ -54,7 +55,10 @@ class DashboardController extends Controller
         $scopeVehicles($vehicleScope);
 
         $vehicleStats = [
-            'total'         => (clone $vehicleScope)->count(),
+            // Excludes BER + Disposed vehicles — no longer part of the active
+            // fleet, though the record itself stays on file (see
+            // Vehicle::scopeExcludingDisposed / VehicleController).
+            'total'         => (clone $vehicleScope)->excludingDisposed()->count(),
             'serviceable'   => (clone $vehicleScope)->where('status', 'SERVICEABLE')->count(),
             'unserviceable' => (clone $vehicleScope)->where('status', 'UNSERVICEABLE')->count(),
             'ber'           => (clone $vehicleScope)->where('status', 'BER')->count(),
@@ -76,19 +80,67 @@ class DashboardController extends Controller
         $vehicleStats['due_soon'] = $dueSoon;
         $vehicleStats['overdue'] = $overdue;
 
+        // Unserviceable for 90+ days (VMIS Additional Updates item 3) — the
+        // in-app admin alert the PM asked for, surfaced as its own panel below
+        // rather than a silent stat, and mirrored on Vehicle Inventory.
+        $vehicleStats['unserviceable_alert'] = (clone $vehicleScope)->unserviceableAlert()->count();
+        $unserviceableAlerts = (clone $vehicleScope)->unserviceableAlert()
+            ->with(['unit', 'station'])
+            ->orderBy('unserviceable_since')
+            ->take(8)
+            ->get();
+
+        // ---------------- Registration (OR/CR/Insurance) due/expired ----------------
+        // Reuses Vehicle::needsRegistrationAlert()/registrationDaysRemaining() — the
+        // exact same model helpers that drive the "Registration Due" panel on Vehicle
+        // Inventory — so the two pages never disagree about which vehicles are flagged.
+        // Loaded once as a plain collection (fleet sizes here are small; a whereHas()
+        // against the latestOfMany relation would be far messier than one date-math
+        // filter in PHP) and then split three ways: already overdue, due soon, and
+        // vehicles with no registration on file at all (a meaningfully different gap
+        // from "due soon" — there's nothing to compare an expiry date against yet).
+        $registrationCandidates = (clone $vehicleScope)->with(['latestRegistration', 'unit', 'station'])->get();
+        $registrationDueAll = $registrationCandidates
+            ->filter(fn ($v) => $v->needsRegistrationAlert())
+            ->sortBy(fn ($v) => $v->registrationDaysRemaining())
+            ->values();
+
+        $vehicleStats['registration_overdue']     = $registrationDueAll->filter(fn ($v) => $v->registrationDaysRemaining() < 0)->count();
+        $vehicleStats['registration_due_soon']    = $registrationDueAll->filter(fn ($v) => $v->registrationDaysRemaining() >= 0)->count();
+        $vehicleStats['registration_not_on_file'] = $registrationCandidates->filter(fn ($v) => ! $v->latestRegistration)->count();
+
+        $registrationAlerts = $registrationDueAll->take(8)->values();
+
         $typeBreakdown = VehicleType::withCount(['vehicles' => $scopeVehicles])
             ->having('vehicles_count', '>', 0)
             ->orderByDesc('vehicles_count')
             ->take(6)
             ->get();
 
+        // Predictive Maintenance (follow-up to VMIS Additional Updates item on
+        // the 3 official forms): parts the digitized Technical Inspection Report
+        // checklist has flagged as needing attention now, or as a recurring
+        // repair pattern — see TechnicalInspection::atRiskComponents() for what
+        // "at risk" means. Scoped to whatever vehicles this role can already see.
+        $visibleVehicleIds = (clone $vehicleScope)->pluck('id')->all();
+        $atRiskComponents = TechnicalInspection::atRiskComponents($visibleVehicleIds)->take(8);
+        $atRiskVehicles = Vehicle::whereIn('id', $atRiskComponents->pluck('vehicle_id')->unique())
+            ->with(['unit', 'station'])
+            ->get()
+            ->keyBy('id');
+
         // ---------------- Maintenance & PMS ----------------
         $maintenanceScope = MaintenanceRecord::query()->whereHas('vehicle', $scopeVehicles);
 
+        // "This month"/cost only ever meant completed work — a Requested/Inspected/
+        // Awaiting-Parts record's service_date is just a request_date placeholder and
+        // it has no real cost yet (see the stage-workflow migration), so these have to
+        // filter to completedOnly() or an in-flight request would skew them. "total"
+        // deliberately stays unscoped — it's a count of all activity, any stage.
         $maintenanceStats = [
             'total'          => (clone $maintenanceScope)->count(),
-            'this_month'     => (clone $maintenanceScope)->whereBetween('service_date', [now()->startOfMonth(), now()->endOfMonth()])->count(),
-            'this_month_cost'=> (clone $maintenanceScope)->whereBetween('service_date', [now()->startOfMonth(), now()->endOfMonth()])->sum('cost'),
+            'this_month'     => (clone $maintenanceScope)->completedOnly()->whereBetween('service_date', [now()->startOfMonth(), now()->endOfMonth()])->count(),
+            'this_month_cost'=> (clone $maintenanceScope)->completedOnly()->whereBetween('service_date', [now()->startOfMonth(), now()->endOfMonth()])->sum('cost'),
         ];
 
         $recentMaintenance = (clone $maintenanceScope)
@@ -164,6 +216,10 @@ class DashboardController extends Controller
             'hasBroadVisibility' => $hasBroadVisibility,
             'scopeLabel'         => $scopeLabel,
             'vehicleStats'       => $vehicleStats,
+            'unserviceableAlerts'=> $unserviceableAlerts,
+            'registrationAlerts' => $registrationAlerts,
+            'atRiskComponents'   => $atRiskComponents,
+            'atRiskVehicles'     => $atRiskVehicles,
             'typeBreakdown'      => $typeBreakdown,
             'maintenanceStats'   => $maintenanceStats,
             'recentMaintenance'  => $recentMaintenance,

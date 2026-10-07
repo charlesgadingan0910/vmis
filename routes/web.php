@@ -7,6 +7,9 @@ use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\VehicleTypeController;
 use App\Http\Controllers\MaintenanceController;
+use App\Http\Controllers\RepairController;
+use App\Http\Controllers\TechnicalInspectionController;
+use App\Http\Controllers\VehicleRepairRequisitionController;
 use App\Http\Controllers\ScanController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\UnitController;
@@ -15,6 +18,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DocumentIntelligenceController;
 use App\Http\Controllers\AccountTypeController;
 use App\Http\Controllers\TripLogController;
+use App\Http\Controllers\VehicleAccidentController;
 use Illuminate\Support\Facades\Route;
 
 // ---------------------------------------------------------------------
@@ -71,6 +75,11 @@ Route::middleware('auth')->group(function () {
         // OR/CR history + yearly re-registration (a vehicle can accumulate one per year)
         Route::get('/vehicles/{vehicle}/history', [VehicleController::class, 'getHistory'])->name('vehicles.history');
         Route::post('/vehicles/{vehicle}/registrations', [VehicleController::class, 'storeRegistration'])->name('vehicles.registrations.store');
+
+        // Combined Maintenance & PMS + Repair history for one vehicle — every job ever
+        // logged, regardless of stage/type, so it doesn't need its own module; it just
+        // reads straight from the same maintenance_records table those two already use.
+        Route::get('/vehicles/{vehicle}/service-history', [VehicleController::class, 'serviceHistory'])->name('vehicles.service-history');
 
         // Serves uploaded OR/CR files directly (bypasses the public/storage symlink, which is
         // unreliable on Windows) and keeps document access behind login like everything else.
@@ -130,11 +139,56 @@ Route::middleware('auth')->group(function () {
         Route::get('/maintenance/{maintenance}/edit-data', [MaintenanceController::class, 'editData'])->name('maintenance.edit-data');
         Route::put('/maintenance/{maintenance}', [MaintenanceController::class, 'update'])->name('maintenance.update');
 
+        // Process-flow redesign: marks a Requested/Inspected/Awaiting Parts record
+        // Completed — the final step, gated by MaintenanceRecord::canComplete().
+        // Separate from update() because it validates/accepts a different set of
+        // fields (the completion-only ones: service_date, cost, performed_by, etc.).
+        Route::post('/maintenance/{maintenance}/complete', [MaintenanceController::class, 'completeService'])->name('maintenance.complete');
+
         // Serves uploaded maintenance receipts/invoices directly (bypasses the public/storage
         // symlink, which is unreliable on Windows/WAMP) and keeps document access behind login.
         Route::get('/maintenance-documents/{path}', [MaintenanceController::class, 'viewDocument'])
             ->where('path', '.*')
             ->name('maintenance.document');
+
+        // Repairs — split out from Maintenance & PMS (VMIS Additional Updates item 4).
+        // Same maintenance_records table, partitioned by type; see RepairController's
+        // class docblock. Same only(...)/edit-data/update convention as maintenance above.
+        Route::resource('repairs', RepairController::class)->only(['index', 'store', 'destroy']);
+        Route::get('/repairs/{repair}/edit-data', [RepairController::class, 'editData'])->name('repairs.edit-data');
+        Route::put('/repairs/{repair}', [RepairController::class, 'update'])->name('repairs.update');
+
+        // See the matching maintenance.complete route above — same process-flow
+        // "Complete Service" action, mirrored for the Repairs module.
+        Route::post('/repairs/{repair}/complete', [RepairController::class, 'completeService'])->name('repairs.complete');
+
+        Route::get('/repair-documents/{path}', [RepairController::class, 'viewDocument'])
+            ->where('path', '.*')
+            ->name('repairs.document');
+
+        // Accident Records — a separate log of collisions/incidents, kept
+        // apart from Maintenance/Repairs (see the migration's docblock). Same
+        // only(...)/edit-data/update convention as maintenance/repairs above.
+        Route::resource('accidents', VehicleAccidentController::class)->only(['index', 'store', 'destroy']);
+        Route::get('/accidents/{accident}/edit-data', [VehicleAccidentController::class, 'editData'])->name('accidents.edit-data');
+        Route::put('/accidents/{accident}', [VehicleAccidentController::class, 'update'])->name('accidents.update');
+
+        Route::get('/accident-documents/{path}', [VehicleAccidentController::class, 'viewDocument'])
+            ->where('path', '.*')
+            ->name('accidents.document');
+
+        // Digitized Technical Inspection Report checklist — one shared route pair
+        // for both Maintenance & PMS and Repairs records, since a checklist
+        // belongs to the underlying maintenance_records row regardless of which
+        // module logged it. See TechnicalInspectionController's class docblock.
+        Route::get('/technical-inspections/{maintenanceRecord}', [TechnicalInspectionController::class, 'edit'])->name('technical-inspections.edit');
+        Route::post('/technical-inspections/{maintenanceRecord}', [TechnicalInspectionController::class, 'save'])->name('technical-inspections.save');
+
+        // Digitized Vehicle Repair Requisition Slip — same shared-controller
+        // shape as the Technical Inspection routes above (see
+        // VehicleRepairRequisitionController's class docblock).
+        Route::get('/vehicle-requisitions/{maintenanceRecord}', [VehicleRepairRequisitionController::class, 'edit'])->name('vehicle-requisitions.edit');
+        Route::post('/vehicle-requisitions/{maintenanceRecord}', [VehicleRepairRequisitionController::class, 'save'])->name('vehicle-requisitions.save');
 
         // Placeholder pages for planned modules — swap Route::view for a real
         // controller + view once each module is built. Keeps the nav links live.

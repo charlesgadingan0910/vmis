@@ -91,6 +91,17 @@
     .fleet-table tbody tr.row-pms-overdue td:nth-child(7) { border-left: none; padding-left: 0; }
   }
 
+  /* Same treatment for an overdue OR/CR/Insurance registration, but accenting
+     the Registration column (6th) instead of PMS (7th) — a vehicle can be
+     flagged by either, or both, independently. */
+  .fleet-table tbody tr.row-reg-overdue { background: #fff6f6; }
+  .fleet-table tbody tr.row-reg-overdue:hover { background: #fee2e2; }
+  .fleet-table tbody tr.row-reg-overdue td:nth-child(6) { border-left: 3px solid #dc2626; padding-left: 21px; }
+  @media (max-width: 767.98px) {
+    .fleet-table tbody tr.row-reg-overdue { background: #fff6f6 !important; border-color: #fecaca !important; border-width: 1.5px !important; }
+    .fleet-table tbody tr.row-reg-overdue td:nth-child(6) { border-left: none; padding-left: 0; }
+  }
+
   /* ---------- Predictive PMS priority tag (under the overdue/soon badge) ---------- */
   .pms-priority-tag { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; margin-top:4px; padding:2px 8px; border-radius:20px; cursor:help; }
   .pms-priority-tag i { font-size: 9px; }
@@ -111,6 +122,18 @@
   .priority-row-info { flex:1; min-width:0; }
   .priority-row-name { font-weight:700; font-size:13px; color:#0f172a; }
   .priority-row-reason { font-size:11.5px; color:#64748b; margin-top:2px; }
+
+  /* Unserviceable 90+ days panel — reuses .priority-panel/.priority-row's
+     structure and click-to-find behavior, just with a red/warning theme
+     instead of the Priority Attention panel's default styling. */
+  .priority-panel.unserviceable-alert-panel { border-color:#fecaca; background:#fffbfb; }
+  .unserviceable-alert-panel .priority-panel-header i { color:#dc2626; }
+
+  /* Registration Due panel — same priority-panel/priority-row structure,
+     amber theme since it mixes already-overdue and due-soon vehicles rather
+     than being purely critical like the unserviceable panel above. */
+  .priority-panel.registration-due-panel { border-color:#fde68a; background:#fffdf5; }
+  .registration-due-panel .priority-panel-header i { color:#d97706; }
 
   .modal-content-premium { border-radius: 16px; border: none; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden; }
   .modal-header-slate { background: linear-gradient(135deg, #1e293b, #0f172a); color: #ffffff; padding: 20px 24px; border-bottom: none; }
@@ -148,9 +171,91 @@
   .modal-section-divider { font-size: 11.5px; font-weight: 800; color: #3b82f6; text-transform: uppercase; margin: 18px 0 12px; padding-bottom: 6px; border-bottom: 1.5px solid #f1f5f9; }
   .form-control-modern { border: 1.5px solid #e2e8f0; border-radius: 9px; font-size: 13.5px; height: 42px; color: #0f172a; }
   .form-control-modern:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12); }
-  
+
+  /* Deployment & Status uses a flex row instead of fixed col-md-3s so that when
+     conditional fields (Source added, BER Sub-Status / Disposal Date shown or
+     hidden) change how many fields are visible, the remaining ones on the last
+     line grow to fill the row instead of leaving a sparse, dangling row of
+     mostly-empty columns. */
+  .form-flex-row { align-items: flex-start; }
+  .form-flex-row > .form-flex-item { flex: 1 1 220px; padding-right: 15px; padding-left: 15px; }
+
   .history-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 12px; }
   .history-year { font-size: 18px; font-weight: 800; color: #0f172a; }
+
+  /* ---------- Registration document icons (Register Vehicle / Add Registration forms) ---------- */
+  .doc-field-icon { font-size: 12px; margin-right: 4px; }
+  .doc-field-icon-or { color: #3b82f6; }
+  .doc-field-icon-cr { color: #8b5cf6; }
+  .doc-field-icon-ins { color: #0d9488; }
+  .doc-field-icon-exp { color: #d97706; }
+
+  /* ---------- Docs / Add Docs action button (Vehicle Inventory Registration column) ---------- */
+  .docs-pill-btn {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
+    padding: 6px 13px; border-radius: 20px; border: 1.5px solid; transition: all .15s ease; line-height: 1.3;
+  }
+  .docs-pill-btn i { font-size: 11px; }
+  .docs-pill-btn.has-docs { background: #eff6ff; border-color: #bfdbfe; color: #2563eb; }
+  .docs-pill-btn.has-docs:hover { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+  .docs-pill-btn.no-docs { background: #f8fafc; border-color: #e2e8f0; border-style: dashed; color: #64748b; }
+  .docs-pill-btn.no-docs:hover { background: #f1f5f9; border-color: #cbd5e1; color: #334155; }
+
+  /* ---------- Registration History modal: premium per-year document cards ---------- */
+  .reg-modal-subtitle { font-size: 12px; color: #94a3b8; font-weight: 600; margin-top: 2px; }
+  .reg-year-card {
+    background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px 20px;
+    margin-bottom: 14px; box-shadow: 0 1px 3px rgba(15,23,42,0.04); transition: box-shadow .15s ease, border-color .15s ease;
+  }
+  .reg-year-card:hover { box-shadow: 0 4px 16px rgba(15,23,42,0.07); }
+  .reg-year-card.is-latest { border-color: #bfdbfe; background: linear-gradient(180deg, #f5f9ff 0%, #ffffff 60px); }
+  .reg-year-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+  .reg-year-badge-wrap { display: flex; align-items: center; gap: 9px; }
+  .reg-year-badge {
+    font-size: 17px; font-weight: 800; color: #0f172a; background: #f1f5f9; border-radius: 8px;
+    padding: 3px 12px; letter-spacing: .02em;
+  }
+  .reg-year-card.is-latest .reg-year-badge { background: #dbeafe; color: #1d4ed8; }
+  .reg-current-chip {
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #16a34a;
+    background: #eaf6ef; border: 1px solid #bbf0cf; padding: 3px 9px; border-radius: 20px;
+  }
+  .reg-uploader-chip { font-size: 11.5px; color: #64748b; font-weight: 600; }
+  .reg-uploader-chip i { color: #94a3b8; margin-right: 3px; }
+  .reg-uploaded-date { font-size: 11.5px; color: #94a3b8; margin: 3px 0 14px; }
+  .reg-uploaded-date i { margin-right: 4px; }
+
+  .reg-doc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media (max-width: 575px) { .reg-doc-grid { grid-template-columns: 1fr; } }
+
+  .reg-doc-chip {
+    display: flex; align-items: center; gap: 11px; background: #f8fafc; border: 1.5px solid #e2e8f0;
+    border-radius: 11px; padding: 11px 12px; text-decoration: none; transition: all .15s ease;
+  }
+  a.reg-doc-chip:hover { background: #fff; border-color: #93c5fd; box-shadow: 0 3px 10px rgba(59,130,246,0.12); transform: translateY(-1px); text-decoration: none; }
+  .reg-doc-icon {
+    width: 36px; height: 36px; min-width: 36px; border-radius: 9px; display: flex; align-items: center;
+    justify-content: center; font-size: 14px;
+  }
+  .reg-doc-icon.doc-or { background: rgba(59,130,246,0.12); color: #3b82f6; }
+  .reg-doc-icon.doc-cr { background: rgba(139,92,246,0.12); color: #8b5cf6; }
+  .reg-doc-icon.doc-ins { background: rgba(13,148,136,0.12); color: #0d9488; }
+  .reg-doc-meta { min-width: 0; }
+  .reg-doc-label { font-size: 12.5px; font-weight: 700; color: #1e293b; }
+  .reg-doc-status { font-size: 11px; color: #3b82f6; font-weight: 600; margin-top: 1px; }
+  .reg-doc-status i { font-size: 9px; margin-left: 2px; }
+  .reg-doc-chip.reg-doc-missing { opacity: .7; border-style: dashed; cursor: default; }
+  .reg-doc-chip.reg-doc-missing .reg-doc-icon { background: #f1f5f9; color: #cbd5e1; }
+  .reg-doc-chip.reg-doc-missing .reg-doc-status { color: #94a3b8; }
+
+  .reg-summary-bar {
+    display: flex; align-items: center; gap: 10px; background: #f8fafc; border: 1px solid #eef1f6;
+    border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 12.5px; color: #475569; font-weight: 600;
+  }
+  .reg-summary-bar i { color: #3b82f6; }
+
+  /* ---------- Add Registration panel ---------- */
+  .add-registration-panel { background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 16px 18px; margin-bottom: 18px; }
   .live-checker-banner { display: none; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; font-weight: 600; align-items: center; gap: 10px; }
   .live-checker-banner.warning { display: flex; background: #fef2f2; border: 1.5px solid #fecaca; color: #991b1b; }
   .field-feedback-text { font-size: 11.5px; font-weight: 600; margin-top: 4px; display: block; }
@@ -266,6 +371,45 @@
         </div>
         @endif
 
+        @if($unserviceableAlerts->isNotEmpty())
+        <div class="priority-panel unserviceable-alert-panel">
+            <div class="priority-panel-header"><i class="fas fa-exclamation-triangle"></i> Unserviceable 90+ Days — Needs Action</div>
+            <div class="priority-panel-sub">These vehicles have been Unserviceable for at least 3 months. Repair, reclassify as BER, or otherwise resolve their status. Click one to find it below.</div>
+            @foreach($unserviceableAlerts as $v)
+            <div class="priority-row" data-plate="{{ strtoupper($v->plate_number) }}" title="Click to find this vehicle in the table below">
+                <span class="priority-row-plate">{{ strtoupper($v->plate_number) }}</span>
+                <div class="priority-row-info">
+                    <div class="priority-row-name">{{ $v->make }} {{ $v->model }}</div>
+                    <div class="priority-row-reason">Unserviceable since {{ $v->unserviceable_since->format('M d, Y') }}</div>
+                </div>
+                <span class="badge-pms pms-badge-overdue"><i class="fas fa-exclamation-triangle"></i> {{ $v->daysUnserviceable() }}d</span>
+            </div>
+            @endforeach
+        </div>
+        @endif
+
+        @if($registrationDueAlerts->isNotEmpty())
+        <div class="priority-panel registration-due-panel">
+            <div class="priority-panel-header"><i class="fas fa-calendar-times"></i> Registration Due</div>
+            <div class="priority-panel-sub">OR/CR/Insurance already expired or expiring within {{ \App\Models\Vehicle::REGISTRATION_DUE_SOON_DAYS }} days. Click one to find it below, or use its <strong>Docs</strong> button to upload the new year's registration.</div>
+            @foreach($registrationDueAlerts as $v)
+            @php $daysLeft = $v->registrationDaysRemaining(); @endphp
+            <div class="priority-row" data-plate="{{ strtoupper($v->plate_number) }}" title="Click to find this vehicle in the table below">
+                <span class="priority-row-plate">{{ strtoupper($v->plate_number) }}</span>
+                <div class="priority-row-info">
+                    <div class="priority-row-name">{{ $v->make }} {{ $v->model }}</div>
+                    <div class="priority-row-reason">Valid until {{ $v->latestRegistration->expiry_date->format('M d, Y') }}</div>
+                </div>
+                @if($daysLeft < 0)
+                <span class="badge-pms pms-badge-overdue"><i class="fas fa-exclamation-triangle"></i> {{ abs($daysLeft) }}d overdue</span>
+                @else
+                <span class="badge-pms pms-badge-soon"><i class="fas fa-clock"></i> Due in {{ $daysLeft }}d</span>
+                @endif
+            </div>
+            @endforeach
+        </div>
+        @endif
+
         <div class="fleet-card-container">
             <div class="toolbar-header">
                 <div class="toolbar-title"><h5>Vehicle Inventory</h5></div>
@@ -303,6 +447,13 @@
                         <option value="SERVICEABLE">Serviceable</option>
                         <option value="UNSERVICEABLE">Unserviceable</option>
                         <option value="BER">BER</option>
+                    </select>
+
+                    <select id="filterSource" class="form-control custom-filter-select" style="width:130px;">
+                        <option value="">All Sources</option>
+                        @foreach (\App\Models\Vehicle::SOURCES as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
                     </select>
 
                     <button type="button" id="resetFiltersBtn" class="btn btn-light border text-secondary"><i class="fas fa-undo"></i></button>
@@ -396,8 +547,8 @@
                     </div>
 
                     <div class="modal-section-divider">Deployment & Status</div>
-                    <div class="row">
-                        <div class="col-md-3 form-group">
+                    <div class="row form-flex-row">
+                        <div class="form-group form-flex-item">
                             <label class="field-label">Assigned Unit <span class="text-danger">*</span></label>
                             <select name="unit_id" id="formUnitId" class="form-control form-control-modern" required>
                                 <option value="">Select Unit...</option>
@@ -406,7 +557,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-3 form-group">
+                        <div class="form-group form-flex-item">
                             <label class="field-label">Assigned Station <span class="text-danger">*</span></label>
                             <select name="station_id" id="formStationId" class="form-control form-control-modern" required>
                                 <option value="">Select Station...</option>
@@ -415,7 +566,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-3 form-group">
+                        <div class="form-group form-flex-item">
                             <label class="field-label">Assigned Driver</label>
                             <select name="assigned_driver_id" class="form-control form-control-modern">
                                 <option value="">Unassigned</option>
@@ -426,34 +577,69 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-3 form-group">
+                        <div class="form-group form-flex-item">
                             <label class="field-label">Status <span class="text-danger">*</span></label>
-                            <select name="status" class="form-control form-control-modern" required>
+                            <select name="status" id="status" class="form-control form-control-modern" required>
                                 <option value="SERVICEABLE">Serviceable</option>
                                 <option value="UNSERVICEABLE">Unserviceable</option>
                                 <option value="BER">BER</option>
                             </select>
                         </div>
+                        <div class="form-group form-flex-item">
+                            <label class="field-label">Source <span class="text-danger">*</span></label>
+                            <select name="source" class="form-control form-control-modern" required>
+                                @foreach (\App\Models\Vehicle::SOURCES as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group form-flex-item ber-field-wrapper d-none">
+                            <label class="field-label">BER Sub-Status <span class="text-danger">*</span></label>
+                            <select name="ber_sub_status" class="form-control form-control-modern ber-sub-status-select">
+                                <option value="">Select sub-status...</option>
+                                @foreach (\App\Models\Vehicle::BER_SUB_STATUSES as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group form-flex-item disposal-date-wrapper d-none">
+                            <label class="field-label">Disposal Date <span class="text-danger">*</span></label>
+                            <input type="date" name="disposal_date" class="form-control form-control-modern disposal-date-input">
+                            <small class="text-muted">Disposed vehicles are excluded from the Total Vehicles count.</small>
+                        </div>
                     </div>
 
-                    <div class="modal-section-divider">Metrics & Documents</div>
+                    <div class="modal-section-divider">Metrics</div>
                     <div class="row">
-                        <div class="col-md-3 form-group">
+                        <div class="col-md-6 form-group">
                             <label class="field-label">Odometer (km)</label>
                             <input type="number" name="odometer_km" class="form-control form-control-modern" min="0" value="0">
                         </div>
-                        <div class="col-md-3 form-group">
+                        <div class="col-md-6 form-group">
                             <label class="field-label">Next PMS Date</label>
                             <input type="date" name="next_pms_date" class="form-control form-control-modern">
                         </div>
+                    </div>
+
+                    <div class="modal-section-divider">Registration Documents</div>
+                    <div class="row">
                         <div class="col-md-3 form-group">
-                            <label class="field-label">Official Receipt (OR) <span class="text-danger">*</span></label>
+                            <label class="field-label"><i class="fas fa-calendar-check doc-field-icon doc-field-icon-exp"></i> Valid Until <span class="text-danger">*</span></label>
+                            <input type="date" name="expiry_date" class="form-control form-control-modern" value="{{ now()->addYear()->format('Y-m-d') }}" required>
+                            <small class="text-muted" style="font-size:10.5px;">When this OR/CR/Insurance expires</small>
+                        </div>
+                        <div class="col-md-3 form-group">
+                            <label class="field-label"><i class="fas fa-receipt doc-field-icon doc-field-icon-or"></i> Official Receipt (OR) <span class="text-danger">*</span></label>
                             <input type="file" id="or_file" name="or_file" class="form-control form-control-modern" accept=".pdf,.jpg,.png" required style="padding-top:7px;">
                             <span class="field-feedback-text" id="orScanStatus" style="display:none;"></span>
                         </div>
                         <div class="col-md-3 form-group">
-                            <label class="field-label">Cert. of Reg (CR) <span class="text-danger">*</span></label>
+                            <label class="field-label"><i class="fas fa-id-card doc-field-icon doc-field-icon-cr"></i> Cert. of Reg (CR) <span class="text-danger">*</span></label>
                             <input type="file" name="cr_file" class="form-control form-control-modern" accept=".pdf,.jpg,.png" required style="padding-top:7px;">
+                        </div>
+                        <div class="col-md-3 form-group">
+                            <label class="field-label"><i class="fas fa-shield-alt doc-field-icon doc-field-icon-ins"></i> Insurance <span class="text-danger">*</span></label>
+                            <input type="file" name="insurance_file" class="form-control form-control-modern" accept=".pdf,.jpg,.png" required style="padding-top:7px;">
                         </div>
                     </div>
                     @if($aiDocumentScanningEnabled ?? false)
@@ -538,8 +724,8 @@
                     </div>
 
                     <div class="modal-section-divider">Deployment &amp; Status</div>
-                    <div class="row">
-                        <div class="col-md-3 form-group">
+                    <div class="row form-flex-row">
+                        <div class="form-group form-flex-item">
                             <label class="field-label">Assigned Unit <span class="text-danger">*</span></label>
                             <select id="edit_unit_id" name="unit_id" class="form-control form-control-modern" required>
                                 <option value="">Select Unit...</option>
@@ -548,7 +734,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-3 form-group">
+                        <div class="form-group form-flex-item">
                             <label class="field-label">Assigned Station <span class="text-danger">*</span></label>
                             <select id="edit_station_id" name="station_id" class="form-control form-control-modern" required>
                                 <option value="">Select Station...</option>
@@ -557,7 +743,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-3 form-group">
+                        <div class="form-group form-flex-item">
                             <label class="field-label">Assigned Driver</label>
                             <select id="edit_assigned_driver_id" name="assigned_driver_id" class="form-control form-control-modern">
                                 <option value="">Unassigned</option>
@@ -568,13 +754,36 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-3 form-group">
+                        <div class="form-group form-flex-item">
                             <label class="field-label">Status <span class="text-danger">*</span></label>
                             <select id="edit_status" name="status" class="form-control form-control-modern" required>
                                 <option value="SERVICEABLE">Serviceable</option>
                                 <option value="UNSERVICEABLE">Unserviceable</option>
                                 <option value="BER">BER</option>
                             </select>
+                            <small class="text-muted d-none" id="edit_unserviceable_note"></small>
+                        </div>
+                        <div class="form-group form-flex-item">
+                            <label class="field-label">Source <span class="text-danger">*</span></label>
+                            <select id="edit_source" name="source" class="form-control form-control-modern" required>
+                                @foreach (\App\Models\Vehicle::SOURCES as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group form-flex-item ber-field-wrapper d-none">
+                            <label class="field-label">BER Sub-Status <span class="text-danger">*</span></label>
+                            <select id="edit_ber_sub_status" name="ber_sub_status" class="form-control form-control-modern ber-sub-status-select">
+                                <option value="">Select sub-status...</option>
+                                @foreach (\App\Models\Vehicle::BER_SUB_STATUSES as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group form-flex-item disposal-date-wrapper d-none">
+                            <label class="field-label">Disposal Date <span class="text-danger">*</span></label>
+                            <input type="date" id="edit_disposal_date" name="disposal_date" class="form-control form-control-modern disposal-date-input">
+                            <small class="text-muted">Disposed vehicles are excluded from the Total Vehicles count.</small>
                         </div>
                     </div>
 
@@ -590,7 +799,7 @@
                         </div>
                     </div>
                     <div class="alert alert-light border small text-muted mb-0">
-                        <i class="fas fa-info-circle mr-1"></i> OR/CR documents aren't edited here — use the <strong>Docs</strong> button on the vehicle's row to upload a new year's registration.
+                        <i class="fas fa-info-circle mr-1"></i> OR/CR/Insurance documents aren't edited here — use the <strong>Docs</strong> button on the vehicle's row to upload a new year's registration.
                     </div>
                 </div>
                 <div class="modal-footer border-top p-3 bg-light">
@@ -607,37 +816,106 @@
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content modal-content-premium">
             <div class="modal-header-slate d-flex align-items-center justify-content-between">
-                <h5 id="historyModalTitle">Document History</h5>
+                <div>
+                    <h5 id="historyModalTitle"><i class="fas fa-folder-open mr-2"></i> Document History</h5>
+                    <div class="reg-modal-subtitle" id="historyModalSubtitle"></div>
+                </div>
                 <button type="button" class="btn btn-sm btn-outline-light" id="toggleAddRegistrationBtn">
                     <i class="fas fa-plus mr-1"></i> Add Registration
                 </button>
             </div>
             <div class="modal-body p-4">
-                <form id="addRegistrationForm" class="history-card" style="display:none; background:#eff6ff; border-color:#bfdbfe;" enctype="multipart/form-data">
+                <form id="addRegistrationForm" class="add-registration-panel" style="display:none;" enctype="multipart/form-data">
                     <input type="hidden" id="registration_vehicle_id" name="vehicle_id">
-                    <div class="font-weight-bold text-primary mb-2"><i class="fas fa-calendar-plus mr-1"></i> New Year Registration</div>
+                    <div class="font-weight-bold text-primary mb-3"><i class="fas fa-calendar-plus mr-1"></i> New Year Registration</div>
                     <div class="row">
-                        <div class="col-md-3 form-group mb-2">
+                        <div class="col-md-6 form-group mb-2">
                             <label class="field-label">Year <span class="text-danger">*</span></label>
                             <input type="number" name="registration_year" class="form-control form-control-modern" value="{{ date('Y') }}" min="1980" max="{{ date('Y') + 1 }}" required>
                         </div>
+                        <div class="col-md-6 form-group mb-2">
+                            <label class="field-label"><i class="fas fa-calendar-check doc-field-icon doc-field-icon-exp"></i> Valid Until <span class="text-danger">*</span></label>
+                            <input type="date" id="registration_expiry_date" name="expiry_date" class="form-control form-control-modern" required>
+                        </div>
+                    </div>
+                    <div class="row">
                         <div class="col-md-4 form-group mb-2">
-                            <label class="field-label">Official Receipt (OR) <span class="text-danger">*</span></label>
+                            <label class="field-label"><i class="fas fa-receipt doc-field-icon doc-field-icon-or"></i> Official Receipt <span class="text-danger">*</span></label>
                             <input type="file" name="or_file" class="form-control form-control-modern" accept=".pdf,.jpg,.png" required>
                         </div>
                         <div class="col-md-4 form-group mb-2">
-                            <label class="field-label">Cert. of Reg (CR) <span class="text-danger">*</span></label>
+                            <label class="field-label"><i class="fas fa-id-card doc-field-icon doc-field-icon-cr"></i> Cert. of Reg <span class="text-danger">*</span></label>
                             <input type="file" name="cr_file" class="form-control form-control-modern" accept=".pdf,.jpg,.png" required>
                         </div>
-                        <div class="col-md-1 form-group mb-2 d-flex align-items-end">
-                            <button type="submit" class="btn btn-primary btn-block" id="btnSubmitRegistration"><i class="fas fa-upload"></i></button>
+                        <div class="col-md-4 form-group mb-2">
+                            <label class="field-label"><i class="fas fa-shield-alt doc-field-icon doc-field-icon-ins"></i> Insurance <span class="text-danger">*</span></label>
+                            <input type="file" name="insurance_file" class="form-control form-control-modern" accept=".pdf,.jpg,.png" required>
                         </div>
                     </div>
                     <div class="field-feedback-text error" id="registrationErrorText" style="display:none;"></div>
+                    <button type="submit" class="btn btn-primary mt-2" id="btnSubmitRegistration"><i class="fas fa-upload mr-1"></i> Upload Registration</button>
                 </form>
+
+                <div class="reg-summary-bar" id="historySummaryBar" style="display:none;">
+                    <i class="fas fa-layer-group"></i> <span id="historySummaryText"></span>
+                </div>
 
                 <div id="historyModalBody">
                     <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light"><button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- SERVICE HISTORY MODAL (combined Maintenance & PMS + Repair) -->
+<div class="modal fade" id="serviceHistoryModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content modal-content-premium">
+            <div class="modal-header-slate d-flex align-items-center justify-content-between">
+                <h5 id="serviceHistoryModalTitle"><i class="fas fa-wrench mr-2"></i> Maintenance &amp; Repair History</h5>
+            </div>
+            <div class="modal-body p-4">
+                <div id="serviceHistorySummary" class="row text-center mb-3" style="display:none;">
+                    <div class="col-4">
+                        <div class="font-weight-bold" style="font-size:20px;" id="shSummaryTotal">0</div>
+                        <div class="text-muted small">Total Jobs</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="font-weight-bold" style="font-size:20px;" id="shSummaryMaintenance">0</div>
+                        <div class="text-muted small">Maintenance &amp; PMS</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="font-weight-bold" style="font-size:20px;" id="shSummaryRepairs">0</div>
+                        <div class="text-muted small">Repairs</div>
+                    </div>
+                </div>
+
+                <!-- Search + module filter — only meaningful once there's more than a
+                     handful of records, but always shown so a vehicle's history stays
+                     browsable no matter how large it eventually grows. -->
+                <div class="d-flex flex-wrap mb-3" style="gap:8px;">
+                    <input type="text" id="shSearchInput" class="form-control form-control-sm" placeholder="Search description, control #, performed by..." style="flex:1; min-width:200px;">
+                    <select id="shModuleFilter" class="form-control form-control-sm" style="max-width:170px;">
+                        <option value="">All Jobs</option>
+                        <option value="MAINTENANCE">Maintenance &amp; PMS only</option>
+                        <option value="REPAIR">Repairs only</option>
+                    </select>
+                </div>
+
+                <div id="serviceHistoryBody">
+                    <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+                </div>
+
+                <div id="serviceHistoryPagination" class="mt-3 pt-2 border-top" style="display:none;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted small" id="shPaginationInfo"></span>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="shPrevBtn"><i class="fas fa-chevron-left"></i> Prev</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="shNextBtn">Next <i class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer bg-light"><button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button></div>
@@ -679,6 +957,7 @@ $(document).ready(function() {
         history:      "{{ route('vehicles.history', ':id') }}",
         registrations:"{{ route('vehicles.registrations.store', ':id') }}",
         qrData:       "{{ route('vehicles.qr-data', ':id') }}",
+        serviceHistory:"{{ route('vehicles.service-history', ':id') }}",
     };
     function vehicleRoute(name, id) {
         return routeTemplates[name].replace(':id', id);
@@ -753,6 +1032,7 @@ $(document).ready(function() {
                 d.station_id = $('#filterStation').val();
                 d.status = $('#filterStatus').val();
                 d.vehicle_type_id = $('#filterVehicleType').val();
+                d.source = $('#filterSource').val();
             },
             dataSrc: function (json) {
                 updateStatCards(json.stats);
@@ -854,7 +1134,7 @@ $(document).ready(function() {
         window.open(qrPrintBaseUrl + '?ids=' + encodeURIComponent(currentQrVehicleId), '_blank');
     });
 
-    $('#customSearchBox').on('keyup input', function() { table.search($(this).val()).draw(); });$('#filterUnit, #filterStation, #filterStatus, #filterVehicleType').change(function() { table.draw(); });
+    $('#customSearchBox').on('keyup input', function() { table.search($(this).val()).draw(); });$('#filterUnit, #filterStation, #filterStatus, #filterVehicleType, #filterSource').change(function() { table.draw(); });
 
     // Priority Attention panel — clicking a row jumps straight to that vehicle
     // in the table below via the same search box, rather than duplicating a
@@ -886,8 +1166,47 @@ $(document).ready(function() {
     // otherwise every station shows until the user actually touches the Unit dropdown once.
     $('#filterUnit').trigger('change');
 
+    // BER sub-status only makes sense once Status = BER, and the disposal date
+    // only once the sub-status is specifically "Disposed" — same nested-toggle
+    // pattern as the DRIVER account type's driver-profile field on System Users.
+    function toggleBerFields($statusSelect) {
+        let $form = $statusSelect.closest('form');
+        let $wrapper = $form.find('.ber-field-wrapper');
+        let $subStatusSelect = $wrapper.find('.ber-sub-status-select');
+        let isBer = $statusSelect.val() === 'BER';
+
+        $wrapper.toggleClass('d-none', !isBer);
+        $subStatusSelect.prop('required', isBer);
+        if (!isBer) {
+            $subStatusSelect.val('');
+            toggleDisposalDate($subStatusSelect);
+        }
+    }
+
+    function toggleDisposalDate($subStatusSelect) {
+        let $form = $subStatusSelect.closest('form');
+        let $dateWrapper = $form.find('.disposal-date-wrapper');
+        let $dateInput = $dateWrapper.find('.disposal-date-input');
+        let isDisposed = $subStatusSelect.val() === 'DISPOSED';
+
+        $dateWrapper.toggleClass('d-none', !isDisposed);
+        $dateInput.prop('required', isDisposed);
+        if (!isDisposed) {
+            $dateInput.val('');
+        }
+    }
+
+    $('#status, #edit_status').on('change', function() { toggleBerFields($(this)); });
+    $(document).on('change', '.ber-sub-status-select', function() { toggleDisposalDate($(this)); });
+
+    // The "Unserviceable since" note reflects whatever was loaded from the
+    // server — the moment the admin touches Status themselves, that note is
+    // stale (a save will restamp or clear the date), so hide it rather than
+    // leave a misleading date on screen until the next time this modal opens.
+    $('#edit_status').on('change', function() { $('#edit_unserviceable_note').addClass('d-none').text(''); });
+
     $('#resetFiltersBtn').click(function() {
-        $('#customSearchBox, #filterStation, #filterStatus, #filterVehicleType').val('');
+        $('#customSearchBox, #filterStation, #filterStatus, #filterVehicleType, #filterSource').val('');
         @if ($hasBroadVisibility)$('#filterUnit').val('');
         @endif
         $('#filterStation option').show();
@@ -896,32 +1215,92 @@ $(document).ready(function() {
 
     let currentHistoryVehicleId = null;
 
+    // One "document chip" per OR/CR/Insurance slot. When a registration row has
+    // no file for that slot — either an older record predating the Insurance
+    // column, or (in principle) a very old legacy row — it renders as a muted,
+    // non-clickable placeholder instead of a dead/broken link.
+    function registrationDocChip(label, icon, colorClass, url) {
+        if (!url) {
+            return `
+            <div class="reg-doc-chip reg-doc-missing">
+                <div class="reg-doc-icon ${colorClass}"><i class="fas ${icon}"></i></div>
+                <div class="reg-doc-meta">
+                    <div class="reg-doc-label">${label}</div>
+                    <div class="reg-doc-status">Not uploaded</div>
+                </div>
+            </div>`;
+        }
+        return `
+        <a href="${url}" target="_blank" rel="noopener" class="reg-doc-chip">
+            <div class="reg-doc-icon ${colorClass}"><i class="fas ${icon}"></i></div>
+            <div class="reg-doc-meta">
+                <div class="reg-doc-label">${label}</div>
+                <div class="reg-doc-status">View document <i class="fas fa-external-link-alt"></i></div>
+            </div>
+        </a>`;
+    }
+
+    // "Valid until <date>" line for one registration year card, with an
+    // overdue/due-soon badge — same badge-pms classes the PMS column already
+    // uses, so an expiring registration reads the same way an overdue PMS
+    // date does elsewhere on this page. Omitted entirely for older rows that
+    // predate expiry_date being tracked (reg.expiry_date is null then).
+    function registrationExpiryLine(reg) {
+        if (!reg.expiry_date) return '';
+        let badge = '';
+        if (reg.expiry_status === 'overdue') {
+            badge = ' <span class="badge-pms pms-badge-overdue"><i class="fas fa-exclamation-triangle"></i> Expired</span>';
+        } else if (reg.expiry_status === 'soon') {
+            badge = ' <span class="badge-pms pms-badge-soon"><i class="fas fa-clock"></i> Due soon</span>';
+        }
+        return `<p class="reg-uploaded-date"><i class="fas fa-calendar-check"></i>Valid until ${reg.expiry_date}${badge}</p>`;
+    }
+
     function loadHistory(id) {
         currentHistoryVehicleId = id;
         $('#registration_vehicle_id').val(id);
         $('#addRegistrationForm').hide();
         $('#addRegistrationForm')[0].reset();
+        // Default "Valid Until" to one year out — the common case — editable
+        // before upload if the actual OR/CR/Insurance expiry differs.
+        $('#registration_expiry_date').val(new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().slice(0, 10));
         $('#registrationErrorText').hide().text('');
+        $('#historyModalSubtitle').text('');
+        $('#historySummaryBar').hide();
         $('#historyModalBody').html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
 
         $.get(vehicleRoute('history', id), function(data) {
-            $('#historyModalTitle').html(`<i class="fas fa-folder-open mr-2"></i> ${data.plate_number} - Registration History`);
+            $('#historyModalTitle').html(`<i class="fas fa-folder-open mr-2"></i> ${data.plate_number} — Registration History`);
+            $('#historyModalSubtitle').text(data.make_model);
 
             let html = '';
-            if(data.registrations.length === 0) {
-                html = '<div class="alert alert-info">No document history found yet. Use "Add Registration" above to upload the first OR/CR.</div>';
+            if (data.registrations.length === 0) {
+                html = '<div class="alert alert-info">No document history found yet. Use "Add Registration" above to upload the first OR/CR/Insurance.</div>';
             } else {
-                data.registrations.forEach(function(reg) {
+                const yearWord = data.registrations.length === 1 ? 'year' : 'years';
+                $('#historySummaryText').text(`${data.registrations.length} registration ${yearWord} on file — most recent first`);
+                $('#historySummaryBar').show();
+
+                // Backend already orders registrations latest-year-first, so the
+                // very first card in the list is always the vehicle's current,
+                // in-force registration — flagged here rather than re-sorting.
+                data.registrations.forEach(function(reg, index) {
+                    const isLatest = index === 0;
                     html += `
-                    <div class="history-card">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="history-year">Year: ${reg.year}</span>
-                            <span class="badge badge-light border"><i class="fas fa-user-edit"></i> Encoded by: ${reg.uploader}</span>
+                    <div class="reg-year-card ${isLatest ? 'is-latest' : ''}">
+                        <div class="reg-year-head">
+                            <div class="reg-year-badge-wrap">
+                                <span class="reg-year-badge">${reg.year}</span>
+                                ${isLatest ? '<span class="reg-current-chip"><i class="fas fa-check mr-1"></i>Current</span>' : ''}
+                            </div>
+                            <span class="reg-uploader-chip"><i class="fas fa-user-edit"></i>Encoded by ${reg.uploader}</span>
                         </div>
-                        <p class="text-muted small mb-2"><i class="fas fa-clock"></i> Uploaded: ${reg.date}</p>
-                        <div class="d-flex gap-2">
-                            <a href="${reg.or_url}" target="_blank" class="btn btn-sm btn-outline-primary mr-2"><i class="fas fa-file-pdf"></i> View OR</a>
-                            <a href="${reg.cr_url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fas fa-file-pdf"></i> View CR</a>
+                        <p class="reg-uploaded-date"><i class="fas fa-clock"></i>Uploaded ${reg.date}</p>
+                        ${registrationExpiryLine(reg)}
+                        <div class="reg-doc-grid">
+                            ${registrationDocChip('Official Receipt', 'fa-receipt', 'doc-or', reg.or_url)}
+                            ${registrationDocChip('Cert. of Registration', 'fa-id-card', 'doc-cr', reg.cr_url)}
+                            ${registrationDocChip('Insurance', 'fa-shield-alt', 'doc-ins', reg.insurance_url)}
                         </div>
                     </div>`;
                 });
@@ -936,6 +1315,159 @@ $(document).ready(function() {
         let id = $(this).data('id');
         $('#historyModal').modal('show');
         loadHistory(id);
+    });
+
+    // Combined Maintenance & PMS + Repair timeline for one vehicle — every job ever
+    // logged against it, regardless of stage or which of the two modules it was
+    // opened from, so nothing has to be pieced together by filtering two separate
+    // pages. Read-only: no edit/delete actions here, just the record of what's
+    // been done — those actions stay on the Maintenance & PMS / Repairs pages
+    // themselves, where the process-flow buttons (checklist, requisition, complete)
+    // already live.
+    //
+    // Server-side paginated (10 at a time) with search + module filter, same
+    // reasoning as the Maintenance & PMS / Repairs DataTables: a vehicle in long
+    // service can rack up hundreds of records, and rendering all of them into
+    // this modal at once would make it slow to open and effectively unbrowsable.
+    // currentServiceHistory tracks the modal's own paging/filter state between
+    // the Prev/Next clicks and the search box's keyup handler below — it's reset
+    // to page 1 with no filters every time the modal is opened for a (possibly
+    // different) vehicle.
+    let currentServiceHistory = { vehicleId: null, start: 0, length: 10, search: '', module: '' };
+
+    function loadServiceHistory() {
+        const state = currentServiceHistory;
+        $('#serviceHistoryBody').html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+        $('#serviceHistoryPagination').hide();
+
+        $.get(vehicleRoute('serviceHistory', state.vehicleId), {
+            start: state.start,
+            length: state.length,
+            search: state.search,
+            module: state.module,
+        }, function(data) {
+            $('#serviceHistoryModalTitle').html(`<i class="fas fa-wrench mr-2"></i> ${data.plate_number} — Maintenance &amp; Repair History`);
+
+            $('#shSummaryTotal').text(data.summary.total);
+            $('#shSummaryMaintenance').text(data.summary.maintenance);
+            $('#shSummaryRepairs').text(data.summary.repairs);
+            $('#serviceHistorySummary').toggle(data.summary.total > 0);
+
+            if (data.summary.total === 0) {
+                $('#serviceHistoryBody').html('<div class="alert alert-info">No maintenance or repair records logged for this vehicle yet.</div>');
+                return;
+            }
+            if (data.records.length === 0) {
+                $('#serviceHistoryBody').html('<div class="alert alert-info">No jobs match this search/filter.</div>');
+                return;
+            }
+
+            let html = '';
+            data.records.forEach(function(r) {
+                const moduleBadge = r.module === 'Repair'
+                    ? '<span class="badge badge-warning px-2 py-1">Repair</span>'
+                    : '<span class="badge badge-primary px-2 py-1">Maintenance &amp; PMS</span>';
+                // Every Repair-module record's type_label is just "Repair" too (maintenance_type
+                // is always REPAIR there) — showing it again next to the module badge above would
+                // just repeat the same word, so it's only shown for Maintenance & PMS, where the
+                // type actually varies (PMS, Oil Change, Tire Change, etc.).
+                const typeBadge = r.module === 'Repair'
+                    ? ''
+                    : `<span class="badge badge-${r.type_color} px-2 py-1">${r.type_label}</span>`;
+                const stageBadge = `<span class="badge badge-${r.stage_color} px-2 py-1">${r.stage_label}</span>`;
+                const dateLabel = r.is_placeholder_date
+                    ? `${r.service_date} <span class="text-muted">(requested)</span>`
+                    : r.service_date;
+                const costLine = r.cost !== null
+                    ? `<div><i class="fas fa-coins text-muted mr-1"></i> &#8369;${Number(r.cost).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>`
+                    : '';
+                const odometerLine = r.odometer_km
+                    ? `<div><i class="fas fa-tachometer-alt text-muted mr-1"></i> ${Number(r.odometer_km).toLocaleString()} km</div>`
+                    : '';
+                const performedLine = r.performed_by
+                    ? `<div><i class="fas fa-user-cog text-muted mr-1"></i> ${r.performed_by}</div>`
+                    : '';
+                const nextDueLine = r.next_due_date
+                    ? `<div><i class="fas fa-calendar-check text-muted mr-1"></i> Next due: ${r.next_due_date}</div>`
+                    : '';
+
+                html += `
+                <div class="history-card">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap mb-2" style="gap:6px;">
+                        <div>${moduleBadge} ${typeBadge} ${stageBadge}</div>
+                        ${r.control_number ? `<span class="text-muted small">${r.control_number}</span>` : ''}
+                    </div>
+                    ${r.description ? `<p class="mb-2">${r.description}</p>` : ''}
+                    <div class="small text-dark" style="line-height:1.9;">
+                        <div><i class="fas fa-calendar text-muted mr-1"></i> ${dateLabel}</div>
+                        ${odometerLine}
+                        ${costLine}
+                        ${performedLine}
+                        ${nextDueLine}
+                    </div>
+                    <p class="text-muted small mb-0 mt-2"><i class="fas fa-clock"></i> Logged by ${r.logged_by} on ${r.logged_at}</p>
+                </div>`;
+            });
+            $('#serviceHistoryBody').html(html);
+
+            // Pagination footer — only shown once there's more than one page, same
+            // "don't clutter the UI for the common small-vehicle case" reasoning as
+            // the summary cards above.
+            if (data.recordsFiltered > state.length) {
+                const shownFrom = state.start + 1;
+                const shownTo = Math.min(state.start + state.length, data.recordsFiltered);
+                $('#shPaginationInfo').text(`Showing ${shownFrom}–${shownTo} of ${data.recordsFiltered} job${data.recordsFiltered === 1 ? '' : 's'}`);
+                $('#shPrevBtn').prop('disabled', state.start <= 0);
+                $('#shNextBtn').prop('disabled', state.start + state.length >= data.recordsFiltered);
+                $('#serviceHistoryPagination').show();
+            } else {
+                $('#serviceHistoryPagination').hide();
+            }
+        }).fail(function() {
+            $('#serviceHistoryBody').html('<div class="alert alert-danger">Error loading maintenance/repair history. You may not have permission.</div>');
+            $('#serviceHistoryPagination').hide();
+        });
+    }
+
+    $('#vehiclesTable').on('click', '.btn-service-history', function() {
+        let id = $(this).data('id');
+        // Fresh page/filter state every time the modal opens — otherwise a search
+        // or page position left over from a previous vehicle (or an earlier look
+        // at this same one) would carry over and quietly hide records.
+        currentServiceHistory = { vehicleId: id, start: 0, length: 10, search: '', module: '' };
+        $('#shSearchInput').val('');
+        $('#shModuleFilter').val('');
+        $('#serviceHistoryModal').modal('show');
+        loadServiceHistory();
+    });
+
+    let shSearchDebounce;
+    $('#shSearchInput').on('keyup input', function() {
+        clearTimeout(shSearchDebounce);
+        const value = $(this).val();
+        shSearchDebounce = setTimeout(function() {
+            currentServiceHistory.search = value;
+            currentServiceHistory.start = 0;
+            loadServiceHistory();
+        }, 300);
+    });
+
+    $('#shModuleFilter').on('change', function() {
+        currentServiceHistory.module = $(this).val();
+        currentServiceHistory.start = 0;
+        loadServiceHistory();
+    });
+
+    $('#shPrevBtn').on('click', function() {
+        if ($(this).prop('disabled')) return;
+        currentServiceHistory.start = Math.max(0, currentServiceHistory.start - currentServiceHistory.length);
+        loadServiceHistory();
+    });
+
+    $('#shNextBtn').on('click', function() {
+        if ($(this).prop('disabled')) return;
+        currentServiceHistory.start += currentServiceHistory.length;
+        loadServiceHistory();
     });
 
     $('#toggleAddRegistrationBtn').click(function() {
@@ -1100,6 +1632,20 @@ $(document).ready(function() {
             $('#edit_odometer_km').val(data.odometer_km);
             $('#edit_next_pms_date').val(data.next_pms_date);
             $('#edit_status').val(data.status);
+            toggleBerFields($('#edit_status'));
+            $('#edit_ber_sub_status').val(data.ber_sub_status);
+            toggleDisposalDate($('#edit_ber_sub_status'));
+            $('#edit_disposal_date').val(data.disposal_date);
+            $('#edit_source').val(data.source);
+
+            // Read-only context — VehicleController stamps/clears this itself
+            // whenever status changes, so it's shown here, never edited.
+            const $unsNote = $('#edit_unserviceable_note');
+            if (data.status === 'UNSERVICEABLE' && data.unserviceable_since) {
+                $unsNote.text('Unserviceable since ' + data.unserviceable_since + ' (' + data.days_unserviceable + ' days).').removeClass('d-none');
+            } else {
+                $unsNote.addClass('d-none').text('');
+            }
             $('#edit_assigned_driver_id').val(data.assigned_driver_id);
 
             $('#edit_unit_id').val(data.unit_id).trigger('change');
@@ -1207,6 +1753,12 @@ $(document).ready(function() {
         $('#btnSubmitVehicle').prop('disabled', false).css('opacity', '1');
         duplicateState.plate_number = false; duplicateState.engine_number = false; duplicateState.chassis_number = false;
         $('.live-check-field').removeClass('is-invalid is-valid');$('.field-feedback-text').html('').removeClass('error success');
+
+        // Re-sync the BER sub-status/disposal-date wrappers to whatever Status
+        // currently holds — the form doesn't get a hard .reset() between opens,
+        // so a leftover BER selection from a prior open would otherwise leave
+        // the wrapper's visibility out of sync with the field it's guarding.
+        toggleBerFields($('#status'));
 
         // Re-apply the unit→station filter every time the modal opens: hides all stations for
         // multi-unit admins (nothing chosen yet), or auto-filters to the one pre-selected unit's

@@ -13,12 +13,21 @@ class VehicleRegistration extends Model
         'vehicle_id',
         'or_file_path',
         'cr_file_path',
+        'insurance_file_path',
         'registration_year',
+        'expiry_date',
         'uploaded_by',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'expiry_date' => 'date',
+        ];
+    }
+
     /**
-     * The vehicle this OR/CR registration belongs to.
+     * The vehicle this OR/CR/Insurance registration belongs to.
      */
     public function vehicle()
     {

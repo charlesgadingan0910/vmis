@@ -9,6 +9,7 @@ use App\Models\VehicleType;
 use App\Models\VehicleQrPrint;
 use App\Models\Unit;
 use App\Models\Station;
+use App\Models\MaintenanceRecord;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
@@ -136,16 +137,34 @@ class VehicleController extends Controller
                 $query->where('vehicle_type_id', $typeId);
             }
 
+            if ($sourceFilter = $request->get('source')) {
+                $query->where('source', $sourceFilter);
+            }
+
             // Live stat cards: reflect unit/station/search/type filters, but deliberately
             // NOT the status filter itself — otherwise picking "Serviceable" would collapse
             // the other three cards to near-zero, which is accurate but not useful. This way
             // the cards always show the real breakdown for whatever scope is currently active.
             $statsQuery = (clone $query)->toBase();
             $stats = [
-                'total'         => (clone $statsQuery)->count(),
+                // Excludes vehicles that are BER + Disposed — they stay in the
+                // inventory listing for the record, but no longer count toward
+                // the fleet total (see Vehicle::scopeExcludingDisposed).
+                'total'         => (clone $statsQuery)->where(function ($q) {
+                    $q->where('status', '!=', 'BER')
+                      ->orWhereNull('ber_sub_status')
+                      ->orWhere('ber_sub_status', '!=', 'DISPOSED');
+                })->count(),
                 'serviceable'   => (clone $statsQuery)->where('status', 'SERVICEABLE')->count(),
                 'unserviceable' => (clone $statsQuery)->where('status', 'UNSERVICEABLE')->count(),
                 'ber'           => (clone $statsQuery)->where('status', 'BER')->count(),
+                // Unserviceable for 90+ days — .toBase() drops Vehicle's own scope
+                // methods, so the equivalent where() clause is written out inline.
+                'unserviceable_alert' => (clone $statsQuery)
+                    ->where('status', 'UNSERVICEABLE')
+                    ->whereNotNull('unserviceable_since')
+                    ->where('unserviceable_since', '<=', now()->subDays(Vehicle::UNSERVICEABLE_ALERT_DAYS)->startOfDay())
+                    ->count(),
             ];
 
             if ($statusFilter) {
@@ -172,11 +191,21 @@ class VehicleController extends Controller
                 $plateHtml = '<span class="plate-badge">' . strtoupper($vehicle->plate_number) . '</span>';
 
                 $eng = $vehicle->engine_number ? ' &middot; Eng: ' . e($vehicle->engine_number) : '';
+                // Chassis number gets its own sub-line rather than folding into the
+                // first — it's the other identifier records clerks actually look up
+                // against OR/CR paperwork, and squeezing it onto one line made that
+                // row unreadably long once engine number was already there too.
+                $chassisHtml = $vehicle->chassis_number
+                    ? '<div class="vehicle-sub-info">Chassis: ' . e($vehicle->chassis_number) . '</div>'
+                    : '';
                 $specHtml = '<div class="vehicle-main-name">' . e($vehicle->make) . ' ' . e($vehicle->model) . '</div>' .
-                            '<div class="vehicle-sub-info">' . (e($vehicle->year_model) ?? 'N/A') . ' &middot; ' . (e($vehicle->color) ?? 'Unspecified') . $eng . '</div>';
+                            '<div class="vehicle-sub-info">' . (e($vehicle->year_model) ?? 'N/A') . ' &middot; ' . (e($vehicle->color) ?? 'Unspecified') . $eng . '</div>' .
+                            $chassisHtml;
 
                 $typeName = $vehicle->type->name ?? 'Unspecified';
-                $typeHtml = '<span class="badge badge-light px-2 py-1 border" style="font-size:12px; font-weight:600;">' . e($typeName) . '</span>';
+                $sourceLabel = Vehicle::SOURCES[$vehicle->source] ?? $vehicle->source;
+                $typeHtml = '<span class="badge badge-light px-2 py-1 border" style="font-size:12px; font-weight:600;">' . e($typeName) . '</span>' .
+                            '<div class="vehicle-sub-info mt-1"><i class="fas fa-tag mr-1"></i>' . e($sourceLabel) . '</div>';
 
                 if ($vehicle->driver) {
                     $initials = strtoupper(substr($vehicle->driver->firstname, 0, 1) . substr($vehicle->driver->lastname, 0, 1));
@@ -218,24 +247,70 @@ class VehicleController extends Controller
                 $statusClass = strtolower($vehicle->status);
                 $statusHtml = '<span class="status-pill status-' . $statusClass . '">' .
                               '<span class="dot"></span>' . $vehicle->status . '</span>';
+                if ($vehicle->status === 'BER' && $vehicle->ber_sub_status) {
+                    $subLabel = e(Vehicle::BER_SUB_STATUSES[$vehicle->ber_sub_status] ?? $vehicle->ber_sub_status);
+                    if ($vehicle->ber_sub_status === 'DISPOSED' && $vehicle->disposal_date) {
+                        $subLabel .= ' &middot; ' . e($vehicle->disposal_date->format('M d, Y'));
+                    }
+                    $statusHtml .= '<div class="vehicle-sub-info mt-1">' . $subLabel . '</div>';
+                } elseif ($vehicle->status === 'UNSERVICEABLE' && $vehicle->unserviceable_since) {
+                    $days = $vehicle->daysUnserviceable();
+                    $statusHtml .= '<div class="vehicle-sub-info mt-1">Since ' . e($vehicle->unserviceable_since->format('M d, Y')) . ' (' . $days . 'd)</div>';
+                    if ($vehicle->needsUnserviceableAlert()) {
+                        $statusHtml .= '<span class="badge-pms pms-badge-overdue"><i class="fas fa-exclamation-triangle"></i> Needs action</span>';
+                    }
+                }
 
                 // Vehicles without any registration yet still get a way in — "Add Docs"
-                // instead of a dead end — since OR/CR upload is no longer forced at creation time only.
-                // (Viewers still get a docs button — it's read access, not a write action.)
+                // instead of a dead end — since OR/CR/Insurance upload is no longer forced
+                // at creation time only. (Viewers still get a docs button — it's read
+                // access, not a write action.) .docs-pill-btn is the premium pill style
+                // defined in vehicles/index.blade.php's <style> block.
                 $docsHtml = $vehicle->latestRegistration
-                    ? '<button type="button" class="btn btn-sm btn-outline-info btn-history py-1 px-2" style="font-size:12px;" data-id="'.$vehicle->id.'"><i class="fas fa-folder-open"></i> Docs</button>'
-                    : '<button type="button" class="btn btn-sm btn-outline-secondary btn-history py-1 px-2" style="font-size:12px;" data-id="'.$vehicle->id.'"><i class="fas fa-plus"></i> Add Docs</button>';
+                    ? '<button type="button" class="docs-pill-btn has-docs btn-history" data-id="'.$vehicle->id.'"><i class="fas fa-folder-open"></i> Docs</button>'
+                    : '<button type="button" class="docs-pill-btn no-docs btn-history" data-id="'.$vehicle->id.'"><i class="fas fa-plus"></i> Add Docs</button>';
+
+                // Expiry status now shows right under the Docs button instead of
+                // only surfacing on the Dashboard/priority panel — reuses the same
+                // Vehicle::registrationDaysRemaining()/REGISTRATION_DUE_SOON_DAYS
+                // helpers those panels use, and the existing .badge-pms/.vehicle-sub-info
+                // styling the PMS column already established, so "due soon" and
+                // "overdue" read the same way in both columns.
+                $regRowClass = '';
+                if ($vehicle->latestRegistration && $vehicle->latestRegistration->expiry_date) {
+                    $regDaysLeft = $vehicle->registrationDaysRemaining();
+                    $expiryFormatted = $vehicle->latestRegistration->expiry_date->format('M d, Y');
+                    if ($regDaysLeft !== null && $regDaysLeft < 0) {
+                        $docsHtml .= '<div class="pms-date pms-date-overdue mt-1">Expired ' . e($expiryFormatted) . '</div>' .
+                                     '<span class="badge-pms pms-badge-overdue"><i class="fas fa-exclamation-triangle"></i> ' . abs($regDaysLeft) . 'd overdue</span>';
+                        $regRowClass = 'row-reg-overdue';
+                    } elseif ($regDaysLeft !== null && $regDaysLeft <= Vehicle::REGISTRATION_DUE_SOON_DAYS) {
+                        $docsHtml .= '<div class="pms-date mt-1">Valid until ' . e($expiryFormatted) . '</div>' .
+                                     '<span class="badge-pms pms-badge-soon"><i class="fas fa-clock"></i> Due in ' . $regDaysLeft . 'd</span>';
+                    } else {
+                        $docsHtml .= '<div class="vehicle-sub-info mt-1">Valid until ' . e($expiryFormatted) . '</div>';
+                    }
+                } elseif (! $vehicle->latestRegistration) {
+                    $docsHtml .= '<div class="vehicle-sub-info mt-1"><i class="fas fa-info-circle"></i> No registration on file</div>';
+                }
+
+                // Combined Maintenance & PMS + Repair history (serviceHistory() above) —
+                // read-only, so it's offered to every role including Viewer, same
+                // reasoning as the QR Code button right next to it.
+                $serviceHistoryBtn = '<button type="button" class="btn btn-sm btn-light border text-info btn-service-history" data-id="'.$vehicle->id.'" title="Maintenance &amp; Repair History"><i class="fas fa-wrench"></i></button>';
 
                 if ($role === self::ROLE_VIEWER) {
                     $actionsHtml = '
                         <div class="btn-group" role="group">
                             <button type="button" class="btn btn-sm btn-light border text-secondary btn-view-qr" data-id="'.$vehicle->id.'" title="QR Code"><i class="fas fa-qrcode"></i></button>
+                            '.$serviceHistoryBtn.'
                             <span class="d-inline-flex align-items-center text-muted small ml-2"><i class="fas fa-eye mr-1"></i>View only</span>
                         </div>';
                 } else {
                     $actionsHtml = '
                         <div class="btn-group" role="group">
                             <button type="button" class="btn btn-sm btn-light border text-secondary btn-view-qr" data-id="'.$vehicle->id.'" title="QR Code"><i class="fas fa-qrcode"></i></button>
+                            '.$serviceHistoryBtn.'
                             <button type="button" class="btn btn-sm btn-light border text-primary btn-edit-vehicle" data-id="'.$vehicle->id.'" title="Edit"><i class="fas fa-edit"></i></button>
                             <form method="POST" action="'.route('vehicles.destroy', $vehicle->id).'" class="form-delete-vehicle" style="display:inline-block;">
                                 '.csrf_field().'
@@ -256,8 +331,10 @@ class VehicleController extends Controller
                     'status_html' => $statusHtml,
                     'actions_html'=> $actionsHtml,
                     // DataTables' built-in "add this class to <tr>" hook — used so an
-                    // overdue PMS is noticeable across the whole row, not just its cell.
-                    'DT_RowClass' => $pmsRowClass,
+                    // overdue PMS or an overdue registration is noticeable across the
+                    // whole row, not just its own cell. A vehicle can be flagged by
+                    // both at once, so both classes can apply together.
+                    'DT_RowClass' => trim($pmsRowClass . ' ' . $regRowClass),
                 ];
             }
 
@@ -279,7 +356,7 @@ class VehicleController extends Controller
         }
 
         $stats = [
-            'total'         => (clone $baseQuery)->count(),
+            'total'         => (clone $baseQuery)->excludingDisposed()->count(),
             'serviceable'   => (clone $baseQuery)->where('status', 'SERVICEABLE')->count(),
             'unserviceable' => (clone $baseQuery)->where('status', 'UNSERVICEABLE')->count(),
             'ber'           => (clone $baseQuery)->where('status', 'BER')->count(),
@@ -290,6 +367,30 @@ class VehicleController extends Controller
         // candidates (see PmsPredictionService::topPriorityVehicles), scoped to the
         // same unit/station visibility as everything else on this page.
         $priorityVehicles = app(PmsPredictionService::class)->topPriorityVehicles(clone $baseQuery, 5);
+
+        // Unserviceable 90+ days — same "needs a decision" idea as the priority
+        // PMS panel above, but for vehicles stuck Unserviceable rather than due
+        // for service (VMIS Additional Updates item 3).
+        $unserviceableAlerts = (clone $baseQuery)->unserviceableAlert()
+            ->orderBy('unserviceable_since')
+            ->take(8)
+            ->get();
+
+        // Registration Due — vehicles whose latest OR/CR/Insurance bundle is
+        // already expired or expiring within Vehicle::REGISTRATION_DUE_SOON_DAYS.
+        // Filtered/sorted in PHP rather than a whereHas() on the latestOfMany
+        // relation (registrationDaysRemaining() already does the one date-math
+        // calculation that matters, and fleet sizes here are small enough that
+        // this costs nothing extra beyond the eager load). Vehicles with no
+        // registration on file at all, or whose registration predates expiry_date
+        // being tracked, are simply absent from this list — not flagged as due.
+        $registrationDueAlerts = (clone $baseQuery)
+            ->with('latestRegistration')
+            ->get()
+            ->filter(fn ($v) => $v->needsRegistrationAlert())
+            ->sortBy(fn ($v) => $v->registrationDaysRemaining())
+            ->take(8)
+            ->values();
 
         $drivers = Driver::where('status', 'active')->orderBy('lastname')->get();
         $vehicleTypes = VehicleType::withCount('vehicles')->orderBy('name')->get();
@@ -318,7 +419,7 @@ class VehicleController extends Controller
         // API key has been configured yet.
         $aiDocumentScanningEnabled = app(DocumentIntelligenceService::class)->isConfigured();
 
-        return view('vehicles.index', compact('stats', 'drivers', 'vehicleTypes', 'units', 'stations', 'user', 'hasBroadVisibility', 'isViewer', 'aiDocumentScanningEnabled', 'priorityVehicles'));
+        return view('vehicles.index', compact('stats', 'drivers', 'vehicleTypes', 'units', 'stations', 'user', 'hasBroadVisibility', 'isViewer', 'aiDocumentScanningEnabled', 'priorityVehicles', 'unserviceableAlerts', 'registrationDueAlerts'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -339,12 +440,19 @@ class VehicleController extends Controller
             'year_model'         => ['nullable', 'integer', 'min:1980', 'max:' . (date('Y') + 1)],
             'color'              => ['nullable', 'string', 'max:30'],
             'acquisition_date'   => ['nullable', 'date'],
+            'source'             => ['required', 'in:ORGANIC,LOANED,DONATED'],
             'assigned_driver_id' => ['nullable', 'exists:drivers,id'],
             'odometer_km'        => ['nullable', 'integer', 'min:0'],
             'next_pms_date'      => ['nullable', 'date'],
             'status'             => ['required', 'in:SERVICEABLE,UNSERVICEABLE,BER'],
+            'ber_sub_status'     => ['nullable', 'required_if:status,BER', 'in:FOR_DISPOSAL,DISPOSED'],
+            'disposal_date'      => ['nullable', 'date', 'required_if:ber_sub_status,DISPOSED'],
             'or_file'            => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
             'cr_file'            => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'insurance_file'     => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            // When this OR/CR/Insurance bundle stops being valid — drives the
+            // "Registration Due" priority panel (see Vehicle::needsRegistrationAlert()).
+            'expiry_date'        => ['required', 'date'],
         ];
 
         if (in_array($role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN], true)) {
@@ -353,6 +461,8 @@ class VehicleController extends Controller
 
         $validated = $request->validate($rules);
         $validated = $this->applyWriteScope($validated, $user, $role);
+        $validated = $this->normalizeBerFields($validated);
+        $validated = $this->normalizeUnserviceableTracking($validated);
 
         $validated['qr_code'] = Str::upper(Str::random(10));
         $validated['is_active'] = '1';
@@ -360,12 +470,14 @@ class VehicleController extends Controller
 
         $vehicle = Vehicle::create($validated);
 
-        if ($request->hasFile('or_file') && $request->hasFile('cr_file')) {
+        if ($request->hasFile('or_file') && $request->hasFile('cr_file') && $request->hasFile('insurance_file')) {
             $vehicle->registrations()->create([
-                'or_file_path' => $request->file('or_file')->store('vehicle_docs/or', 'public'),
-                'cr_file_path' => $request->file('cr_file')->store('vehicle_docs/cr', 'public'),
-                'registration_year' => date('Y'),
-                'uploaded_by' => $user->id,
+                'or_file_path'        => $request->file('or_file')->store('vehicle_docs/or', 'public'),
+                'cr_file_path'        => $request->file('cr_file')->store('vehicle_docs/cr', 'public'),
+                'insurance_file_path' => $request->file('insurance_file')->store('vehicle_docs/insurance', 'public'),
+                'registration_year'   => date('Y'),
+                'expiry_date'         => $validated['expiry_date'],
+                'uploaded_by'         => $user->id,
             ]);
         }
 
@@ -374,7 +486,7 @@ class VehicleController extends Controller
             'Vehicle',
             'Registered vehicle [' . strtoupper($validated['plate_number']) . '].',
             $vehicle,
-            ['after' => Arr::except($validated, ['or_file', 'cr_file'])]
+            ['after' => Arr::except($validated, ['or_file', 'cr_file', 'insurance_file'])]
         );
 
         return redirect()->route('vehicles.index')
@@ -398,12 +510,19 @@ class VehicleController extends Controller
             'vehicle_type_id'    => $vehicle->vehicle_type_id,
             'year_model'         => $vehicle->year_model,
             'color'              => $vehicle->color,
+            'source'             => $vehicle->source,
+            'ber_sub_status'     => $vehicle->ber_sub_status,
+            'disposal_date'      => optional($vehicle->disposal_date)->format('Y-m-d'),
             'unit_id'            => $vehicle->unit_id,
             'station_id'         => $vehicle->station_id,
             'assigned_driver_id' => $vehicle->assigned_driver_id,
             'odometer_km'        => $vehicle->odometer_km,
             'next_pms_date'      => optional($vehicle->next_pms_date)->format('Y-m-d'),
             'status'             => $vehicle->status,
+            // Read-only in the Edit modal — VehicleController sets/clears this itself
+            // whenever status changes, so the form only ever displays it as context.
+            'unserviceable_since'  => optional($vehicle->unserviceable_since)->format('M d, Y'),
+            'days_unserviceable'   => $vehicle->daysUnserviceable(),
         ]);
     }
 
@@ -428,10 +547,13 @@ class VehicleController extends Controller
             'station_id'         => ['required', 'exists:stations,id'],
             'year_model'         => ['nullable', 'integer', 'min:1980', 'max:' . (date('Y') + 1)],
             'color'              => ['nullable', 'string', 'max:30'],
+            'source'             => ['required', 'in:ORGANIC,LOANED,DONATED'],
             'assigned_driver_id' => ['nullable', 'exists:drivers,id'],
             'odometer_km'        => ['nullable', 'integer', 'min:0'],
             'next_pms_date'      => ['nullable', 'date'],
             'status'             => ['required', 'in:SERVICEABLE,UNSERVICEABLE,BER'],
+            'ber_sub_status'     => ['nullable', 'required_if:status,BER', 'in:FOR_DISPOSAL,DISPOSED'],
+            'disposal_date'      => ['nullable', 'date', 'required_if:ber_sub_status,DISPOSED'],
         ];
 
         if (in_array($role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN], true)) {
@@ -440,6 +562,10 @@ class VehicleController extends Controller
 
         $validated = $request->validate($rules);
         $validated = $this->applyWriteScope($validated, $user, $role, $vehicle);
+        $validated = $this->normalizeBerFields($validated);
+        // Must run before $vehicle->update() below — it compares the incoming
+        // status against $vehicle's still-original (pre-update) status.
+        $validated = $this->normalizeUnserviceableTracking($validated, $vehicle);
 
         $before = $vehicle->getOriginal();
         $vehicle->update($validated);
@@ -463,8 +589,11 @@ class VehicleController extends Controller
     }
 
     /**
-     * Upload a new year's OR/CR for an existing vehicle (annual re-registration)
-     * without touching any of the vehicle's other details.
+     * Upload a new year's OR/CR/Insurance for an existing vehicle (annual
+     * re-registration) without touching any of the vehicle's other details.
+     * All three documents are required every year — an OR or CR alone isn't
+     * proof the vehicle is currently insured, so the same yearly-renewal
+     * discipline applies to all three rather than making Insurance optional.
      */
     public function storeRegistration(Request $request, Vehicle $vehicle): JsonResponse
     {
@@ -478,17 +607,23 @@ class VehicleController extends Controller
                 Rule::unique('vehicle_registrations', 'registration_year')
                     ->where(fn ($q) => $q->where('vehicle_id', $vehicle->id)),
             ],
-            'or_file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
-            'cr_file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'or_file'        => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'cr_file'        => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'insurance_file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            // When this OR/CR/Insurance bundle stops being valid — drives the
+            // "Registration Due" priority panel (see Vehicle::needsRegistrationAlert()).
+            'expiry_date'    => ['required', 'date'],
         ], [
             'registration_year.unique' => 'A registration for this year has already been uploaded for this vehicle.',
         ]);
 
         $vehicle->registrations()->create([
-            'or_file_path'      => $request->file('or_file')->store('vehicle_docs/or', 'public'),
-            'cr_file_path'      => $request->file('cr_file')->store('vehicle_docs/cr', 'public'),
-            'registration_year' => $validated['registration_year'],
-            'uploaded_by'       => $user->id,
+            'or_file_path'        => $request->file('or_file')->store('vehicle_docs/or', 'public'),
+            'cr_file_path'        => $request->file('cr_file')->store('vehicle_docs/cr', 'public'),
+            'insurance_file_path' => $request->file('insurance_file')->store('vehicle_docs/insurance', 'public'),
+            'registration_year'   => $validated['registration_year'],
+            'expiry_date'         => $validated['expiry_date'],
+            'uploaded_by'         => $user->id,
         ]);
 
         return response()->json([
@@ -513,12 +648,149 @@ class VehicleController extends Controller
             'registrations' => $vehicle->registrations->map(function($reg) {
                 return [
                     'year' => $reg->registration_year,
-                    'or_url' => route('vehicles.document', ['path' => $reg->or_file_path]),
-                    'cr_url' => route('vehicles.document', ['path' => $reg->cr_file_path]),
+                    // Null-safe: insurance_file_path didn't exist on older rows, and
+                    // in principle or/cr could be blank on a very old/legacy record —
+                    // the modal shows a "Not uploaded" state for any of the three
+                    // rather than linking to a document that was never stored.
+                    'or_url'        => $reg->or_file_path ? route('vehicles.document', ['path' => $reg->or_file_path]) : null,
+                    'cr_url'        => $reg->cr_file_path ? route('vehicles.document', ['path' => $reg->cr_file_path]) : null,
+                    'insurance_url' => $reg->insurance_file_path ? route('vehicles.document', ['path' => $reg->insurance_file_path]) : null,
                     'uploader' => $reg->uploader->fullname ?? 'Unknown User',
-                    'date' => $reg->created_at->format('M d, Y h:i A')
+                    'date' => $reg->created_at->format('M d, Y h:i A'),
+                    // expiry_date is null on older rows uploaded before this was
+                    // tracked — the modal just omits the "Valid until" line then,
+                    // same null-safe treatment as the document links above.
+                    'expiry_date'   => optional($reg->expiry_date)->format('M d, Y'),
+                    'expiry_status' => $this->expiryStatus($reg->expiry_date),
                 ];
             })
+        ]);
+    }
+
+    /**
+     * 'overdue' | 'soon' (within Vehicle::REGISTRATION_DUE_SOON_DAYS) | 'ok' | null
+     * (no expiry on file) for one registration row's expiry_date — same
+     * timestamp-diff approach as Vehicle::registrationDaysRemaining(), just
+     * for an arbitrary date rather than only the vehicle's latest registration,
+     * since the Docs modal shows every year's status, not just the current one.
+     */
+    private function expiryStatus(?\Carbon\Carbon $expiry): ?string
+    {
+        if (! $expiry) {
+            return null;
+        }
+
+        $today = now()->startOfDay();
+        $expiryDay = $expiry->copy()->startOfDay();
+        $days = (int) round(($expiryDay->getTimestamp() - $today->getTimestamp()) / 86400);
+
+        if ($days < 0) {
+            return 'overdue';
+        }
+
+        return $days <= Vehicle::REGISTRATION_DUE_SOON_DAYS ? 'soon' : 'ok';
+    }
+
+    /**
+     * Every Maintenance & PMS and Repair job ever logged for one vehicle, newest
+     * first, in a single combined list — the thing getHistory() above deliberately
+     * isn't (that one's scoped to OR/CR registration documents only). Completed
+     * jobs are never deleted from the Maintenance/Repair pages (see
+     * MaintenanceController/RepairController::index, which list every stage, not
+     * just Completed), so this is simply every maintenance_records row for this
+     * vehicle_id regardless of maintenance_type or stage — a user no longer has to
+     * jump to the separate Maintenance & PMS / Repairs pages and filter by vehicle
+     * to see everything done to one unit. Read-only, so Viewer accounts get it too,
+     * same as getHistory().
+     *
+     * Server-side paginated (start/length) with an optional search and module
+     * filter, same reasoning as MaintenanceController/RepairController::index's
+     * own AJAX branch: a vehicle in long-term service can accumulate hundreds of
+     * records, and a modal that dumped every one of them into the DOM at once
+     * would be slow to render and effectively unbrowsable — no way to jump to a
+     * specific job without endless scrolling. The three summary counts (Total/
+     * Maintenance/Repairs) deliberately come from a SEPARATE unfiltered query
+     * below, so narrowing the list with a search or module filter never makes
+     * those headline numbers look wrong.
+     */
+    public function serviceHistory(Request $request, $id): JsonResponse
+    {
+        $user = auth()->user();
+        $role = $this->role($user);
+        $vehicle = Vehicle::findOrFail($id);
+
+        if (! $this->canView($vehicle, $user, $role)) {
+            return response()->json(['error' => 'Unauthorized Access'], 403);
+        }
+
+        $allForVehicle = MaintenanceRecord::where('vehicle_id', $vehicle->id)->get(['maintenance_type', 'stage', 'cost']);
+        $summary = [
+            'total'       => $allForVehicle->count(),
+            'maintenance' => $allForVehicle->where('maintenance_type', '!=', 'REPAIR')->count(),
+            'repairs'     => $allForVehicle->where('maintenance_type', '==', 'REPAIR')->count(),
+            // Only Completed jobs represent real spend — an in-flight request's
+            // cost field is still empty, same completedOnly() reasoning
+            // MaintenanceController/RepairController use for their own stats.
+            'total_cost'  => (float) $allForVehicle->where('stage', MaintenanceRecord::STAGE_COMPLETED)->sum('cost'),
+        ];
+
+        $query = MaintenanceRecord::with('recorder')->where('vehicle_id', $vehicle->id);
+
+        if ($module = $request->get('module')) {
+            if ($module === 'REPAIR') {
+                $query->where('maintenance_type', 'REPAIR');
+            } elseif ($module === 'MAINTENANCE') {
+                $query->where('maintenance_type', '!=', 'REPAIR');
+            }
+        }
+
+        if ($search = trim((string) $request->get('search'))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('description', 'like', "%{$search}%")
+                  ->orWhere('control_number', 'like', "%{$search}%")
+                  ->orWhere('performed_by', 'like', "%{$search}%");
+            });
+        }
+
+        $recordsFiltered = (clone $query)->count();
+
+        $start  = max(0, (int) $request->get('start', 0));
+        $length = min(50, max(1, (int) $request->get('length', 10)));
+
+        $records = $query->orderByDesc('service_date')->orderByDesc('id')->skip($start)->take($length)->get();
+
+        return response()->json([
+            'plate_number'    => $vehicle->plate_number,
+            'make_model'      => trim($vehicle->make . ' ' . $vehicle->model),
+            'summary'         => $summary,
+            'recordsTotal'    => $summary['total'],
+            'recordsFiltered' => $recordsFiltered,
+            'start'           => $start,
+            'length'          => $length,
+            'records'         => $records->map(function ($record) {
+                return [
+                    'id'                  => $record->id,
+                    'module'              => $record->maintenance_type === 'REPAIR' ? 'Repair' : 'Maintenance & PMS',
+                    'type_label'          => MaintenanceRecord::TYPES[$record->maintenance_type] ?? $record->maintenance_type,
+                    'type_color'          => MaintenanceRecord::TYPE_COLORS[$record->maintenance_type] ?? 'light',
+                    'control_number'      => $record->control_number,
+                    'stage'               => $record->stage,
+                    'stage_label'         => MaintenanceRecord::STAGES[$record->stage] ?? $record->stage,
+                    'stage_color'         => MaintenanceRecord::STAGE_COLORS[$record->stage] ?? 'secondary',
+                    'description'         => $record->description,
+                    // Before Completed, service_date is just a request_date placeholder
+                    // (see MaintenanceRecord/the stage-workflow migration) — flagged here
+                    // so the timeline can label it "(requested)" same as the two list pages.
+                    'service_date'        => optional($record->service_date)->format('M d, Y'),
+                    'is_placeholder_date' => $record->stage !== MaintenanceRecord::STAGE_COMPLETED,
+                    'odometer_km'         => $record->odometer_km,
+                    'cost'                => $record->cost !== null ? (float) $record->cost : null,
+                    'performed_by'        => $record->performed_by,
+                    'next_due_date'       => optional($record->next_due_date)->format('M d, Y'),
+                    'logged_by'           => optional($record->recorder)->fullname ?? 'System',
+                    'logged_at'           => $record->created_at->format('M d, Y'),
+                ];
+            })->values(),
         ]);
     }
 
@@ -727,6 +999,53 @@ class VehicleController extends Controller
             $validated['station_id'] = $user->station_id;
         }
         // Super Admin / Admin: unit_id comes from the validated form input as-is.
+
+        return $validated;
+    }
+
+    /**
+     * Server-side source of truth for ber_sub_status/disposal_date — the form
+     * only shows/hides these fields as a convenience; this is what actually
+     * guarantees a non-BER vehicle can never end up with a leftover sub-status
+     * or disposal date, and a BER-but-not-Disposed vehicle can never end up
+     * with a leftover disposal date, regardless of what the client submitted.
+     */
+    protected function normalizeBerFields(array $validated): array
+    {
+        if (($validated['status'] ?? null) !== 'BER') {
+            $validated['ber_sub_status'] = null;
+            $validated['disposal_date'] = null;
+        } elseif (($validated['ber_sub_status'] ?? null) !== 'DISPOSED') {
+            $validated['disposal_date'] = null;
+        }
+
+        return $validated;
+    }
+
+    /**
+     * Server-side source of truth for unserviceable_since (VMIS Additional
+     * Updates item 3) — the form never submits this field at all; it's set
+     * or cleared here purely from the incoming status, so it can't be
+     * tampered with client-side.
+     *
+     * - Status isn't UNSERVICEABLE: always null.
+     * - Status is UNSERVICEABLE and the vehicle already was (unchanged): keep
+     *   the existing date, so saving other edits doesn't reset the 90-day clock.
+     * - Status is newly UNSERVICEABLE (a new vehicle, or one just switched
+     *   into this status): stamped with today.
+     */
+    protected function normalizeUnserviceableTracking(array $validated, ?Vehicle $vehicle = null): array
+    {
+        if (($validated['status'] ?? null) !== 'UNSERVICEABLE') {
+            $validated['unserviceable_since'] = null;
+            return $validated;
+        }
+
+        if ($vehicle && $vehicle->status === 'UNSERVICEABLE' && $vehicle->unserviceable_since) {
+            $validated['unserviceable_since'] = $vehicle->unserviceable_since;
+        } else {
+            $validated['unserviceable_since'] = now();
+        }
 
         return $validated;
     }

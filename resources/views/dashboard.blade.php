@@ -41,6 +41,7 @@
   .stat-card-modern.c-soon .stat-icon-wrapper { background: rgba(245, 158, 11, 0.14); color: #d97706; }
   .stat-card-modern.c-overdue .stat-icon-wrapper { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
   .stat-card-modern.c-cost .stat-icon-wrapper { background: rgba(14, 165, 233, 0.12); color: #0284c7; }
+  .stat-card-modern.c-unregistered .stat-icon-wrapper { background: rgba(100, 116, 139, 0.12); color: #475569; }
   .stat-num-value { font-size: 23px; font-weight: 800; color: #0f172a; line-height: 1.1; }
   .stat-label-title { font-size: 11.5px; font-weight: 600; color: #64748b; margin-top: 3px; }
   .stat-sub-note { font-size: 10.5px; color: #94a3b8; margin-top: 1px; }
@@ -131,6 +132,64 @@
   .quick-link-card .ql-sub { font-size: 12px; color: #94a3b8; margin-top: 1px; }
 
   .section-heading { font-size: 12.5px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; margin: 6px 0 12px; }
+
+  /* Unserviceable 90+ days admin alert (VMIS Additional Updates item 3) */
+  .uns-alert-panel { background: #fffbfb; border: 1px solid #fecaca; border-radius: 14px; margin-bottom: 22px; overflow: hidden; }
+  .uns-alert-header { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid #fee2e2; flex-wrap: wrap; }
+  .uns-alert-header > i { font-size: 20px; color: #dc2626; flex-shrink: 0; }
+  .uns-alert-header-text { flex: 1; min-width: 200px; }
+  .uns-alert-title { font-weight: 800; color: #0f172a; font-size: 14px; }
+  .uns-alert-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+  .uns-alert-body { padding: 6px 20px 14px; }
+  .uns-alert-row { display: flex; align-items: center; gap: 14px; padding: 9px 0; border-top: 1px solid #fee2e2; }
+  .uns-alert-row:first-child { border-top: none; }
+  .uns-alert-plate { font-family: 'Courier New', monospace; font-weight: 800; font-size: 12.5px; background: #1e293b; color: #fff; padding: 4px 10px; border-radius: 6px; flex-shrink: 0; }
+  .uns-alert-info { flex: 1; min-width: 0; }
+  .uns-alert-name { font-weight: 700; font-size: 13px; color: #0f172a; }
+  .uns-alert-loc { font-size: 11.5px; color: #64748b; margin-top: 2px; }
+  .uns-alert-days { font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 700; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; white-space: nowrap; }
+
+  /* Predictive Maintenance alert — digitized Technical Inspection Report checklist
+     flagging parts needing attention now or trending toward failure. Same layout
+     as the Unserviceable panel above, amber instead of red so the two read as
+     related-but-distinct at a glance (this one is "watch/plan", not "already broken"). */
+  .risk-alert-panel { background: #fffdf5; border: 1px solid #fde68a; border-radius: 14px; margin-bottom: 22px; overflow: hidden; }
+  .risk-alert-header { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid #fef3c7; flex-wrap: wrap; }
+  .risk-alert-header > i { font-size: 20px; color: #d97706; flex-shrink: 0; }
+  .risk-alert-header-text { flex: 1; min-width: 200px; }
+  .risk-alert-title { font-weight: 800; color: #0f172a; font-size: 14px; }
+  .risk-alert-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+  .risk-alert-body { padding: 6px 20px 14px; }
+  .risk-alert-row { display: flex; align-items: center; gap: 14px; padding: 9px 0; border-top: 1px solid #fef3c7; }
+  .risk-alert-row:first-child { border-top: none; }
+  .risk-alert-plate { font-family: 'Courier New', monospace; font-weight: 800; font-size: 12.5px; background: #1e293b; color: #fff; padding: 4px 10px; border-radius: 6px; flex-shrink: 0; }
+  .risk-alert-info { flex: 1; min-width: 0; }
+  .risk-alert-name { font-weight: 700; font-size: 13px; color: #0f172a; }
+  .risk-alert-loc { font-size: 11.5px; color: #64748b; margin-top: 2px; }
+  .risk-alert-part { font-size: 11.5px; color: #92400e; margin-top: 2px; }
+  .risk-alert-tag { font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 700; background: #fffbeb; color: #d97706; border: 1px solid #fde68a; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; white-space: nowrap; }
+
+  /* Registration (OR/CR/Insurance) due/expired alert — same layout as the
+     Unserviceable/Predictive-Maintenance panels above; amber header like the
+     risk panel since it mixes already-overdue and due-soon vehicles rather
+     than being purely critical, matching the Registration Due panel's theme
+     on Vehicle Inventory. Each row's own badge still goes red when overdue. */
+  .reg-due-panel { background: #fffdf5; border: 1px solid #fde68a; border-radius: 14px; margin-bottom: 22px; overflow: hidden; }
+  .reg-due-header { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid #fef3c7; flex-wrap: wrap; }
+  .reg-due-header > i { font-size: 20px; color: #d97706; flex-shrink: 0; }
+  .reg-due-header-text { flex: 1; min-width: 200px; }
+  .reg-due-title { font-weight: 800; color: #0f172a; font-size: 14px; }
+  .reg-due-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+  .reg-due-body { padding: 6px 20px 14px; }
+  .reg-due-row { display: flex; align-items: center; gap: 14px; padding: 9px 0; border-top: 1px solid #fef3c7; }
+  .reg-due-row:first-child { border-top: none; }
+  .reg-due-plate { font-family: 'Courier New', monospace; font-weight: 800; font-size: 12.5px; background: #1e293b; color: #fff; padding: 4px 10px; border-radius: 6px; flex-shrink: 0; }
+  .reg-due-info { flex: 1; min-width: 0; }
+  .reg-due-name { font-weight: 700; font-size: 13px; color: #0f172a; }
+  .reg-due-loc { font-size: 11.5px; color: #64748b; margin-top: 2px; }
+  .reg-due-tag { font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; white-space: nowrap; }
+  .reg-due-tag.is-overdue { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+  .reg-due-tag.is-soon { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
 </style>
 @endsection
 
@@ -154,6 +213,89 @@
                 <div class="welcome-date" id="liveDate">{{ now()->format('l, F j, Y') }}</div>
             </div>
         </div>
+
+        @if(($vehicleStats['unserviceable_alert'] ?? 0) > 0)
+        <div class="uns-alert-panel">
+            <div class="uns-alert-header">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div class="uns-alert-header-text">
+                    <div class="uns-alert-title">{{ $vehicleStats['unserviceable_alert'] }} vehicle{{ $vehicleStats['unserviceable_alert'] === 1 ? '' : 's' }} Unserviceable for 90+ days</div>
+                    <div class="uns-alert-sub">Needs a disposition decision — repair it, reclassify as BER, or otherwise resolve the status.</div>
+                </div>
+                <a href="{{ route('vehicles.index') }}" class="view-all-link">Review <i class="fas fa-arrow-right ml-1"></i></a>
+            </div>
+            <div class="uns-alert-body">
+                @foreach ($unserviceableAlerts as $v)
+                    <div class="uns-alert-row">
+                        <span class="uns-alert-plate">{{ strtoupper($v->plate_number) }}</span>
+                        <div class="uns-alert-info">
+                            <div class="uns-alert-name">{{ $v->make }} {{ $v->model }}</div>
+                            <div class="uns-alert-loc">{{ optional($v->unit)->unit_name ?? 'Unassigned unit' }}{{ $v->station ? ' · '.$v->station->station_name : '' }}</div>
+                        </div>
+                        <span class="uns-alert-days"><i class="fas fa-exclamation-triangle"></i> {{ $v->daysUnserviceable() }}d</span>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        @if ($registrationAlerts->isNotEmpty())
+        <div class="reg-due-panel">
+            <div class="reg-due-header">
+                <i class="fas fa-calendar-times"></i>
+                <div class="reg-due-header-text">
+                    <div class="reg-due-title">{{ $registrationAlerts->count() }} vehicle{{ $registrationAlerts->count() === 1 ? '' : 's' }} due for OR/CR/Insurance registration</div>
+                    <div class="reg-due-sub">Already expired or expiring within {{ \App\Models\Vehicle::REGISTRATION_DUE_SOON_DAYS }} days — upload the new year's documents via that vehicle's Docs button.</div>
+                </div>
+                <a href="{{ route('vehicles.index') }}" class="view-all-link">Review <i class="fas fa-arrow-right ml-1"></i></a>
+            </div>
+            <div class="reg-due-body">
+                @foreach ($registrationAlerts as $v)
+                    @php $daysLeft = $v->registrationDaysRemaining(); @endphp
+                    <div class="reg-due-row">
+                        <span class="reg-due-plate">{{ strtoupper($v->plate_number) }}</span>
+                        <div class="reg-due-info">
+                            <div class="reg-due-name">{{ $v->make }} {{ $v->model }}</div>
+                            <div class="reg-due-loc">{{ optional($v->unit)->unit_name ?? 'Unassigned unit' }}{{ $v->station ? ' · '.$v->station->station_name : '' }} &middot; Valid until {{ $v->latestRegistration->expiry_date->format('M d, Y') }}</div>
+                        </div>
+                        @if ($daysLeft < 0)
+                            <span class="reg-due-tag is-overdue"><i class="fas fa-exclamation-triangle"></i> {{ abs($daysLeft) }}d overdue</span>
+                        @else
+                            <span class="reg-due-tag is-soon"><i class="fas fa-clock"></i> Due in {{ $daysLeft }}d</span>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        @if ($atRiskComponents->isNotEmpty())
+        <div class="risk-alert-panel">
+            <div class="risk-alert-header">
+                <i class="fas fa-diagnoses"></i>
+                <div class="risk-alert-header-text">
+                    <div class="risk-alert-title">{{ $atRiskComponents->count() }} part{{ $atRiskComponents->count() === 1 ? '' : 's' }} flagged by the digital Technical Inspection Report</div>
+                    <div class="risk-alert-sub">Either currently flagged, or repeatedly marked Repairable — plan a repair or replacement before it fails.</div>
+                </div>
+            </div>
+            <div class="risk-alert-body">
+                @foreach ($atRiskComponents as $risk)
+                    @php
+                        $v = $atRiskVehicles->get($risk['vehicle_id']);
+                    @endphp
+                    <div class="risk-alert-row">
+                        <span class="risk-alert-plate">{{ $v ? strtoupper($v->plate_number) : '—' }}</span>
+                        <div class="risk-alert-info">
+                            <div class="risk-alert-name">{{ $v ? trim($v->make.' '.$v->model) : 'Vehicle removed' }}</div>
+                            <div class="risk-alert-loc">{{ $v ? (optional($v->unit)->unit_name ?? 'Unassigned unit').($v->station ? ' · '.$v->station->station_name : '') : '' }}</div>
+                            <div class="risk-alert-part"><i class="fas fa-cog mr-1"></i>{{ $risk['system_category'] }} — {{ $risk['component_name'] }}</div>
+                        </div>
+                        <span class="risk-alert-tag"><i class="fas fa-{{ $risk['is_recurring'] ? 'redo' : 'exclamation-circle' }}"></i> {{ $risk['reason'] }}</span>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
 
         <div class="fleet-stats-grid">
             <div class="stat-card-modern c-vehicles">
@@ -190,6 +332,26 @@
             <div class="stat-card-modern c-cost">
                 <div class="stat-icon-wrapper"><i class="fas fa-money-bill-wave"></i></div>
                 <div><div class="stat-num-value">&#8369;{{ number_format($maintenanceStats['this_month_cost'] ?? 0, 0) }}</div><div class="stat-label-title">Spent This Month</div></div>
+            </div>
+        </div>
+
+        <div class="section-heading"><i class="fas fa-id-card mr-1"></i> Registration Summary</div>
+        <div class="fleet-stats-grid">
+            <div class="stat-card-modern c-serviceable">
+                <div class="stat-icon-wrapper"><i class="fas fa-check-double"></i></div>
+                <div><div class="stat-num-value">{{ $vehicleStats['total'] > 0 ? (int) round((($vehicleStats['total'] - $vehicleStats['registration_overdue'] - $vehicleStats['registration_due_soon'] - $vehicleStats['registration_not_on_file']) / $vehicleStats['total']) * 100) : 0 }}%</div><div class="stat-label-title">Registration Compliant</div></div>
+            </div>
+            <div class="stat-card-modern c-soon">
+                <div class="stat-icon-wrapper"><i class="fas fa-clock"></i></div>
+                <div><div class="stat-num-value">{{ $vehicleStats['registration_due_soon'] }}</div><div class="stat-label-title">Due Soon (Registration)</div></div>
+            </div>
+            <div class="stat-card-modern c-overdue">
+                <div class="stat-icon-wrapper"><i class="fas fa-calendar-times"></i></div>
+                <div><div class="stat-num-value">{{ $vehicleStats['registration_overdue'] }}</div><div class="stat-label-title">Overdue (Registration)</div></div>
+            </div>
+            <div class="stat-card-modern c-unregistered">
+                <div class="stat-icon-wrapper"><i class="fas fa-folder-open"></i></div>
+                <div><div class="stat-num-value">{{ $vehicleStats['registration_not_on_file'] }}</div><div class="stat-label-title">No Registration on File</div></div>
             </div>
         </div>
 

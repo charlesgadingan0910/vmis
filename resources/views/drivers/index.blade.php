@@ -66,6 +66,15 @@
   .form-control-modern { border: 1.5px solid #e2e8f0; border-radius: 9px; font-size: 13.5px; height: 42px;}
   .modal-section-title { font-size: 12px; font-weight: 800; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.5px; margin: 15px 0 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
 
+  /* DL Codes / Restriction Codes checkbox grid */
+  .code-checkbox-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+  @media (max-width: 768px) { .code-checkbox-grid { grid-template-columns: repeat(2, 1fr); } }
+  .code-checkbox-item { border: 1.5px solid #e2e8f0; border-radius: 9px; padding: 8px 10px; display: flex; align-items: flex-start; gap: 8px; cursor: pointer; transition: all 0.15s; background: #fff; }
+  .code-checkbox-item:hover { border-color: #93c5fd; background: #f8fafc; }
+  .code-checkbox-item input[type="checkbox"] { margin-top: 3px; flex-shrink: 0; }
+  .code-checkbox-item .code-label { font-weight: 800; font-size: 12.5px; color: #0f172a; }
+  .code-checkbox-item .code-desc { font-size: 10.5px; color: #64748b; line-height: 1.3; display: block; }
+
   .smart-capture-container { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px; }
   @media (max-width: 768px) { .smart-capture-container { grid-template-columns: 1fr; } }
   
@@ -197,11 +206,12 @@
                 @csrf
                 <div class="modal-body p-4">
                     
+                    <p class="text-uppercase font-weight-bold font-size-11 text-muted mb-1" style="letter-spacing:0.5px;">Front of License</p>
                     <div class="smart-capture-container">
                         <div class="smart-capture-box" id="smartCaptureArea">
                             <i class="fas fa-upload smart-capture-icon"></i>
-                            <h6 class="font-weight-bold text-dark m-0" style="font-size:13.5px;">Upload License Image</h6>
-                            <p class="text-muted font-size-11 mb-0">Select file from device</p>
+                            <h6 class="font-weight-bold text-dark m-0" style="font-size:13.5px;">Upload Front Image</h6>
+                            <p class="text-muted font-size-11 mb-0">Auto-fills name, license no. &amp; DL Codes/Conditions</p>
                             <input type="file" id="licenseImage" accept="image/*" class="d-none">
                         </div>
 
@@ -212,10 +222,27 @@
                         </div>
                     </div>
 
+                    <p class="text-uppercase font-weight-bold font-size-11 text-muted mb-1" style="letter-spacing:0.5px;">Back of License</p>
+                    <div class="smart-capture-container">
+                        <div class="smart-capture-box" id="smartCaptureAreaBack">
+                            <i class="fas fa-upload smart-capture-icon"></i>
+                            <h6 class="font-weight-bold text-dark m-0" style="font-size:13.5px;">Upload Back Image</h6>
+                            <p class="text-muted font-size-11 mb-0">Auto-fills serial no. &amp; emergency contact</p>
+                            <input type="file" id="licenseImageBack" accept="image/*" class="d-none">
+                        </div>
+
+                        <div class="smart-capture-box" id="openCameraBtnBack">
+                            <i class="fas fa-camera smart-capture-icon text-success"></i>
+                            <h6 class="font-weight-bold text-dark m-0" style="font-size:13.5px;">Live Camera Scan</h6>
+                            <p class="text-muted font-size-11 mb-0">Capture card via webcam</p>
+                        </div>
+                    </div>
+
                     <div class="progress-bar-scanner mb-3" id="scanProgressBox">
                         <div class="progress-bar-fill" id="scanProgressBar"></div>
                     </div>
                     <div id="scanStatusText" class="font-size-11 text-primary mb-3 font-weight-bold text-center d-none">Scanning document...</div>
+                    <p class="font-size-11 text-muted mb-3" style="margin-top:-10px;"><i class="fas fa-info-circle mr-1"></i>Scan <strong>both sides</strong> for everything to auto-fill: the <strong>front</strong> fills Name/License No./DL Codes/Conditions — the <strong>back</strong> only fills Serial No. &amp; Emergency Contact (its DL Codes/Conditions text is just a generic legend, same on every license). Please double-check the auto-filled fields before saving.</p>
 
                     <div class="modal-section-title mt-0">Driver Photo</div>
                     <div class="d-flex align-items-center mb-2" style="gap:16px;">
@@ -294,6 +321,48 @@
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
                             </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 form-group mb-0">
+                            <label class="font-weight-bold font-size-12 text-secondary">License Serial Number</label>
+                            <input type="text" name="license_serial_number" id="c_lic_serial" class="form-control form-control-modern" placeholder="Card serial no.">
+                        </div>
+                    </div>
+
+                    <div class="modal-section-title">DL Codes <small class="text-muted" style="text-transform:none; font-weight:600; letter-spacing:normal;">(vehicle classes authorized)</small></div>
+                    <div class="code-checkbox-grid">
+                        @foreach($dlCodes as $code => $desc)
+                        <label class="code-checkbox-item">
+                            <input type="checkbox" class="c-dl-code" name="dl_codes[]" value="{{ $code }}">
+                            <span><span class="code-label">{{ $code }}</span><span class="code-desc">{{ $desc }}</span></span>
+                        </label>
+                        @endforeach
+                    </div>
+
+                    <div class="modal-section-title">Driving Conditions / Restrictions</div>
+                    <div class="code-checkbox-grid">
+                        @foreach($restrictionCodes as $code => $desc)
+                        <label class="code-checkbox-item">
+                            <input type="checkbox" class="c-restriction-code" name="restriction_codes[]" value="{{ $code }}">
+                            <span><span class="code-label">{{ $code }}</span><span class="code-desc">{{ $desc }}</span></span>
+                        </label>
+                        @endforeach
+                    </div>
+
+                    <div class="modal-section-title">Emergency Contact</div>
+                    <div class="row">
+                        <div class="col-md-4 form-group">
+                            <label class="font-weight-bold font-size-12 text-secondary">Name</label>
+                            <input type="text" name="emergency_contact_name" id="c_ec_name" class="form-control form-control-modern">
+                        </div>
+                        <div class="col-md-5 form-group">
+                            <label class="font-weight-bold font-size-12 text-secondary">Address</label>
+                            <input type="text" name="emergency_contact_address" id="c_ec_address" class="form-control form-control-modern">
+                        </div>
+                        <div class="col-md-3 form-group mb-0">
+                            <label class="font-weight-bold font-size-12 text-secondary">Tel No.</label>
+                            <input type="text" name="emergency_contact_number" id="c_ec_number" class="form-control form-control-modern">
                         </div>
                     </div>
                 </div>
@@ -448,6 +517,48 @@
                             </select>
                         </div>
                     </div>
+                    <div class="row">
+                        <div class="col-md-4 form-group mb-0">
+                            <label class="font-weight-bold font-size-12 text-secondary">License Serial Number</label>
+                            <input type="text" id="e_lic_serial" name="license_serial_number" class="form-control form-control-modern" placeholder="Card serial no.">
+                        </div>
+                    </div>
+
+                    <div class="modal-section-title">DL Codes <small class="text-muted" style="text-transform:none; font-weight:600; letter-spacing:normal;">(vehicle classes authorized)</small></div>
+                    <div class="code-checkbox-grid">
+                        @foreach($dlCodes as $code => $desc)
+                        <label class="code-checkbox-item">
+                            <input type="checkbox" class="e-dl-code" name="dl_codes[]" value="{{ $code }}">
+                            <span><span class="code-label">{{ $code }}</span><span class="code-desc">{{ $desc }}</span></span>
+                        </label>
+                        @endforeach
+                    </div>
+
+                    <div class="modal-section-title">Driving Conditions / Restrictions</div>
+                    <div class="code-checkbox-grid">
+                        @foreach($restrictionCodes as $code => $desc)
+                        <label class="code-checkbox-item">
+                            <input type="checkbox" class="e-restriction-code" name="restriction_codes[]" value="{{ $code }}">
+                            <span><span class="code-label">{{ $code }}</span><span class="code-desc">{{ $desc }}</span></span>
+                        </label>
+                        @endforeach
+                    </div>
+
+                    <div class="modal-section-title">Emergency Contact</div>
+                    <div class="row">
+                        <div class="col-md-4 form-group">
+                            <label class="font-weight-bold font-size-12 text-secondary">Name</label>
+                            <input type="text" id="e_ec_name" name="emergency_contact_name" class="form-control form-control-modern">
+                        </div>
+                        <div class="col-md-5 form-group">
+                            <label class="font-weight-bold font-size-12 text-secondary">Address</label>
+                            <input type="text" id="e_ec_address" name="emergency_contact_address" class="form-control form-control-modern">
+                        </div>
+                        <div class="col-md-3 form-group mb-0">
+                            <label class="font-weight-bold font-size-12 text-secondary">Tel No.</label>
+                            <input type="text" id="e_ec_number" name="emergency_contact_number" class="form-control form-control-modern">
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer bg-light border-0">
                     <button type="button" class="btn btn-light font-weight-bold" data-dismiss="modal">Cancel</button>
@@ -542,7 +653,24 @@ $(document.body).ready(function() {
         $('#e_lic_type').val(data.license_type);
         $('#e_contact').val(data.contact_number);
         $('#e_status').val(data.status);
-        
+        $('#e_lic_serial').val(data.license_serial_number);
+        $('#e_ec_name').val(data.emergency_contact_name);
+        $('#e_ec_address').val(data.emergency_contact_address);
+        $('#e_ec_number').val(data.emergency_contact_number);
+
+        // DL Codes / Restriction Codes: check only the boxes this driver has
+        // on file, clearing whatever was left checked from the modal's
+        // previous use (the model casts both columns to arrays, so a driver
+        // with none on file comes through here as null/[]).
+        let dlCodes = data.dl_codes || [];
+        let restrictionCodes = data.restriction_codes || [];
+        $('.e-dl-code').each(function() {
+            $(this).prop('checked', dlCodes.includes($(this).val()));
+        });
+        $('.e-restriction-code').each(function() {
+            $(this).prop('checked', restrictionCodes.includes($(this).val()));
+        });
+
         if(data.license_expiration_date) {
             $('#e_lic_exp').val(data.license_expiration_date.substring(0, 10));
         }
@@ -641,7 +769,7 @@ $(document.body).ready(function() {
         });
     });
 
-    // Smart Capture File Upload
+    // Smart Capture File Upload — Front of License
     const smartBox = document.getElementById('smartCaptureArea');
     const fileInput = document.getElementById('licenseImage');
 
@@ -649,18 +777,34 @@ $(document.body).ready(function() {
 
     fileInput.addEventListener('change', async (e) => {
         if(e.target.files.length === 0) return;
-        processImageForOCR(e.target.files[0]);
+        processImageForOCR(e.target.files[0], 'front');
     });
 
-    // Live Webcam Scanner Logic (license)
+    // Smart Capture File Upload — Back of License (serial no. & emergency contact only;
+    // DL Codes/Conditions aren't reliably OCR-detectable as checked/unchecked, so those
+    // stay manual).
+    const smartBoxBack = document.getElementById('smartCaptureAreaBack');
+    const fileInputBack = document.getElementById('licenseImageBack');
+
+    smartBoxBack.addEventListener('click', () => fileInputBack.click());
+
+    fileInputBack.addEventListener('change', async (e) => {
+        if(e.target.files.length === 0) return;
+        processImageForOCR(e.target.files[0], 'back');
+    });
+
+    // Live Webcam Scanner Logic (license) — shared by the front and back capture
+    // tiles; `scanTarget` records which side was requested so the snapshot handler
+    // knows which parser to run.
     let videoStream = null;
+    let scanTarget = 'front';
     const videoElem = document.getElementById('webcamVideo');
 
-    $('#openCameraBtn').click(async function() {
+    async function startLicenseWebcam() {
         $('#cameraModal').modal('show');
         try {
-            videoStream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'environment' } 
+            videoStream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'environment' }
             });
             videoElem.srcObject = videoStream;
         } catch (err) {
@@ -668,6 +812,16 @@ $(document.body).ready(function() {
             toastr.error('Unable to access webcam.');
             $('#cameraModal').modal('hide');
         }
+    }
+
+    $('#openCameraBtn').click(function() {
+        scanTarget = 'front';
+        startLicenseWebcam();
+    });
+
+    $('#openCameraBtnBack').click(function() {
+        scanTarget = 'back';
+        startLicenseWebcam();
     });
 
     $('.close-camera-modal').click(function() {
@@ -687,15 +841,16 @@ $(document.body).ready(function() {
         const canvas = document.getElementById('snapshotCanvas');
         canvas.width = videoElem.videoWidth || 640;
         canvas.height = videoElem.videoHeight || 480;
-        
+
         const ctx = canvas.getContext('2d');
         ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
 
         stopWebcamStream();
         $('#cameraModal').modal('hide');
 
+        let capturedTarget = scanTarget;
         canvas.toBlob(function(blob) {
-            processImageForOCR(blob);
+            processImageForOCR(blob, capturedTarget);
         }, 'image/jpeg', 0.95);
     });
 
@@ -992,7 +1147,7 @@ $(document.body).ready(function() {
     const progressBar = document.getElementById('scanProgressBar');
     const statusText = document.getElementById('scanStatusText');
 
-    async function processImageForOCR(imageSource) {
+    async function processImageForOCR(imageSource, side = 'front') {
         progressBarBox.style.display = 'block';
         statusText.classList.remove('d-none');
         statusText.innerText = "Initializing OCR Engine...";
@@ -1000,28 +1155,89 @@ $(document.body).ready(function() {
 
         try {
             const worker = await Tesseract.createWorker("eng");
-            progressBar.style.width = '40%';
-            statusText.innerText = "Analyzing ID layout...";
+            // The license's printed fields (codes, names, numbers) aren't
+            // natural-language prose, so Tesseract's English dictionary
+            // "correcting" a short all-caps token (like the DL code "BE")
+            // into a real word it knows works against us here — turn that
+            // correction off for more literal character recognition.
+            await worker.setParameters({
+                load_system_dawg: '0',
+                load_freq_dawg: '0',
+            });
 
-            const { data: { text } } = await worker.recognize(imageSource);
-            await worker.terminate();
+            progressBar.style.width = '25%';
+            statusText.innerText = "Enhancing image for OCR...";
+            // Grayscale + contrast stretch reads noticeably better than a raw
+            // color phone photo on a busy, watermarked card background — falls
+            // back to the original image if preprocessing itself fails.
+            const ocrSource = await preprocessImageForOCR(imageSource).catch(() => imageSource);
+
+            progressBar.style.width = '40%';
+            statusText.innerText = side === 'back' ? "Analyzing back of license..." : "Analyzing ID layout...";
+
+            const { data: { text } } = await worker.recognize(ocrSource);
 
             progressBar.style.width = '85%';
             statusText.innerText = "Extracting details...";
-            
-            parseOCRText(text);
 
-            if (!photoManuallySet) {
-                extractFaceSquare(imageSource)
-                    .then(result => setDriverPhoto(result.blob, 'auto', result, 'create'))
-                    .catch(() => { /* auto-crop is best-effort; silently skip on failure */ });
+            if (side === 'back') {
+                // Logged (not shown to the user) so a failed extraction can be
+                // debugged from the raw OCR text via the browser console,
+                // instead of guessing blind at why a field didn't fill.
+                console.log('[Back scan OCR text, 0°]:', text);
+                parseBackOCRText(text);
+
+                // On this card layout, the Serial Number/DL Codes legend block
+                // and the Emergency Contact block are printed at 90° to each
+                // other — so in any one photo, at most one of them is actually
+                // horizontal and OCR-readable; the other reads as garbage.
+                // Retry on the same image rotated both ways and fill in
+                // whichever of the two blocks is still missing from whichever
+                // rotation reads cleanly (parseBackOCRText only fills blank
+                // fields, so a later pass never overwrites a good earlier read).
+                const backFieldsIncomplete = () =>
+                    !document.getElementById('c_lic_serial').value ||
+                    (!document.getElementById('c_ec_name').value &&
+                     !document.getElementById('c_ec_address').value &&
+                     !document.getElementById('c_ec_number').value);
+
+                if (backFieldsIncomplete()) {
+                    statusText.innerText = "Checking a sideways-printed section...";
+                    for (const degrees of [90, 270]) {
+                        if (!backFieldsIncomplete()) break;
+                        try {
+                            const rotatedBlob = await rotateImageBlob(ocrSource, degrees);
+                            const { data: { text: rotatedText } } = await worker.recognize(rotatedBlob);
+                            console.log('[Back scan OCR text, ' + degrees + '°]:', rotatedText);
+                            parseBackOCRText(rotatedText);
+                        } catch (rotateErr) {
+                            console.error('Rotated OCR pass failed:', rotateErr);
+                        }
+                    }
+                }
+            } else {
+                // Logged (not shown to the user) so a failed DL Codes/Conditions
+                // extraction can be debugged from the raw OCR text via the
+                // browser console, instead of guessing blind at why it didn't fill.
+                console.log('[Front scan OCR text]:', text);
+                parseOCRText(text);
+
+                if (!photoManuallySet) {
+                    extractFaceSquare(imageSource)
+                        .then(result => setDriverPhoto(result.blob, 'auto', result, 'create'))
+                        .catch(() => { /* auto-crop is best-effort; silently skip on failure */ });
+                }
             }
+
+            await worker.terminate();
 
             progressBar.style.width = '100%';
             setTimeout(() => {
                 progressBarBox.style.display = 'none';
                 statusText.classList.add('d-none');
-                toastr.success('Scan complete! Please review and fill any missing fields.');
+                toastr.success(side === 'back'
+                    ? 'Back scan complete! Please review the serial number and emergency contact fields.'
+                    : 'Scan complete! Please review the fields and the auto-checked DL Codes/Conditions below.');
             }, 600);
 
         } catch (error) {
@@ -1055,6 +1271,109 @@ $(document.body).ready(function() {
             document.getElementById('c_lic_type').value = 'Non-Professional';
         } else if (fullCleanText.toUpperCase().includes('PROFESSIONAL')) {
             document.getElementById('c_lic_type').value = 'Professional';
+        }
+
+        // DL Codes & Conditions — on the actual card these are printed on the
+        // FRONT next to Blood Type/Eyes Color as plain values in a two-column
+        // row ("DL Codes" | "Conditions" header, then "A,A1,B,B1,B2" | "NONE"
+        // values beneath). The back of the card only carries the generic code
+        // legend/key, which is identical on every license and can't tell us
+        // which codes THIS driver actually holds — that's why this lives in
+        // the front parser, not the back one.
+        //
+        // Real-world OCR output on this font/size routinely drops the commas
+        // between codes entirely (e.g. "A,A1,B,B1,B2" reads as "AA1BB2"), so
+        // this can't require a comma-separated list. Instead, search a window
+        // right after the "DL Codes" label for the longest run of back-to-back
+        // valid codes — commas/spaces are allowed *between* codes within a
+        // run (so a clean comma-separated read still works), but any other
+        // character ends the run. That naturally outscores a stray 1-letter
+        // coincidental match from surrounding OCR noise (e.g. the "C" that
+        // starts "CONDITIONS" itself, which is masked out below for exactly
+        // that reason), since a real code list runs several codes deep.
+        // Re-detected on every front scan, so clear stale checks first.
+        document.querySelectorAll('.c-dl-code').forEach(cb => { cb.checked = false; });
+        document.querySelectorAll('.c-restriction-code').forEach(cb => { cb.checked = false; });
+
+        const knownDlCodes = @json(array_keys($dlCodes));
+        const sortedDlCodes = [...knownDlCodes].sort((a, b) => b.length - a.length);
+
+        // Scans a window for the longest run of back-to-back valid codes,
+        // allowing comma/space between codes within a run (see the comment
+        // above) — factored out so it can be tried against both the raw
+        // window text and an OCR-confusable-normalized variant below.
+        function decodeBestCodeRun(windowText) {
+            let bestCodes = [];
+            let bestEndIndex = -1;
+            for (let start = 0; start < windowText.length; start++) {
+                let i = start;
+                const codes = [];
+                while (i < windowText.length) {
+                    if (codes.length > 0 && /[,\s]/.test(windowText[i])) {
+                        i++;
+                        continue;
+                    }
+                    let matched = false;
+                    for (const code of sortedDlCodes) {
+                        if (windowText.substr(i, code.length) === code) {
+                            codes.push(code);
+                            i += code.length;
+                            matched = true;
+                            break;
+                        }
+                    }
+                    if (!matched) break;
+                }
+                if (codes.length > bestCodes.length) {
+                    bestCodes = codes;
+                    bestEndIndex = i;
+                }
+            }
+            return { bestCodes, bestEndIndex };
+        }
+
+        const dlLabelMatch = fullCleanText.match(/DL\s*CODES?/i);
+        if (dlLabelMatch) {
+            const searchStart = dlLabelMatch.index + dlLabelMatch[0].length;
+            let windowText = fullCleanText.slice(searchStart, searchStart + 70).toUpperCase();
+            // Mask the "Conditions" label itself out of the window (same-length
+            // space replacement to keep character offsets intact) so its own
+            // "C" doesn't get mistaken for the single-letter DL code "C".
+            windowText = windowText.replace(/CONDITIONS?/g, (m) => ' '.repeat(m.length));
+
+            // "A1" is a common OCR misread as "AI" or "Al" (capital I / lowercase
+            // L instead of the digit 1) — try a normalized variant too and keep
+            // whichever decodes more codes, so a clean read never gets displaced
+            // by a normalization that wasn't needed.
+            const normalizedWindowText = windowText.replace(/[IL]/g, '1');
+            const rawResult = decodeBestCodeRun(windowText);
+            const normalizedResult = decodeBestCodeRun(normalizedWindowText);
+            const { bestCodes, bestEndIndex: bestEndOffset } =
+                normalizedResult.bestCodes.length > rawResult.bestCodes.length ? normalizedResult : rawResult;
+            const bestEndIndex = bestEndOffset !== -1 ? searchStart + bestEndOffset : -1;
+
+            if (bestCodes.length > 0) {
+                document.querySelectorAll('.c-dl-code').forEach(cb => {
+                    if (bestCodes.includes(cb.value)) cb.checked = true;
+                });
+            }
+
+            if (bestEndIndex !== -1) {
+                const afterCodes = fullCleanText.slice(bestEndIndex, bestEndIndex + 20);
+                if (!/^\s*(NONE|N\/A|NIL)/i.test(afterCodes)) {
+                    // Same comma-dropping risk applies to Conditions (e.g. "1,4"
+                    // reading as "14") — pull out whichever digits appear right
+                    // after the codes, comma-separated or not, and split them
+                    // into individual condition numbers either way.
+                    const condRunMatch = afterCodes.match(/\d[\d,\s]{0,8}\d|\d/);
+                    if (condRunMatch) {
+                        const foundConditions = condRunMatch[0].replace(/[^\d]/g, '').split('').filter(t => ['1','2','3','4','5'].includes(t));
+                        document.querySelectorAll('.c-restriction-code').forEach(cb => {
+                            if (foundConditions.includes(cb.value)) cb.checked = true;
+                        });
+                    }
+                }
+            }
         }
 
         const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -1101,6 +1420,162 @@ $(document.body).ready(function() {
                         ? remainingNames.slice(1).join(' ')
                         : '';
                     break;
+                }
+            }
+        }
+    }
+
+    /**
+     * Grayscale + linear contrast stretch via canvas — a plain color phone
+     * photo of a card with a busy watermarked/patterned background is
+     * noticeably harder for OCR to read than a cleaned-up, high-contrast
+     * version of the same shot. Used for every OCR pass; the original color
+     * image is kept separately for the driver-photo auto-crop.
+     */
+    function preprocessImageForOCR(imageSource) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const objectUrl = URL.createObjectURL(imageSource);
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                const grays = new Uint8ClampedArray(data.length / 4);
+                let min = 255, max = 0;
+
+                for (let p = 0; p < data.length; p += 4) {
+                    const gray = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
+                    grays[p / 4] = gray;
+                    if (gray < min) min = gray;
+                    if (gray > max) max = gray;
+                }
+
+                const range = Math.max(max - min, 1); // avoid divide-by-zero on a flat/blank image
+                for (let p = 0; p < data.length; p += 4) {
+                    const stretched = ((grays[p / 4] - min) / range) * 255;
+                    data[p] = data[p + 1] = data[p + 2] = stretched;
+                }
+                ctx.putImageData(imageData, 0, 0);
+
+                URL.revokeObjectURL(objectUrl);
+                canvas.toBlob((blob) => {
+                    blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'));
+                }, 'image/jpeg', 0.95);
+            };
+            img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Image load failed')); };
+            img.src = objectUrl;
+        });
+    }
+
+    /**
+     * Rotates an image (File/Blob) by the given degrees using a canvas, for
+     * retrying OCR on back-of-license text that's printed sideways next to
+     * the barcode rather than horizontally with the rest of the card.
+     */
+    function rotateImageBlob(imageSource, degrees) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const objectUrl = URL.createObjectURL(imageSource);
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const rotated90or270 = (degrees === 90 || degrees === 270);
+                canvas.width = rotated90or270 ? img.naturalHeight : img.naturalWidth;
+                canvas.height = rotated90or270 ? img.naturalWidth : img.naturalHeight;
+
+                const ctx = canvas.getContext('2d');
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.rotate(degrees * Math.PI / 180);
+                ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+
+                URL.revokeObjectURL(objectUrl);
+                canvas.toBlob((blob) => {
+                    blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'));
+                }, 'image/jpeg', 0.95);
+            };
+            img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Image load failed')); };
+            img.src = objectUrl;
+        });
+    }
+
+    /**
+     * Pulls the License Serial Number from OCR text — shared by the normal
+     * back-of-license pass and the rotated retry passes.
+     */
+    function extractSerialNumber(text) {
+        const fullCleanText = text.replace(/\s+/g, ' ');
+
+        // Look for a clean run of digits within a window after the "SERIAL"
+        // label, rather than requiring it immediately adjacent — the serial
+        // number sits right next to a dense barcode graphic, which routinely
+        // gets OCR'd as stray noise between the label and the actual digits.
+        const serialIdx = fullCleanText.search(/SERIAL/i);
+        if (serialIdx === -1) return null;
+
+        const windowText = fullCleanText.slice(serialIdx, serialIdx + 60);
+        const digitsMatch = windowText.match(/\b\d{6,12}\b/);
+        return digitsMatch ? digitsMatch[0] : null;
+    }
+
+    /**
+     * Back-of-license OCR — pulls the License Serial Number and the
+     * Emergency Contact block, since those are plain printed text the OCR
+     * engine can read reliably. The DL Codes and Conditions/Restrictions
+     * boxes are only a generic reference legend on the back (identical on
+     * every license, regardless of which codes this driver actually holds)
+     * — those are read from the front scan instead (see parseOCRText).
+     *
+     * Only fills fields that are still blank — this gets called once per
+     * image rotation tried (see processImageForOCR), since this card prints
+     * the serial/DL-legend block and the emergency contact block at 90° to
+     * each other, so only one of them is horizontal/readable in any given
+     * photo. Never overwrites a value an earlier, cleaner-reading pass (or
+     * the user) already filled in.
+     */
+    function parseBackOCRText(text) {
+        if (!document.getElementById('c_lic_serial').value) {
+            const serial = extractSerialNumber(text);
+            if (serial) {
+                document.getElementById('c_lic_serial').value = serial;
+            }
+        }
+
+        // Emergency contact is usually printed as labeled lines ("Name:",
+        // "Address:", "Tel. No:") under an "In case of emergency" heading —
+        // scan line by line and take the first match for each label.
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        let gotName = !!document.getElementById('c_ec_name').value;
+        let gotAddress = !!document.getElementById('c_ec_address').value;
+        let gotNumber = !!document.getElementById('c_ec_number').value;
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            if (!gotName && /NAME/i.test(line)) {
+                const value = line.replace(/.*NAME[:\s\-]*/i, '').trim();
+                if (value.length > 1) {
+                    document.getElementById('c_ec_name').value = value;
+                    gotName = true;
+                    continue;
+                }
+            }
+            if (!gotAddress && /ADDRESS/i.test(line)) {
+                const value = line.replace(/.*ADDRESS[:\s\-]*/i, '').trim();
+                if (value.length > 1) {
+                    document.getElementById('c_ec_address').value = value;
+                    gotAddress = true;
+                    continue;
+                }
+            }
+            if (!gotNumber && /(TEL\.?\s*NO\.?|TELEPHONE|CONTACT\s*NO\.?)/i.test(line)) {
+                const value = line.replace(/.*(TEL\.?\s*NO\.?|TELEPHONE|CONTACT\s*NO\.?)[:\s\-]*/i, '').trim();
+                if (value.length > 1) {
+                    document.getElementById('c_ec_number').value = value;
+                    gotNumber = true;
                 }
             }
         }
