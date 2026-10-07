@@ -100,6 +100,14 @@
     .trip-hero h5{font-size:16.5px;}
     .trip-form-row{flex-direction:column; gap:0;}
   }
+
+  /* ---------- Round trip: Destination back to Origin, same submit ---------- */
+  .round-trip-toggle{display:flex; align-items:center; gap:10px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:11px; padding:12px 14px; margin-bottom:14px;}
+  .round-trip-toggle input{width:18px; height:18px; flex:none; accent-color:var(--vmis-blue);}
+  .round-trip-toggle label{margin:0; font-size:13px; font-weight:700; color:#334155;}
+  .return-leg-box{background:#eff6ff; border:1.5px solid #bfdbfe; border-radius:11px; padding:14px; margin-bottom:14px;}
+  .return-leg-box .return-leg-title{font-weight:800; font-size:11.5px; color:#1d4ed8; text-transform:uppercase; letter-spacing:.03em; margin-bottom:10px;}
+  .round-trip-chip{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 7px; border-radius:5px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; margin-left:6px; white-space:nowrap;}
 </style>
 @endsection
 
@@ -222,6 +230,30 @@
                             </div>
                         </div>
 
+                        <div class="round-trip-toggle">
+                            <input type="checkbox" id="round_trip" name="round_trip">
+                            <label for="round_trip">Round trip — also returning from Destination back to Origin</label>
+                        </div>
+
+                        <div class="return-leg-box" id="returnLegBox" style="display:none;">
+                            <div class="return-leg-title">Return Leg — <span id="returnLegLabel">Destination back to Origin</span></div>
+                            <div class="trip-form-row">
+                                <div class="trip-form-group">
+                                    <label for="return_departure_time">Return Departure</label>
+                                    <input type="time" class="form-control" id="return_departure_time" name="return_departure_time">
+                                </div>
+                                <div class="trip-form-group">
+                                    <label for="return_arrival_time">Return Arrival</label>
+                                    <input type="time" class="form-control" id="return_arrival_time" name="return_arrival_time">
+                                </div>
+                            </div>
+                            <div class="trip-form-group" style="margin-bottom:0;">
+                                <label for="return_odometer_end">Return Odometer End</label>
+                                <input type="number" class="form-control" id="return_odometer_end" name="return_odometer_end" min="0" inputmode="numeric" placeholder="km">
+                                <small class="text-muted" style="font-size:11px;">Picks up automatically from the Odometer End above.</small>
+                            </div>
+                        </div>
+
                         <div class="trip-form-group">
                             <label for="passengers">Passengers <small class="text-muted font-weight-normal">(optional)</small></label>
                             <input type="text" class="form-control" id="passengers" name="passengers" placeholder="e.g. Names or count" maxlength="255">
@@ -259,6 +291,11 @@
                             {{ $trip->origin }}
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                             {{ $trip->destination }}
+                            @if($trip->leg === 'outbound')
+                                <span class="round-trip-chip">Round Trip &middot; Outbound</span>
+                            @elseif($trip->leg === 'return')
+                                <span class="round-trip-chip">Round Trip &middot; Return</span>
+                            @endif
                         </div>
                         <div class="trip-card-meta">
                             @if($trip->departure_time || $trip->arrival_time)
@@ -326,6 +363,27 @@ document.addEventListener('DOMContentLoaded', function () {
         statusEl.style.color = kind === 'error' ? '#dc2626' : (kind === 'success' ? '#16a34a' : '#64748b');
     }
 
+    // ---------------- Round trip: toggle the Return Leg box + its live label ----------------
+    const roundTripCheckbox = document.getElementById('round_trip');
+    const returnLegBox = document.getElementById('returnLegBox');
+    const returnLegLabel = document.getElementById('returnLegLabel');
+    const originInput = document.getElementById('origin');
+    const destinationInput = document.getElementById('destination');
+
+    function updateReturnLegLabel() {
+        const origin = originInput.value.trim() || 'Origin';
+        const destination = destinationInput.value.trim() || 'Destination';
+        returnLegLabel.textContent = destination + ' back to ' + origin;
+    }
+    if (roundTripCheckbox) {
+        roundTripCheckbox.addEventListener('change', function () {
+            returnLegBox.style.display = this.checked ? 'block' : 'none';
+            if (this.checked) { updateReturnLegLabel(); }
+        });
+        originInput.addEventListener('input', updateReturnLegLabel);
+        destinationInput.addEventListener('input', updateReturnLegLabel);
+    }
+
     form.addEventListener('submit', function (e) {
         e.preventDefault();
 
@@ -333,6 +391,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const odoEnd = document.getElementById('odometer_end').value;
         if (odoStart !== '' && odoEnd !== '' && Number(odoEnd) < Number(odoStart)) {
             setStatus('Odometer end cannot be less than odometer start.', 'error');
+            return;
+        }
+
+        const isRoundTrip = !!(roundTripCheckbox && roundTripCheckbox.checked);
+        const returnOdoEnd = document.getElementById('return_odometer_end').value;
+        if (isRoundTrip && odoEnd !== '' && returnOdoEnd !== '' && Number(returnOdoEnd) < Number(odoEnd)) {
+            setStatus('Return odometer end can\'t be less than the outbound odometer end.', 'error');
             return;
         }
 
@@ -348,6 +413,10 @@ document.addEventListener('DOMContentLoaded', function () {
             odometer_end: odoEnd === '' ? null : odoEnd,
             passengers: document.getElementById('passengers').value || null,
             remarks: document.getElementById('remarks').value || null,
+            round_trip: isRoundTrip,
+            return_departure_time: isRoundTrip ? (document.getElementById('return_departure_time').value || null) : null,
+            return_arrival_time: isRoundTrip ? (document.getElementById('return_arrival_time').value || null) : null,
+            return_odometer_end: isRoundTrip ? (returnOdoEnd === '' ? null : returnOdoEnd) : null,
         };
 
         submitBtn.disabled = true;

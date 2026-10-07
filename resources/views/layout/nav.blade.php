@@ -123,6 +123,12 @@
                 <p>Trip Logs</p>
             </a>
         </li>
+        <li class="nav-item">
+            <a href="{{ route('fuel-logs.index') }}" class="nav-link {{ request()->routeIs('fuel-logs.*') ? 'active' : '' }}">
+                <i class="nav-icon fas fa-gas-pump"></i>
+                <p>Fuel Monitoring</p>
+            </a>
+        </li>
         @unless($__isDriver)
         <li class="nav-item">
             <a href="{{ route('maintenance.index') }}" class="nav-link {{ request()->routeIs('maintenance.*') ? 'active' : '' }}">

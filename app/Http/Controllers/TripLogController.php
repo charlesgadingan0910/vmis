@@ -174,7 +174,13 @@ class TripLogController extends Controller
                 $tripHtml .= '<div class="vehicle-sub-info">' . $dep . ' to ' . $arr . '</div>';
             }
 
-            $routeHtml = '<div class="vehicle-main-name" style="font-size:13.5px;">' . e($trip->origin) . ' &rarr; ' . e($trip->destination) . '</div>';
+            $routeHtml = '<div class="vehicle-main-name" style="font-size:13.5px;">' . e($trip->origin) . ' &rarr; ' . e($trip->destination);
+            if ($trip->leg === 'outbound') {
+                $routeHtml .= '<span class="round-trip-badge" title="Paired with its return leg below"><i class="fas fa-exchange-alt"></i> Round Trip · Outbound</span>';
+            } elseif ($trip->leg === 'return') {
+                $routeHtml .= '<span class="round-trip-badge" title="Return leg of the round trip above"><i class="fas fa-exchange-alt"></i> Round Trip · Return</span>';
+            }
+            $routeHtml .= '</div>';
             if ($trip->purpose) {
                 $routeHtml .= '<div class="vehicle-sub-info">' . e(Str::limit($trip->purpose, 60)) . '</div>';
             }
@@ -278,6 +284,18 @@ class TripLogController extends Controller
             'odometer_end'   => ['nullable', 'integer', 'min:0', 'gte:odometer_start'],
             'passengers'     => ['nullable', 'string', 'max:255'],
             'remarks'        => ['nullable', 'string', 'max:1000'],
+
+            // Round trip: Destination back to Origin, logged as its own
+            // second leg in the same submit — see the block below store().
+            'round_trip'            => ['nullable', 'boolean'],
+            'return_departure_time' => ['nullable', 'date_format:H:i'],
+            'return_arrival_time'   => ['nullable', 'date_format:H:i', 'after_or_equal:return_departure_time'],
+            'return_odometer_end'   => ['nullable', 'integer', 'min:0', function ($attribute, $value, $fail) use ($request) {
+                $odometerEnd = $request->input('odometer_end');
+                if ($value !== null && $odometerEnd !== null && (int) $value < (int) $odometerEnd) {
+                    $fail('Return odometer (end) can\'t be less than the outbound odometer (end) — mileage only goes up.');
+                }
+            }],
         ];
 
         if ($role === self::ROLE_SUPER_ADMIN) {
@@ -285,6 +303,13 @@ class TripLogController extends Controller
         }
 
         $validated = $request->validate($rules);
+        $isRoundTrip = $request->boolean('round_trip');
+        $returnLegInput = [
+            'departure_time' => $validated['return_departure_time'] ?? null,
+            'arrival_time'   => $validated['return_arrival_time'] ?? null,
+            'odometer_end'   => $validated['return_odometer_end'] ?? null,
+        ];
+        unset($validated['round_trip'], $validated['return_departure_time'], $validated['return_arrival_time'], $validated['return_odometer_end']);
 
         if ($role === self::ROLE_DRIVER) {
             $driver = $user->driver_id ? Driver::find($user->driver_id) : null;
@@ -317,19 +342,53 @@ class TripLogController extends Controller
 
         $validated['logged_by'] = $user->id;
 
+        if ($isRoundTrip) {
+            $validated['round_trip_group'] = (string) Str::uuid();
+            $validated['leg'] = 'outbound';
+        }
+
         $trip = TripLog::create($validated);
+
+        $returnTrip = null;
+        if ($isRoundTrip) {
+            // Retraces the outbound route in reverse. Mileage is continuous
+            // across both legs, so the return leg's starting odometer picks
+            // up exactly where the outbound leg's ending odometer left off —
+            // the form never asks for it separately.
+            $returnTrip = TripLog::create([
+                'vehicle_id'        => $validated['vehicle_id'],
+                'driver_id'         => $validated['driver_id'],
+                'logged_by'         => $validated['logged_by'],
+                'trip_date'         => $validated['trip_date'],
+                'departure_time'    => $returnLegInput['departure_time'],
+                'arrival_time'      => $returnLegInput['arrival_time'],
+                'origin'            => $validated['destination'],
+                'destination'       => $validated['origin'],
+                'purpose'           => $validated['purpose'] ?? null,
+                'odometer_start'    => $validated['odometer_end'] ?? null,
+                'odometer_end'      => $returnLegInput['odometer_end'],
+                'passengers'        => $validated['passengers'] ?? null,
+                'remarks'           => $validated['remarks'] ?? null,
+                'round_trip_group'  => $validated['round_trip_group'],
+                'leg'               => 'return',
+            ]);
+        }
 
         ActivityLog::record(
             'created',
             'Trip Log',
-            'Logged a trip for [' . strtoupper($vehicle->plate_number) . '] (' . $validated['origin'] . ' to ' . $validated['destination'] . ').',
+            $isRoundTrip
+                ? 'Logged a round trip for [' . strtoupper($vehicle->plate_number) . '] (' . $validated['origin'] . ' ⇄ ' . $validated['destination'] . ').'
+                : 'Logged a trip for [' . strtoupper($vehicle->plate_number) . '] (' . $validated['origin'] . ' to ' . $validated['destination'] . ').',
             $trip,
             ['after' => $validated]
         );
 
         return response()->json([
             'success' => true,
-            'message' => 'Trip logged for [' . strtoupper($vehicle->plate_number) . '].',
+            'message' => $isRoundTrip
+                ? 'Round trip logged for [' . strtoupper($vehicle->plate_number) . '] — both legs saved.'
+                : 'Trip logged for [' . strtoupper($vehicle->plate_number) . '].',
         ]);
     }
 }

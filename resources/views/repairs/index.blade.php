@@ -240,7 +240,20 @@
                             <select name="vehicle_id" id="log_vehicle_id" class="form-control" style="width:100%;" required>
                                 <option value="">Select vehicle...</option>
                                 @foreach ($vehicles as $v)
-                                    <option value="{{ $v->id }}">{{ strtoupper($v->plate_number) }} — {{ trim($v->make.' '.$v->model) }}</option>
+                                    @php
+                                        // Same name-assembly as VehicleController's driverHtml, so the
+                                        // name that auto-fills here matches the one shown everywhere
+                                        // else in the app for this driver.
+                                        $driverName = '';
+                                        if ($v->driver) {
+                                            $mi = $v->driver->middlename ? strtoupper(substr($v->driver->middlename, 0, 1)) : '';
+                                            $driverName = implode(' ', array_filter(
+                                                [$v->driver->rank, $v->driver->firstname, $mi, $v->driver->lastname, $v->driver->qlfr],
+                                                fn ($part) => ! is_null($part) && trim($part) !== ''
+                                            ));
+                                        }
+                                    @endphp
+                                    <option value="{{ $v->id }}" data-driver="{{ $driverName }}">{{ strtoupper($v->plate_number) }} — {{ trim($v->make.' '.$v->model) }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -361,7 +374,17 @@
                             <select name="vehicle_id" id="edit_log_vehicle_id" class="form-control" style="width:100%;" required>
                                 <option value="">Select vehicle...</option>
                                 @foreach ($vehicles as $v)
-                                    <option value="{{ $v->id }}">{{ strtoupper($v->plate_number) }} — {{ trim($v->make.' '.$v->model) }}</option>
+                                    @php
+                                        $driverName = '';
+                                        if ($v->driver) {
+                                            $mi = $v->driver->middlename ? strtoupper(substr($v->driver->middlename, 0, 1)) : '';
+                                            $driverName = implode(' ', array_filter(
+                                                [$v->driver->rank, $v->driver->firstname, $mi, $v->driver->lastname, $v->driver->qlfr],
+                                                fn ($part) => ! is_null($part) && trim($part) !== ''
+                                            ));
+                                        }
+                                    @endphp
+                                    <option value="{{ $v->id }}" data-driver="{{ $driverName }}">{{ strtoupper($v->plate_number) }} — {{ trim($v->make.' '.$v->model) }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -658,6 +681,23 @@ $(document).ready(function() {
             allowClear: true,
         });
     }
+
+    // ---------------- Auto-fill "Requested By" from the vehicle's assigned driver ----------------
+    // Same reasoning as the Maintenance & PMS module: it's the driver assigned to
+    // the vehicle who actually requests the repair, so picking a vehicle fills
+    // this in as a convenience default — still a plain text input, so it can be
+    // overwritten (walk-in request, no assigned driver, etc.). Bound to 'change'
+    // so it also fires for the .val(...).trigger('change') calls already used
+    // elsewhere on this page; in the Edit modal, the real saved requested_by
+    // value is set right afterward and wins.
+    $('#log_vehicle_id').on('change', function () {
+        const driverName = $(this).find(':selected').data('driver') || '';
+        $('#log_requested_by').val(driverName);
+    });
+    $('#edit_log_vehicle_id').on('change', function () {
+        const driverName = $(this).find(':selected').data('driver') || '';
+        $('#edit_requested_by').val(driverName);
+    });
 
     @if (session('success'))
         toastr.success(@json(session('success')));

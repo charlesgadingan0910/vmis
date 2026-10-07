@@ -356,7 +356,10 @@ class RepairController extends Controller
         // ---------------- Initial (non-AJAX) page load ----------------
         $vehicleScope = Vehicle::query();
         $this->scopeToVisibleVehicles($vehicleScope, $user, $role);
-        $vehicles = (clone $vehicleScope)->orderBy('plate_number')->get(['id', 'plate_number', 'make', 'model', 'odometer_km']);
+        // 'driver' is eager-loaded so the Log/Edit Repair modals can auto-fill
+        // "Requested By" with the vehicle's assigned driver — same reasoning and
+        // pattern as MaintenanceController::index().
+        $vehicles = (clone $vehicleScope)->with('driver')->orderBy('plate_number')->get(['id', 'plate_number', 'make', 'model', 'odometer_km', 'assigned_driver_id']);
 
         $recordScope = MaintenanceRecord::query()->repairsOnly();
         $this->scopeToVisibleVehicles($recordScope, $user, $role, viaRelation: true);

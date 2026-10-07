@@ -431,7 +431,11 @@ class MaintenanceController extends Controller
         // ---------------- Initial (non-AJAX) page load ----------------
         $vehicleScope = Vehicle::query();
         $this->scopeToVisibleVehicles($vehicleScope, $user, $role);
-        $vehicles = (clone $vehicleScope)->orderBy('plate_number')->get(['id', 'plate_number', 'make', 'model', 'odometer_km']);
+        // 'driver' is eager-loaded (not just assigned_driver_id) so the Log/Edit
+        // Maintenance modals can auto-fill "Requested By" with the vehicle's
+        // assigned driver — it's that driver who actually requests PMS/repairs
+        // for their own vehicle in practice, not whoever is logged in as admin.
+        $vehicles = (clone $vehicleScope)->with('driver')->orderBy('plate_number')->get(['id', 'plate_number', 'make', 'model', 'odometer_km', 'assigned_driver_id']);
 
         $monitorScope = (clone $vehicleScope)->whereNotNull('next_pms_date')->get(['next_pms_date']);
         $dueSoonCount = 0;

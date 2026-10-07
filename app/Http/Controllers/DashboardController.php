@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Driver;
+use App\Models\FuelLog;
 use App\Models\MaintenanceRecord;
 use App\Models\Station;
 use App\Models\TechnicalInspection;
@@ -149,6 +150,36 @@ class DashboardController extends Controller
             ->take(6)
             ->get();
 
+        // ---------------- Fuel Monitoring ----------------
+        // Same visibility scope as everything else above — reuses
+        // $scopeVehicles via whereHas('vehicle', ...) exactly the way
+        // FuelLogController::scopeToVisibleVehicles() does it, so this
+        // never shows a role more than the Fuel Monitoring module itself
+        // would let them open.
+        $fuelScope = FuelLog::query()->whereHas('vehicle', $scopeVehicles);
+        $fuelMonthScope = (clone $fuelScope)->whereBetween('refuel_date', [now()->startOfMonth(), now()->endOfMonth()]);
+
+        // Average km/L this month: same per-entry logic as
+        // FuelLogController::adminIndex() (FuelLog::kmPerLiter() compares
+        // each entry against the vehicle's immediately preceding refuel),
+        // reused here in PHP rather than re-derived as a query so the two
+        // pages can never disagree on what counts as "this month's average".
+        $fuelKmlValues = (clone $fuelMonthScope)->get()->map(fn ($log) => $log->kmPerLiter())->filter(fn ($v) => $v !== null);
+
+        $fuelStats = [
+            'total_logs'   => (clone $fuelScope)->count(),
+            'liters_month' => (clone $fuelMonthScope)->sum('liters'),
+            'cost_month'   => (clone $fuelMonthScope)->sum('total_cost'),
+            'avg_kml'      => $fuelKmlValues->isNotEmpty() ? round($fuelKmlValues->avg(), 2) : null,
+        ];
+
+        $recentFuelLogs = (clone $fuelScope)
+            ->with(['vehicle', 'driver'])
+            ->orderByDesc('refuel_date')
+            ->orderByDesc('id')
+            ->take(6)
+            ->get();
+
         // ---------------- Personnel ----------------
         // Drivers carry no unit_id/station_id in this schema (see drivers migration),
         // so — matching DriverController's own index(), which likewise shows every
@@ -223,6 +254,8 @@ class DashboardController extends Controller
             'typeBreakdown'      => $typeBreakdown,
             'maintenanceStats'   => $maintenanceStats,
             'recentMaintenance'  => $recentMaintenance,
+            'fuelStats'          => $fuelStats,
+            'recentFuelLogs'     => $recentFuelLogs,
             'driverStats'        => $driverStats,
             'userStats'          => $userStats,
             'userRoleBreakdown'  => $userRoleBreakdown,

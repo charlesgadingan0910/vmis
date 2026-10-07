@@ -25,6 +25,8 @@ class TripLog extends Model
         'odometer_end',
         'passengers',
         'remarks',
+        'round_trip_group',
+        'leg',
     ];
 
     protected function casts(): array
@@ -51,5 +53,33 @@ class TripLog extends Model
     public function loggedBy()
     {
         return $this->belongsTo(User::class, 'logged_by');
+    }
+
+    /**
+     * True once this row is one leg of a round trip (round_trip_group set) —
+     * both the outbound and return legs return true, since both carry the
+     * same shared group value.
+     */
+    public function isRoundTrip(): bool
+    {
+        return ! is_null($this->round_trip_group);
+    }
+
+    /**
+     * The other leg of this round trip (outbound <-> return), or null for a
+     * plain one-way trip, or if the partner row was somehow deleted. Not a
+     * real Eloquent relation since the two rows link by a shared group value
+     * rather than a foreign key — a simple lookup is clearer here than
+     * contorting hasOne/belongsTo around that.
+     */
+    public function roundTripPartner(): ?self
+    {
+        if (! $this->isRoundTrip()) {
+            return null;
+        }
+
+        return static::where('round_trip_group', $this->round_trip_group)
+            ->where('id', '!=', $this->id)
+            ->first();
     }
 }

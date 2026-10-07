@@ -18,6 +18,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DocumentIntelligenceController;
 use App\Http\Controllers\AccountTypeController;
 use App\Http\Controllers\TripLogController;
+use App\Http\Controllers\FuelLogController;
 use App\Http\Controllers\VehicleAccidentController;
 use Illuminate\Support\Facades\Route;
 
@@ -101,6 +102,20 @@ Route::middleware('auth')->group(function () {
         // entirely inside TripLogController — see its class docblock. No edit/
         // delete: logged trips are permanent records, like Activity Logs.
         Route::resource('trip-logs', TripLogController::class)->only(['index', 'store']);
+
+        // Fuel Monitoring — same permission shape as Trip Logs (a DRIVER logs
+        // refuels for their own assigned vehicle via the mobile view, a SUPER
+        // ADMINISTRATOR may log for any vehicle, everyone else is read-only,
+        // scoped by unit/station). See FuelLogController's class docblock for
+        // why this is its own module rather than part of Trip Logs. No edit/
+        // delete: logged refuels are permanent records, like Trip Logs.
+        Route::resource('fuel-logs', FuelLogController::class)->only(['index', 'store']);
+
+        // Serves uploaded refuel receipts directly (bypasses the public/storage
+        // symlink, unreliable on Windows/WAMP) and keeps document access behind login.
+        Route::get('/fuel-documents/{path}', [FuelLogController::class, 'viewDocument'])
+            ->where('path', '.*')
+            ->name('fuel-logs.document');
 
         // In-app camera scanner + what a scanned sticker actually resolves to.
         Route::get('/scan', [ScanController::class, 'index'])->name('scan.index');

@@ -249,4 +249,17 @@ class Vehicle extends Model
     {
         return $this->hasMany(TripLog::class)->orderByDesc('trip_date')->orderByDesc('id');
     }
+
+    /**
+     * Every logged refuel for this vehicle, most recent first.
+     */
+    public function fuelLogs()
+    {
+        return $this->hasMany(FuelLog::class)->orderByDesc('refuel_date')->orderByDesc('id');
+    }
+
+    public function latestFuelLog()
+    {
+        return $this->hasOne(FuelLog::class)->latestOfMany('refuel_date');
+    }
 }

@@ -82,6 +82,17 @@
   .form-control-modern { border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 14px; height: 46px; padding: 10px 14px; color: #0f172a; background: #f8fafc; }
   .form-control-modern:focus { border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12); background: #fff; outline: none; }
   textarea.form-control-modern { height: auto; }
+
+  /* Round trip: Destination back to Origin, logged as a second leg in the
+     same submit (see TripLogController::store()) — this box only appears
+     once the checkbox above it is checked. */
+  .round-trip-check-box { background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; }
+  .round-trip-check-box .custom-control-label { cursor: pointer; }
+  .return-leg-section { background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px; padding: 16px; margin-bottom: 18px; }
+  .return-leg-title { font-weight: 800; font-size: 12px; color: #1d4ed8; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+
+  /* Round trip badge + leg tag shown in the Trip History table's Route column. */
+  .round-trip-badge { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; padding: 2px 7px; border-radius: 5px; display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
 </style>
 @endsection
 
@@ -224,13 +235,14 @@
                     <div class="form-row">
                         <div class="form-group col-md-6">
                             <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Origin <span class="text-danger">*</span></label>
-                            <input type="text" name="origin" class="form-control form-control-modern" required maxlength="150">
+                            <input type="text" name="origin" id="log_origin" class="form-control form-control-modern" required maxlength="150">
                         </div>
                         <div class="form-group col-md-6">
                             <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Destination <span class="text-danger">*</span></label>
-                            <input type="text" name="destination" class="form-control form-control-modern" required maxlength="150">
+                            <input type="text" name="destination" id="log_destination" class="form-control form-control-modern" required maxlength="150">
                         </div>
                     </div>
+
                     <div class="form-group mb-3">
                         <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Purpose</label>
                         <input type="text" name="purpose" class="form-control form-control-modern" maxlength="255">
@@ -242,9 +254,38 @@
                         </div>
                         <div class="form-group col-md-6">
                             <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Odometer (End)</label>
-                            <input type="number" name="odometer_end" class="form-control form-control-modern" min="0">
+                            <input type="number" id="log_odometer_end" name="odometer_end" class="form-control form-control-modern" min="0">
                         </div>
                     </div>
+
+                    <div class="round-trip-check-box">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="log_round_trip" name="round_trip" value="1">
+                            <label class="custom-control-label font-weight-bold" for="log_round_trip">
+                                <i class="fas fa-exchange-alt mr-1 text-primary"></i> Round trip — also returning from Destination back to Origin
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="returnLegSection" class="return-leg-section" style="display:none;">
+                        <div class="return-leg-title"><i class="fas fa-undo-alt"></i> <span id="returnLegLabel">Return Leg</span></div>
+                        <div class="form-row">
+                            <div class="form-group col-md-6 mb-2">
+                                <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Return Departure</label>
+                                <input type="time" name="return_departure_time" class="form-control form-control-modern">
+                            </div>
+                            <div class="form-group col-md-6 mb-2">
+                                <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Return Arrival</label>
+                                <input type="time" name="return_arrival_time" class="form-control form-control-modern">
+                            </div>
+                        </div>
+                        <div class="form-group mb-0">
+                            <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Return Odometer (End)</label>
+                            <input type="number" name="return_odometer_end" class="form-control form-control-modern" min="0">
+                            <small class="text-muted d-block mt-1" id="returnOdoHint">Return odometer (start) picks up automatically from the outbound odometer (end) above.</small>
+                        </div>
+                    </div>
+
                     <div class="form-group mb-3">
                         <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Passenger(s)</label>
                         <input type="text" name="passengers" class="form-control form-control-modern" maxlength="255">
@@ -318,6 +359,18 @@ $(document.body).ready(function() {
     });
 
     @if($canLogForAnyVehicle)
+    // ---------------- Round trip: toggle the Return Leg section + its live label ----------------
+    function updateReturnLegLabel() {
+        const origin = $('#log_origin').val().trim() || 'Origin';
+        const destination = $('#log_destination').val().trim() || 'Destination';
+        $('#returnLegLabel').text(destination + ' back to ' + origin);
+    }
+    $('#log_round_trip').on('change', function() {
+        $('#returnLegSection').toggle(this.checked);
+        if (this.checked) { updateReturnLegLabel(); }
+    });
+    $('#log_origin, #log_destination').on('input', updateReturnLegLabel);
+
     $('#logTripForm').on('submit', function(e) {
         e.preventDefault();
         Swal.fire({
@@ -339,6 +392,7 @@ $(document.body).ready(function() {
                             Swal.fire('Saved!', res.message, 'success').then(() => {
                                 $('#logTripModal').modal('hide');
                                 $('#logTripForm')[0].reset();
+                                $('#returnLegSection').hide();
                                 tripLogsTable.ajax.reload(null, false);
                             });
                         } else {

@@ -298,7 +298,20 @@
                             <select name="vehicle_id" id="log_vehicle_id" class="form-control" style="width:100%;" required>
                                 <option value="">Select vehicle...</option>
                                 @foreach ($vehicles as $v)
-                                    <option value="{{ $v->id }}">{{ strtoupper($v->plate_number) }} — {{ trim($v->make.' '.$v->model) }}</option>
+                                    @php
+                                        // Same name-assembly as VehicleController's driverHtml, so the
+                                        // name that auto-fills here matches the one shown everywhere
+                                        // else in the app for this driver.
+                                        $driverName = '';
+                                        if ($v->driver) {
+                                            $mi = $v->driver->middlename ? strtoupper(substr($v->driver->middlename, 0, 1)) : '';
+                                            $driverName = implode(' ', array_filter(
+                                                [$v->driver->rank, $v->driver->firstname, $mi, $v->driver->lastname, $v->driver->qlfr],
+                                                fn ($part) => ! is_null($part) && trim($part) !== ''
+                                            ));
+                                        }
+                                    @endphp
+                                    <option value="{{ $v->id }}" data-driver="{{ $driverName }}">{{ strtoupper($v->plate_number) }} — {{ trim($v->make.' '.$v->model) }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -429,7 +442,17 @@
                             <select name="vehicle_id" id="edit_log_vehicle_id" class="form-control" style="width:100%;" required>
                                 <option value="">Select vehicle...</option>
                                 @foreach ($vehicles as $v)
-                                    <option value="{{ $v->id }}">{{ strtoupper($v->plate_number) }} — {{ trim($v->make.' '.$v->model) }}</option>
+                                    @php
+                                        $driverName = '';
+                                        if ($v->driver) {
+                                            $mi = $v->driver->middlename ? strtoupper(substr($v->driver->middlename, 0, 1)) : '';
+                                            $driverName = implode(' ', array_filter(
+                                                [$v->driver->rank, $v->driver->firstname, $mi, $v->driver->lastname, $v->driver->qlfr],
+                                                fn ($part) => ! is_null($part) && trim($part) !== ''
+                                            ));
+                                        }
+                                    @endphp
+                                    <option value="{{ $v->id }}" data-driver="{{ $driverName }}">{{ strtoupper($v->plate_number) }} — {{ trim($v->make.' '.$v->model) }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -777,6 +800,26 @@ $(document).ready(function() {
             allowClear: true,
         });
     }
+
+    // ---------------- Auto-fill "Requested By" from the vehicle's assigned driver ----------------
+    // In practice it's the driver assigned to a vehicle who actually requests its
+    // PMS/repair, not whichever admin is logged in and logging it on their behalf —
+    // so picking a vehicle fills this in as a convenience default. It's a plain
+    // text input, so the admin can still overwrite it (walk-in request, vehicle
+    // with no assigned driver, etc.) — this just saves the common case of retyping
+    // a name that's already on file. Bound to 'change' rather than select2's own
+    // 'select2:select' so it also fires for every .val(...).trigger('change') call
+    // already used elsewhere on this page (quick-log from the monitoring panel,
+    // the Edit modal populating itself) — in the edit case, the actual saved
+    // requested_by value is set right afterward and wins, as it should.
+    $('#log_vehicle_id').on('change', function () {
+        const driverName = $(this).find(':selected').data('driver') || '';
+        $('#log_requested_by').val(driverName);
+    });
+    $('#edit_log_vehicle_id').on('change', function () {
+        const driverName = $(this).find(':selected').data('driver') || '';
+        $('#edit_requested_by').val(driverName);
+    });
 
     @if (session('success'))
         toastr.success(@json(session('success')));

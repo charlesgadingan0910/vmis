@@ -42,6 +42,10 @@
   .stat-card-modern.c-overdue .stat-icon-wrapper { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
   .stat-card-modern.c-cost .stat-icon-wrapper { background: rgba(14, 165, 233, 0.12); color: #0284c7; }
   .stat-card-modern.c-unregistered .stat-icon-wrapper { background: rgba(100, 116, 139, 0.12); color: #475569; }
+  .stat-card-modern.c-fuel-logs .stat-icon-wrapper { background: rgba(217, 119, 6, 0.12); color: #d97706; }
+  .stat-card-modern.c-fuel-liters .stat-icon-wrapper { background: rgba(14, 165, 233, 0.12); color: #0284c7; }
+  .stat-card-modern.c-fuel-cost .stat-icon-wrapper { background: rgba(220, 38, 38, 0.1); color: #dc2626; }
+  .stat-card-modern.c-fuel-kml .stat-icon-wrapper { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
   .stat-num-value { font-size: 23px; font-weight: 800; color: #0f172a; line-height: 1.1; }
   .stat-label-title { font-size: 11.5px; font-weight: 600; color: #64748b; margin-top: 3px; }
   .stat-sub-note { font-size: 10.5px; color: #94a3b8; margin-top: 1px; }
@@ -355,6 +359,51 @@
             </div>
         </div>
 
+        <div class="section-heading"><i class="fas fa-gas-pump mr-1"></i> Fuel Monitoring</div>
+        <div class="fleet-stats-grid">
+            <div class="stat-card-modern c-fuel-logs">
+                <div class="stat-icon-wrapper"><i class="fas fa-gas-pump"></i></div>
+                <div><div class="stat-num-value">{{ $fuelStats['total_logs'] }}</div><div class="stat-label-title">Refuels Logged</div></div>
+            </div>
+            <div class="stat-card-modern c-fuel-liters">
+                <div class="stat-icon-wrapper"><i class="fas fa-tint"></i></div>
+                <div><div class="stat-num-value">{{ number_format($fuelStats['liters_month'] ?? 0, 0) }} L</div><div class="stat-label-title">Liters This Month</div></div>
+            </div>
+            <div class="stat-card-modern c-fuel-cost">
+                <div class="stat-icon-wrapper"><i class="fas fa-coins"></i></div>
+                <div><div class="stat-num-value">&#8369;{{ number_format($fuelStats['cost_month'] ?? 0, 0) }}</div><div class="stat-label-title">Fuel Cost This Month</div></div>
+            </div>
+            <div class="stat-card-modern c-fuel-kml">
+                <div class="stat-icon-wrapper"><i class="fas fa-chart-line"></i></div>
+                <div><div class="stat-num-value">{{ $fuelStats['avg_kml'] !== null ? number_format($fuelStats['avg_kml'], 2) : '—' }}</div><div class="stat-label-title">Avg. Efficiency (km/L)</div></div>
+            </div>
+        </div>
+
+        <div class="dash-panel" style="margin-bottom:22px;">
+            <div class="dash-panel-header">
+                <h6><i class="fas fa-gas-pump mr-2 text-primary"></i>Recent Refuels</h6>
+                <a href="{{ route('fuel-logs.index') }}" class="view-all-link">View All <i class="fas fa-arrow-right ml-1"></i></a>
+            </div>
+            <div class="dash-panel-body">
+                <div class="activity-list">
+                    @forelse ($recentFuelLogs as $log)
+                        @php $kml = $log->kmPerLiter(); @endphp
+                        <div class="activity-item">
+                            <div class="activity-icon" style="background:#fffbeb;color:#d97706;"><i class="fas fa-gas-pump"></i></div>
+                            <div class="activity-body">
+                                <div class="activity-title">{{ $log->vehicle ? strtoupper($log->vehicle->plate_number) : 'Vehicle removed' }} &middot; {{ number_format((float) $log->liters, 2) }} L</div>
+                                <div class="activity-sub">{{ $log->vehicle ? trim($log->vehicle->make.' '.$log->vehicle->model) : '' }}{{ $log->driver ? ' · '.trim($log->driver->firstname.' '.$log->driver->lastname) : '' }}{{ $kml !== null ? ' · '.number_format($kml, 2).' km/L' : '' }}</div>
+                                <div class="activity-cost">&#8369;{{ number_format((float) $log->total_cost, 2) }}</div>
+                            </div>
+                            <div class="activity-time">{{ $log->refuel_date->format('M d, Y') }}</div>
+                        </div>
+                    @empty
+                        <div class="activity-empty"><i class="fas fa-gas-pump mb-2" style="font-size:22px;display:block;"></i>No refuels logged yet.</div>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+
         <div class="dash-row">
             <div class="dash-panel">
                 <div class="dash-panel-header">
@@ -499,6 +548,10 @@
             <a href="{{ route('scan.index') }}" class="quick-link-card">
                 <div class="quick-link-icon"><i class="fas fa-qrcode"></i></div>
                 <div><div class="ql-title">Scan QR Code</div><div class="ql-sub">Look up a vehicle instantly</div></div>
+            </a>
+            <a href="{{ route('fuel-logs.index') }}" class="quick-link-card">
+                <div class="quick-link-icon"><i class="fas fa-gas-pump"></i></div>
+                <div><div class="ql-title">Fuel Monitoring</div><div class="ql-sub">Log refuels, track efficiency</div></div>
             </a>
             <a href="{{ route('vehicle-types.index') }}" class="quick-link-card">
                 <div class="quick-link-icon"><i class="fas fa-tags"></i></div>
