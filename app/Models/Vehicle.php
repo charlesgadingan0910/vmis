@@ -217,6 +217,41 @@ class Vehicle extends Model
     }
 
     /**
+     * A PMS due date is flagged once it's within this many days (or already
+     * past) — same threshold convention as REGISTRATION_DUE_SOON_DAYS,
+     * used by the Driver mobile app's vehicle-status screen.
+     */
+    public const PMS_DUE_SOON_DAYS = 14;
+
+    /**
+     * Days remaining until next_pms_date, negative once overdue, null if no
+     * PMS date is on file yet. Same timestamp-based computation as
+     * registrationDaysRemaining(), for the same sign-convention reason.
+     */
+    public function pmsDaysRemaining(): ?int
+    {
+        if (! $this->next_pms_date) {
+            return null;
+        }
+
+        $today = now()->startOfDay();
+        $dueDay = $this->next_pms_date->copy()->startOfDay();
+
+        return (int) round(($dueDay->getTimestamp() - $today->getTimestamp()) / 86400);
+    }
+
+    /**
+     * True once next_pms_date has passed or is within PMS_DUE_SOON_DAYS —
+     * mirrors needsRegistrationAlert()'s shape.
+     */
+    public function needsPmsAlert(): bool
+    {
+        $days = $this->pmsDaysRemaining();
+
+        return $days !== null && $days <= self::PMS_DUE_SOON_DAYS;
+    }
+
+    /**
      * Every logged maintenance/PMS activity for this vehicle, most recent service first.
      */
     public function maintenanceRecords()
