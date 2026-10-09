@@ -28,6 +28,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
 
         Route::get('/vehicle', [VehicleController::class, 'show']);
+        Route::get('/vehicles/scan/{code}', [VehicleController::class, 'scan']);
+        Route::get('/vehicles/scan-plate/{plate}', [VehicleController::class, 'scanByPlate']);
 
         Route::get('/trips', [TripLogController::class, 'index']);
         Route::post('/trips', [TripLogController::class, 'store']);
