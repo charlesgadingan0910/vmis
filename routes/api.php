@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AccidentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\FuelLogController;
 use App\Http\Controllers\Api\PasswordController;
+use App\Http\Controllers\Api\ServiceHistoryController;
 use App\Http\Controllers\Api\TripLogController;
 use App\Http\Controllers\Api\VehicleController;
 use Illuminate\Support\Facades\Route;
@@ -39,5 +40,9 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/accidents', [AccidentController::class, 'index']);
         Route::post('/accidents', [AccidentController::class, 'store']);
+
+        // VIEWER-only — see ServiceHistoryController's own docblock for why
+        // DRIVER is rejected here rather than just not calling it.
+        Route::get('/service-history', [ServiceHistoryController::class, 'index']);
     });
 });
