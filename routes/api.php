@@ -39,7 +39,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/trips', [TripLogController::class, 'store']);
 
         // Live Monitoring pings — a *separate*, transient channel from the
-        // /trips endpoints above. The app calls these every ~15s while GPS
+        // /trips endpoints above. The app calls these every ~10s while GPS
         // tracking is active (see TripTrackingService) so the admin Live
         // Monitoring map can show the vehicle moving in near-real-time; the
         // permanent trip record still only ever gets written once via the
