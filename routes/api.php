@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AccidentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\FuelLogController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PasswordController;
 use App\Http\Controllers\Api\ServiceHistoryController;
 use App\Http\Controllers\Api\TripLogController;
@@ -44,5 +45,11 @@ Route::prefix('v1')->group(function () {
         // VIEWER-only — see ServiceHistoryController's own docblock for why
         // DRIVER is rejected here rather than just not calling it.
         Route::get('/service-history', [ServiceHistoryController::class, 'index']);
+
+        // Notification Center — open to both DRIVER and VIEWER (unlike
+        // service-history above), see Api\NotificationController's docblock.
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::post('/notifications/{alert}/read', [NotificationController::class, 'markRead']);
+        Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
     });
 });

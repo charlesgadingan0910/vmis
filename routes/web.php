@@ -20,6 +20,7 @@ use App\Http\Controllers\AccountTypeController;
 use App\Http\Controllers\TripLogController;
 use App\Http\Controllers\FuelLogController;
 use App\Http\Controllers\VehicleAccidentController;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 
 // ---------------------------------------------------------------------
@@ -44,6 +45,16 @@ Route::middleware('auth')->group(function () {
     // Add future protected routes inside this group.
     Route::middleware('password.changed')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'dashboard'])->name('dashboard');
+
+        // In-app Notification Center — the header bell on every page. Polled
+        // via AJAX by layout.nav rather than server-rendered on every page
+        // load, so one controller/route pair backs every page's bell instead
+        // of threading alert data through every single page controller.
+        Route::prefix('notifications')->name('notifications.')->group(function () {
+            Route::get('/', [NotificationController::class, 'index'])->name('index');
+            Route::post('/{alert}/read', [NotificationController::class, 'markRead'])->name('read');
+            Route::post('/read-all', [NotificationController::class, 'markAllRead'])->name('read-all');
+        });
 
         // My Profile — every account type can reach this (no role gate); it
         // only ever reads/writes Auth::user(), so there's nothing to scope.

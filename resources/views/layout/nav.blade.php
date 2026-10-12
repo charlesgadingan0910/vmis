@@ -22,6 +22,22 @@
     @endif
 
     @auth
+    <li class="nav-item dropdown mr-2">
+      <a class="nav-link btn-nav-icon position-relative d-flex align-items-center justify-content-center" data-toggle="dropdown" href="#" id="notif-bell-trigger" aria-expanded="false" title="Notifications">
+        <i class="fas fa-bell"></i>
+        <span id="notif-badge" class="badge badge-danger navbar-badge d-none" style="top: 2px; right: 2px; font-size: 10px;">0</span>
+      </a>
+      <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right premium-dropdown border-0 shadow-lg animate fade-in p-0" style="width: 360px; max-height: 75vh; overflow-y: auto;">
+        <div class="dropdown-header-premium d-flex align-items-center justify-content-between p-3">
+          <span class="font-weight-bold text-white">Notifications</span>
+          <a href="#" id="notif-mark-all" class="text-white small">Mark all read</a>
+        </div>
+        <div id="notif-list">
+          <div class="text-center text-muted p-4 small" id="notif-empty">No notifications.</div>
+        </div>
+      </div>
+    </li>
+
     <li class="nav-item dropdown">
       <a class="nav-link profile-dropdown-trigger d-flex align-items-center" data-toggle="dropdown" href="#" aria-expanded="false">
         <div class="user-avatar-sm mr-2">
@@ -206,3 +222,99 @@
     </nav>
   </div>
 </aside>
+
+@auth
+<script>
+// Notification Center (header bell) — vanilla JS, no jQuery dependency, so it
+// doesn't care whether this fires before or after AdminLTE's own scripts;
+// only Bootstrap4's dropdown toggle (data-toggle="dropdown") is needed, and
+// that's wired via a plain delegated click already handled by Bootstrap's
+// own JS once it loads. See NotificationController (web) for the endpoints.
+document.addEventListener('DOMContentLoaded', function () {
+    var badge = document.getElementById('notif-badge');
+    var list = document.getElementById('notif-list');
+    var trigger = document.getElementById('notif-bell-trigger');
+    var markAllBtn = document.getElementById('notif-mark-all');
+    var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    var loaded = false;
+
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.textContent = str == null ? '' : String(str);
+        return div.innerHTML;
+    }
+
+    function renderAlerts(alerts) {
+        if (!alerts.length) {
+            list.innerHTML = '<div class="text-center text-muted p-4 small">No notifications.</div>';
+            return;
+        }
+
+        list.innerHTML = alerts.map(function (a) {
+            var severityColor = a.severity === 'overdue' ? '#dc3545' : '#f0ad4e';
+            var unreadDot = a.is_read ? '' : '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + severityColor + ';margin-right:6px;flex:none;"></span>';
+            var bg = a.is_read ? '' : 'background:rgba(59,130,246,0.06);';
+
+            return '<a href="#" class="notif-item d-flex p-3 border-bottom" data-id="' + a.id + '" data-link="' + (a.link || '') + '" style="' + bg + 'text-decoration:none;color:inherit;">'
+                + '<i class="fas ' + escapeHtml(a.icon) + ' mt-1 mr-2" style="color:' + severityColor + ';width:16px;"></i>'
+                + '<div style="min-width:0;">'
+                + '<div class="font-weight-bold small text-truncate">' + unreadDot + escapeHtml(a.title) + '</div>'
+                + '<div class="text-muted small" style="white-space:normal;">' + escapeHtml(a.body) + '</div>'
+                + '<div class="text-muted" style="font-size:11px;">' + escapeHtml(a.created_at) + '</div>'
+                + '</div>'
+                + '</a>';
+        }).join('');
+    }
+
+    function loadAlerts() {
+        fetch('{{ route('notifications.index') }}', { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) { return; }
+                loaded = true;
+                if (data.unread_count > 0) {
+                    badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+                    badge.classList.remove('d-none');
+                } else {
+                    badge.classList.add('d-none');
+                }
+                renderAlerts(data.alerts);
+            })
+            .catch(function () { /* silent — bell just stays empty/stale on a transient failure */ });
+    }
+
+    function markRead(id) {
+        fetch('/notifications/' + id + '/read', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+        }).catch(function () {});
+    }
+
+    trigger?.addEventListener('click', function () {
+        if (!loaded) { loadAlerts(); }
+    });
+
+    list.addEventListener('click', function (e) {
+        var item = e.target.closest('.notif-item');
+        if (!item) { return; }
+        e.preventDefault();
+        markRead(item.getAttribute('data-id'));
+        var link = item.getAttribute('data-link');
+        if (link) { window.location.href = link; }
+    });
+
+    markAllBtn?.addEventListener('click', function (e) {
+        e.preventDefault();
+        fetch('{{ route('notifications.read-all') }}', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+        }).then(loadAlerts).catch(function () {});
+    });
+
+    // Refresh the unread count in the background every 5 minutes so the
+    // badge doesn't go stale on a page someone leaves open all day.
+    loadAlerts();
+    setInterval(loadAlerts, 5 * 60 * 1000);
+});
+</script>
+@endauth
