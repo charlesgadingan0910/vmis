@@ -35,8 +35,24 @@
   .live-pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; display: inline-block; margin-right: 7px; animation: live-pulse 1.8s infinite; }
   @keyframes live-pulse { 0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.45); } 70% { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0); } 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); } }
 
-  .vehicle-marker-icon { background: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(15, 23, 42, 0.45); }
-  .vehicle-marker-icon.is-stale { background: #94a3b8; }
+  .live-updated-label { font-size: 10.5px; color: #94a3b8; margin-left: 10px; font-weight: 600; }
+  .live-updated-label i { margin-right: 3px; }
+  .live-updated-label.is-fetching i { animation: live-spin 0.8s linear infinite; }
+  @keyframes live-spin { to { transform: rotate(360deg); } }
+
+  /* Vehicle marker — a heading-aware arrow (rotated in JS to the bearing
+     of travel) inside a soft ring that pulses only while the trip is
+     actually live, so "is this vehicle's data current" reads at a glance
+     the same way the sidebar's pulse dot does. Position changes are
+     animated in JS (see animateMarkerTo) rather than jumping on every
+     10s refresh, which is what actually makes this feel "live" instead
+     of a page that quietly teleports a dot every few seconds. */
+  .vehicle-marker-wrap { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; position: relative; transition: transform 0.2s ease; }
+  .vehicle-marker-ring { position: absolute; inset: 0; border-radius: 50%; background: rgba(37, 99, 235, 0.18); animation: marker-pulse 2s ease-out infinite; }
+  .vehicle-marker-wrap.is-stale .vehicle-marker-ring { display: none; }
+  @keyframes marker-pulse { 0% { transform: scale(0.45); opacity: 0.9; } 100% { transform: scale(1); opacity: 0; } }
+  .vehicle-marker-arrow { width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 16px solid #2563eb; filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.5)); position: relative; z-index: 1; }
+  .vehicle-marker-wrap.is-stale .vehicle-marker-arrow { border-bottom-color: #94a3b8; filter: none; opacity: 0.85; }
 </style>
 @endsection
 
@@ -53,6 +69,7 @@
                 <div class="d-flex align-items-center">
                     <span class="live-pulse-dot"></span>
                     <span id="liveCountLabel" style="font-size: 12.5px; font-weight: 700; color: #16a34a;">Loading…</span>
+                    <span id="liveUpdatedLabel" class="live-updated-label"></span>
                 </div>
             </div>
         </div>
@@ -89,12 +106,61 @@ $(document.body).ready(function() {
         maxZoom: 19
     }).addTo(map);
 
-    const markers = {};   // vehicle_id -> L.marker
-    const polylines = {}; // vehicle_id -> L.polyline
+    const markers = {};     // vehicle_id -> L.marker
+    const polylines = {};   // vehicle_id -> { glow: L.polyline, line: L.polyline }
+    const prevLatLngs = {}; // vehicle_id -> [lat, lng] — last position, for computing heading
+    const headings = {};    // vehicle_id -> last known bearing in degrees (kept when stationary)
     let hasFitOnce = false;
+    let lastUpdatedAt = null;
 
-    function markerIcon(stale) {
-        return L.divIcon({ className: '', html: '<div class="vehicle-marker-icon' + (stale ? ' is-stale' : '') + '"></div>', iconSize: [16, 16] });
+    /// Bearing in degrees (0 = north, 90 = east) from one point to another
+    /// — used to rotate each vehicle's marker arrow to its direction of
+    /// travel instead of always pointing the same way regardless of
+    /// movement, the same way Google/Uber-style live-location markers do.
+    function bearingDeg(lat1, lng1, lat2, lng2) {
+        const toRad = d => d * Math.PI / 180, toDeg = r => r * 180 / Math.PI;
+        const dLng = toRad(lng2 - lng1);
+        const y = Math.sin(dLng) * Math.cos(toRad(lat2));
+        const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
+        return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    function markerIcon(stale, headingDeg) {
+        const html = '<div class="vehicle-marker-wrap' + (stale ? ' is-stale' : '') + '">' +
+            '<div class="vehicle-marker-ring"></div>' +
+            '<div class="vehicle-marker-arrow" style="transform: rotate(' + headingDeg + 'deg);"></div>' +
+            '</div>';
+        return L.divIcon({ className: '', html: html, iconSize: [34, 34], iconAnchor: [17, 17] });
+    }
+
+    /// Glides a marker from its current position to [lat,lng] over
+    /// [duration]ms instead of jumping there instantly — this alone is
+    /// most of what makes the map feel "live" rather than a page that
+    /// silently teleports a dot every refresh. Purely cosmetic: the
+    /// marker's *reported* position (used for heading/bounds) is the new
+    /// one immediately: only the pixel it's drawn at catches up gradually.
+    function animateMarkerTo(marker, toLatLng, duration) {
+        const from = marker.getLatLng();
+        const to = L.latLng(toLatLng);
+        if (from.equals(to)) return;
+        const start = performance.now();
+        function step(now) {
+            const t = Math.min(1, (now - start) / duration);
+            // ease-out — fast start, gentle settle, rather than a linear
+            // (slightly robotic-looking) glide.
+            const eased = 1 - Math.pow(1 - t, 3);
+            marker.setLatLng([
+                from.lat + (to.lat - from.lat) * eased,
+                from.lng + (to.lng - from.lng) * eased,
+            ]);
+            if (t < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    }
+
+    function fmtAgo(ms) {
+        const secs = Math.max(0, Math.round(ms / 1000));
+        return secs < 2 ? 'just now' : secs + 's ago';
     }
 
     function fmtElapsed(startedAtIso) {
@@ -152,6 +218,8 @@ $(document.body).ready(function() {
     }
 
     function refresh() {
+        $('#liveUpdatedLabel').addClass('is-fetching').html('<i class="fas fa-sync-alt"></i> Updating…');
+
         $.getJSON("{{ route('live-monitoring.active-trips') }}", function(res) {
             if (!res || !res.success) return;
             const trips = res.trips || [];
@@ -161,20 +229,42 @@ $(document.body).ready(function() {
                 seenIds[t.vehicle_id] = true;
                 const latLng = [t.latitude, t.longitude];
 
+                // Heading: only recompute from an actual, meaningfully-sized
+                // hop (>3m) — otherwise GPS jitter on a near-stationary
+                // vehicle would spin the arrow randomly every refresh.
+                // Keeps the last known heading in between real moves.
+                const prev = prevLatLngs[t.vehicle_id];
+                if (prev) {
+                    const movedMeters = map.distance(prev, latLng);
+                    if (movedMeters > 3) {
+                        headings[t.vehicle_id] = bearingDeg(prev[0], prev[1], latLng[0], latLng[1]);
+                    }
+                }
+                prevLatLngs[t.vehicle_id] = latLng;
+                const heading = headings[t.vehicle_id] || 0;
+
                 if (markers[t.vehicle_id]) {
-                    markers[t.vehicle_id].setLatLng(latLng).setIcon(markerIcon(t.stale)).setPopupContent(popupHtml(t));
+                    animateMarkerTo(markers[t.vehicle_id], latLng, 1800);
+                    markers[t.vehicle_id].setIcon(markerIcon(t.stale, heading)).setPopupContent(popupHtml(t));
                 } else {
-                    markers[t.vehicle_id] = L.marker(latLng, { icon: markerIcon(t.stale) }).addTo(map).bindPopup(popupHtml(t));
+                    markers[t.vehicle_id] = L.marker(latLng, { icon: markerIcon(t.stale, heading) }).addTo(map).bindPopup(popupHtml(t));
                 }
 
                 const trail = (t.route_points || [])
                     .filter(function(p) { return typeof p.lat === 'number' && typeof p.lng === 'number'; })
                     .map(function(p) { return [p.lat, p.lng]; });
 
+                // Soft outer glow + crisp inner line, same treatment as the
+                // Trip Logs route viewer — reads as a deliberately-drawn
+                // path rather than a thin, easy-to-miss stroke.
                 if (polylines[t.vehicle_id]) {
-                    polylines[t.vehicle_id].setLatLngs(trail);
+                    polylines[t.vehicle_id].glow.setLatLngs(trail);
+                    polylines[t.vehicle_id].line.setLatLngs(trail);
                 } else if (trail.length > 1) {
-                    polylines[t.vehicle_id] = L.polyline(trail, { color: '#3b82f6', weight: 3, opacity: 0.55 }).addTo(map);
+                    polylines[t.vehicle_id] = {
+                        glow: L.polyline(trail, { color: '#3b82f6', weight: 8, opacity: 0.15, lineCap: 'round', lineJoin: 'round' }).addTo(map),
+                        line: L.polyline(trail, { color: '#3b82f6', weight: 3, opacity: 0.75, lineCap: 'round', lineJoin: 'round' }).addTo(map),
+                    };
                 }
             });
 
@@ -184,8 +274,11 @@ $(document.body).ready(function() {
                 if (!seenIds[vehicleId]) {
                     map.removeLayer(markers[vehicleId]);
                     delete markers[vehicleId];
+                    delete prevLatLngs[vehicleId];
+                    delete headings[vehicleId];
                     if (polylines[vehicleId]) {
-                        map.removeLayer(polylines[vehicleId]);
+                        map.removeLayer(polylines[vehicleId].glow);
+                        map.removeLayer(polylines[vehicleId].line);
                         delete polylines[vehicleId];
                     }
                 }
@@ -200,8 +293,21 @@ $(document.body).ready(function() {
                 map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
                 hasFitOnce = true;
             }
+
+            lastUpdatedAt = Date.now();
+            $('#liveUpdatedLabel').removeClass('is-fetching').html('<i class="fas fa-check"></i> Updated just now');
+        }).fail(function() {
+            $('#liveUpdatedLabel').removeClass('is-fetching').html('<i class="fas fa-exclamation-triangle"></i> Update failed — retrying…');
         });
     }
+
+    // Keeps the "Updated Xs ago" label ticking between refreshes, so it's
+    // obvious at a glance whether the map is actually live right now or
+    // just showing you whatever it last managed to fetch.
+    setInterval(function() {
+        if (lastUpdatedAt === null || $('#liveUpdatedLabel').hasClass('is-fetching')) return;
+        $('#liveUpdatedLabel').html('<i class="fas fa-check"></i> Updated ' + fmtAgo(Date.now() - lastUpdatedAt));
+    }, 1000);
 
     refresh();
     setInterval(refresh, 10000);

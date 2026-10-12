@@ -31,7 +31,10 @@
 
   .gps-tracked-badge { display: inline-flex; align-items: center; gap: 5px; background: rgba(16, 185, 129, 0.12); color: #047857; font-size: 10.5px; font-weight: 800; letter-spacing: 0.3px; padding: 3px 8px; border-radius: 6px; }
   #routeMapModal .modal-body { padding: 0; }
-  #routeMapEl { width: 100%; height: 420px; border-radius: 0 0 12px 12px; }
+  #routeMapEl { width: 100%; height: 420px; border-radius: 12px; }
+  #routeMapCaption { font-size: 11.5px; color: #94a3b8; padding: 10px 2px 0; display: flex; align-items: center; gap: 6px; }
+  #routeMapCaption.is-matched { color: #16a34a; font-weight: 600; }
+  #routeMapCaption.is-fallback { color: #d97706; font-weight: 600; }
 
   .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .search-input-shell { position: relative; width: 200px; }
@@ -325,6 +328,7 @@
             </div>
             <div class="modal-body">
                 <div id="routeMapEl"></div>
+                <div id="routeMapCaption"></div>
             </div>
         </div>
     </div>
@@ -391,6 +395,87 @@ $(document.body).ready(function() {
     // only ever hit whatever rows existed at that instant.
     let routeMap = null;
     let routeLayer = null;
+    let routeRequestToken = 0; // guards against a slow, stale fetch landing after a newer click
+
+    // A raw GPS trail drawn as straight lines between points — fine for a
+    // slow walk test, but on a real drive the phone only samples every
+    // several meters, so any bend in the actual road shows up as a
+    // straight cut across whatever happens to sit inside that corner
+    // (a building, a field — see the route viewer's own history). This
+    // snaps the trail onto the real road network via OSRM's public
+    // map-matching API before drawing it, so the line the admin sees
+    // actually follows streets. The underlying trip_logs.route_points
+    // this reads from is never touched — only the drawn line changes;
+    // if the match fails (offline, rate-limited, points too sparse/noisy
+    // to match, or a non-road trail like the camp test walk), this falls
+    // back to the exact raw line that was always drawn here, so nothing
+    // is ever lost, just occasionally less pretty.
+    const OSRM_MATCH_URL = 'https://router.project-osrm.org/match/v1/driving/';
+    const OSRM_MAX_POINTS = 100; // generous for a public demo endpoint — see downsample below
+
+    function downsampleEvenly(latLngs, maxPoints) {
+        if (latLngs.length <= maxPoints) return latLngs;
+        const step = (latLngs.length - 1) / (maxPoints - 1);
+        const out = [];
+        for (let i = 0; i < maxPoints; i++) {
+            out.push(latLngs[Math.round(i * step)]);
+        }
+        return out;
+    }
+
+    /// Resolves to a snapped [[lat,lng], ...] trail, or null if matching
+    /// wasn't possible for any reason — callers fall back to the raw
+    /// trail on null rather than surfacing an error, since this is a
+    /// visual nicety layered on top of the authoritative raw data.
+    async function matchToRoads(latLngs) {
+        if (latLngs.length < 2) return null;
+        const sampled = downsampleEvenly(latLngs, OSRM_MAX_POINTS);
+        const coords = sampled.map(p => p[1] + ',' + p[0]).join(';'); // OSRM wants lng,lat
+        const url = OSRM_MATCH_URL + coords + '?geometries=geojson&overview=full&gaps=ignore&tidy=true';
+
+        try {
+            const res = await fetch(url);
+            if (!res.ok) return null;
+            const data = await res.json();
+            if (data.code !== 'Ok' || !data.matchings || data.matchings.length === 0) return null;
+
+            const snapped = [];
+            data.matchings.forEach(function(m) {
+                (m.geometry.coordinates || []).forEach(function(c) {
+                    snapped.push([c[1], c[0]]); // back to lat,lng for Leaflet
+                });
+            });
+            return snapped.length > 1 ? snapped : null;
+        } catch (e) {
+            return null; // offline, CORS hiccup, timeout — just fall back
+        }
+    }
+
+    function drawRoute(rawLatLngs, snappedLatLngs) {
+        if (routeLayer) {
+            routeMap.removeLayer(routeLayer);
+            routeLayer = null;
+        }
+        routeLayer = L.layerGroup().addTo(routeMap);
+
+        const lineLatLngs = snappedLatLngs || rawLatLngs;
+        // Soft outer glow + crisp inner line — reads as a more deliberate,
+        // "drawn route" rather than a plain single stroke.
+        L.polyline(lineLatLngs, { color: '#3b82f6', weight: 9, opacity: 0.18, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
+        L.polyline(lineLatLngs, { color: '#2563eb', weight: 4, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
+
+        // Start/End always mark the actual raw GPS fix, never the snapped
+        // line — that's genuinely where tracking began/ended, regardless
+        // of how the path in between gets drawn.
+        L.circleMarker(rawLatLngs[0], { radius: 7, weight: 2, color: '#fff', fillColor: '#16a34a', fillOpacity: 1 }).bindTooltip('Start').addTo(routeLayer);
+        if (rawLatLngs.length > 1) {
+            L.circleMarker(rawLatLngs[rawLatLngs.length - 1], { radius: 7, weight: 2, color: '#fff', fillColor: '#dc2626', fillOpacity: 1 }).bindTooltip('End').addTo(routeLayer);
+        }
+
+        routeMap.invalidateSize();
+        routeMap.fitBounds(L.latLngBounds(rawLatLngs), { padding: [24, 24] });
+    }
+
     $(document).on('click', '.view-route-btn', function() {
         let points = [];
         try {
@@ -401,7 +486,7 @@ $(document.body).ready(function() {
         $('#routeMapTitle').text('Trip Route — ' + ($(this).attr('data-trip-label') || ''));
         $('#routeMapModal').modal('show');
 
-        $('#routeMapModal').off('shown.bs.modal').on('shown.bs.modal', function() {
+        $('#routeMapModal').off('shown.bs.modal').on('shown.bs.modal', async function() {
             if (!routeMap) {
                 routeMap = L.map('routeMapEl');
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -409,29 +494,35 @@ $(document.body).ready(function() {
                     maxZoom: 19
                 }).addTo(routeMap);
             }
-            if (routeLayer) {
-                routeMap.removeLayer(routeLayer);
-                routeLayer = null;
-            }
 
             const latLngs = (points || [])
                 .filter(p => p && typeof p.lat === 'number' && typeof p.lng === 'number')
                 .map(p => [p.lat, p.lng]);
 
+            const caption = $('#routeMapCaption').attr('class', '').text('');
             if (latLngs.length === 0) {
+                if (routeLayer) { routeMap.removeLayer(routeLayer); routeLayer = null; }
                 routeMap.setView([0, 0], 2);
+                caption.text('No GPS points were captured for this trip.');
                 return;
             }
 
-            routeLayer = L.layerGroup().addTo(routeMap);
-            L.polyline(latLngs, { color: '#3b82f6', weight: 4, opacity: 0.85 }).addTo(routeLayer);
-            L.circleMarker(latLngs[0], { radius: 7, color: '#16a34a', fillColor: '#16a34a', fillOpacity: 1 }).bindTooltip('Start').addTo(routeLayer);
-            if (latLngs.length > 1) {
-                L.circleMarker(latLngs[latLngs.length - 1], { radius: 7, color: '#dc2626', fillColor: '#dc2626', fillOpacity: 1 }).bindTooltip('End').addTo(routeLayer);
-            }
+            // Draw the raw trail immediately so the modal never sits empty
+            // waiting on the network — road-snapping then upgrades it in
+            // place a moment later if/when it succeeds.
+            drawRoute(latLngs, null);
+            caption.addClass('is-fallback').html('<i class="fas fa-route"></i> Showing the raw GPS trail…');
 
-            routeMap.invalidateSize();
-            routeMap.fitBounds(L.latLngBounds(latLngs), { padding: [24, 24] });
+            const myToken = ++routeRequestToken;
+            const snapped = await matchToRoads(latLngs);
+            if (myToken !== routeRequestToken) return; // a newer trip was opened meanwhile
+
+            if (snapped) {
+                drawRoute(latLngs, snapped);
+                caption.attr('class', 'is-matched').html('<i class="fas fa-check-circle"></i> Route snapped to the nearest roads.');
+            } else {
+                caption.attr('class', 'is-fallback').html('<i class="fas fa-route"></i> Showing the raw GPS trail (could not snap to roads).');
+            }
         });
     });
 
