@@ -53,6 +53,15 @@ Route::prefix('v1')->group(function () {
         // assistant-crewed trip (see TripRegistration's own docblock); a
         // routine solo trip never shows up here at all.
         Route::get('/trip-registrations', [TripRegistrationController::class, 'index']);
+
+        // Self-service Emergency Trip — declares and activates its own
+        // TripRegistration in one call, no pre-existing registration or
+        // admin approval needed (see TripRegistrationController::
+        // startEmergency() for why). Registered BEFORE the {tripRegistration}
+        // /start route below: both are POST /trip-registrations/*/start, and
+        // Laravel matches in registration order, so this literal path has to
+        // come first or "emergency" would be parsed as a {tripRegistration} id.
+        Route::post('/trip-registrations/emergency/start', [TripRegistrationController::class, 'startEmergency']);
         Route::post('/trip-registrations/{tripRegistration}/start', [TripRegistrationController::class, 'start']);
 
         Route::get('/fuel-logs', [FuelLogController::class, 'index']);

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Driver;
 use App\Models\TripRegistration;
+use App\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -67,6 +69,79 @@ class TripRegistrationController extends Controller
             'success' => true,
             'registration' => $this->payload($tripRegistration->fresh(['vehicle', 'driver', 'assistantDriver']), $driver),
         ]);
+    }
+
+    /**
+     * Self-service counterpart to start() above — for a driver responding
+     * to a sudden/emergency call with no pre-existing TripRegistration to
+     * start from, and no time to wait for one to be admin-created and
+     * approved first (the web TripRegistrationController::store() still
+     * handles the admin-initiated Emergency path exactly as before — this
+     * is the second, driver-initiated path onto the same trip_type).
+     * Creates its own TripRegistration and activates it in the same
+     * step — registered_by/approved_by are the driver's own account
+     * rather than an admin's, preserving the audit trail without anyone
+     * needing to be online to sign off. origin/destination are
+     * deliberately left null here (see the migration that made those
+     * columns nullable) — there's no time to ask for them before leaving
+     * — and get filled in once the trip ends instead, same as any other
+     * trip (see trips_screen.dart's _GpsTripEndingForm).
+     */
+    public function startEmergency(Request $request): JsonResponse
+    {
+        $driver = $this->resolveDriver($request);
+        if (! $driver) {
+            return response()->json(['success' => false, 'message' => 'Your account is not linked to a driver profile yet. Contact your administrator.'], 403);
+        }
+
+        $validated = $request->validate([
+            'vehicle_id' => ['nullable', 'integer'],
+            'purpose' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        // Same resolution rule as every other driver-facing endpoint
+        // (Api\ActiveTripController::resolveVehicle(), Api\TripLogController
+        // ::store()) — never trusts a client-sent vehicle_id beyond picking
+        // among the driver's own assigned vehicle(s).
+        $vehicle = Vehicle::where('assigned_driver_id', $driver->id)
+            ->when($request->filled('vehicle_id'), fn ($q) => $q->where('id', $validated['vehicle_id']))
+            ->first();
+
+        if (! $vehicle) {
+            return response()->json(['success' => false, 'message' => 'No vehicle is currently assigned to you. Contact your administrator.'], 403);
+        }
+
+        $user = $request->user();
+
+        $registration = TripRegistration::create([
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'assistant_driver_id' => null,
+            'trip_type' => 'emergency',
+            'purpose' => $validated['purpose'] ?? null,
+            'origin' => null,
+            'destination' => null,
+            // Skips the usual pending_approval/approved steps entirely —
+            // declaring and starting are the same action for a
+            // self-service emergency trip.
+            'status' => 'active',
+            'registered_by' => $user->id,
+            'approved_by' => $user->id,
+            'approved_at' => now(),
+        ]);
+
+        ActivityLog::record(
+            'created',
+            'Trip Registration',
+            'Driver self-declared an EMERGENCY trip for [' . strtoupper($vehicle->plate_number) . '] from the mobile app.',
+            $registration,
+            ['after' => $registration->toArray()]
+        );
+
+        return response()->json([
+            'success' => true,
+            'registration' => $this->payload($registration->fresh(['vehicle', 'driver', 'assistantDriver']), $driver),
+        ], 201);
     }
 
     protected function payload(TripRegistration $r, Driver $viewingDriver): array
