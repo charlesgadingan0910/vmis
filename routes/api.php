@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccidentController;
+use App\Http\Controllers\Api\ActiveTripController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\FuelLogController;
 use App\Http\Controllers\Api\NotificationController;
@@ -35,6 +36,16 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/trips', [TripLogController::class, 'index']);
         Route::post('/trips', [TripLogController::class, 'store']);
+
+        // Live Monitoring pings — a *separate*, transient channel from the
+        // /trips endpoints above. The app calls these every ~15s while GPS
+        // tracking is active (see TripTrackingService) so the admin Live
+        // Monitoring map can show the vehicle moving in near-real-time; the
+        // permanent trip record still only ever gets written once via the
+        // normal POST /trips call when the driver taps End Trip. See
+        // Api\ActiveTripController's own docblock.
+        Route::post('/active-trips/ping', [ActiveTripController::class, 'ping']);
+        Route::post('/active-trips/end', [ActiveTripController::class, 'end']);
 
         Route::get('/fuel-logs', [FuelLogController::class, 'index']);
         Route::post('/fuel-logs', [FuelLogController::class, 'store']);

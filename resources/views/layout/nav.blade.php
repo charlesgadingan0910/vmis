@@ -139,6 +139,14 @@
                 <p>Trip Logs</p>
             </a>
         </li>
+        @unless($__isDriver)
+        <li class="nav-item">
+            <a href="{{ route('live-monitoring.index') }}" class="nav-link {{ request()->routeIs('live-monitoring.*') ? 'active' : '' }}">
+                <i class="nav-icon fas fa-satellite-dish"></i>
+                <p>Live Monitoring</p>
+            </a>
+        </li>
+        @endunless
         <li class="nav-item">
             <a href="{{ route('fuel-logs.index') }}" class="nav-link {{ request()->routeIs('fuel-logs.*') ? 'active' : '' }}">
                 <i class="nav-icon fas fa-gas-pump"></i>

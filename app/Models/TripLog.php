@@ -27,13 +27,36 @@ class TripLog extends Model
         'remarks',
         'round_trip_group',
         'leg',
+        'start_latitude',
+        'start_longitude',
+        'end_latitude',
+        'end_longitude',
+        'distance_km',
+        'route_points',
     ];
 
     protected function casts(): array
     {
         return [
             'trip_date' => 'date',
+            'start_latitude' => 'decimal:7',
+            'start_longitude' => 'decimal:7',
+            'end_latitude' => 'decimal:7',
+            'end_longitude' => 'decimal:7',
+            'distance_km' => 'decimal:2',
+            'route_points' => 'array',
         ];
+    }
+
+    /**
+     * True once this trip was logged via the driver app's live GPS tracking
+     * (a full breadcrumb trail was captured), as opposed to typed in
+     * manually. Checked instead of just `distance_km !== null` because a
+     * manual entry could theoretically have one set without the other.
+     */
+    public function hasGpsRoute(): bool
+    {
+        return ! empty($this->route_points);
     }
 
     public function vehicle()

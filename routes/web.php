@@ -21,6 +21,7 @@ use App\Http\Controllers\TripLogController;
 use App\Http\Controllers\FuelLogController;
 use App\Http\Controllers\VehicleAccidentController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\LiveMonitoringController;
 use Illuminate\Support\Facades\Route;
 
 // ---------------------------------------------------------------------
@@ -121,6 +122,17 @@ Route::middleware('auth')->group(function () {
         // entirely inside TripLogController — see its class docblock. No edit/
         // delete: logged trips are permanent records, like Activity Logs.
         Route::resource('trip-logs', TripLogController::class)->only(['index', 'store']);
+
+        // Live Monitoring — a real-time map of every vehicle currently
+        // mid-trip, fed by the driver app's periodic GPS pings (see
+        // Api\ActiveTripController). Read-only, same unit/station
+        // visibility scoping as Trip Logs; gated inside
+        // LiveMonitoringController (DRIVER accounts 403 — they only ever
+        // need their own trip, already live in the app while tracking).
+        Route::prefix('live-monitoring')->name('live-monitoring.')->group(function () {
+            Route::get('/', [LiveMonitoringController::class, 'index'])->name('index');
+            Route::get('/active-trips', [LiveMonitoringController::class, 'activeTrips'])->name('active-trips');
+        });
 
         // Fuel Monitoring — same permission shape as Trip Logs (a DRIVER logs
         // refuels for their own assigned vehicle via the mobile view, a SUPER

@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\Driver;
 use App\Models\TripLog;
 use App\Models\Vehicle;
+use App\Support\GeoDistance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -113,6 +114,22 @@ class TripLogController extends Controller
                     $fail('Return odometer (end) can\'t be less than the outbound odometer (end) — mileage only goes up.');
                 }
             }],
+
+            // Real-time GPS capture from the app's live-tracked "Start
+            // Trip" flow (TripTrackingService) — all optional, so a trip
+            // logged the old manual way never sends any of these. See
+            // GeoDistance::totalKm() below: whenever route_points is sent,
+            // the server recomputes distance_km from it rather than
+            // trusting whatever the client calculated on-device.
+            'start_latitude'           => ['nullable', 'numeric', 'between:-90,90'],
+            'start_longitude'          => ['nullable', 'numeric', 'between:-180,180'],
+            'end_latitude'             => ['nullable', 'numeric', 'between:-90,90'],
+            'end_longitude'            => ['nullable', 'numeric', 'between:-180,180'],
+            'distance_km'              => ['nullable', 'numeric', 'min:0'],
+            'route_points'             => ['nullable', 'array', 'max:3000'],
+            'route_points.*.lat'       => ['required_with:route_points', 'numeric', 'between:-90,90'],
+            'route_points.*.lng'       => ['required_with:route_points', 'numeric', 'between:-180,180'],
+            'route_points.*.recorded_at' => ['nullable', 'date'],
         ]);
 
         $vehicle = Vehicle::where('assigned_driver_id', $driver->id)
@@ -138,6 +155,13 @@ class TripLogController extends Controller
         if ($isRoundTrip) {
             $validated['round_trip_group'] = (string) Str::uuid();
             $validated['leg'] = 'outbound';
+        }
+
+        // Authoritative distance: a full route trail always overrides
+        // whatever (if anything) the app computed on-device, so it can't
+        // be spoofed by editing the request.
+        if (! empty($validated['route_points'])) {
+            $validated['distance_km'] = GeoDistance::totalKm($validated['route_points']);
         }
 
         $trip = TripLog::create($validated);
@@ -210,6 +234,17 @@ class TripLogController extends Controller
             'remarks' => $trip->remarks,
             'leg' => $trip->leg,
             'logged_at' => optional($trip->created_at)->toIso8601String(),
+
+            // GPS summary — only trips logged through the live-tracked
+            // Start Trip flow carry any of this. The full route_points
+            // trail isn't sent here (it's only used server-side to compute
+            // distance_km); the app has no map view to draw it in yet.
+            'has_gps_route' => $trip->hasGpsRoute(),
+            'distance_km' => $trip->distance_km !== null ? (float) $trip->distance_km : null,
+            'start_latitude' => $trip->start_latitude !== null ? (float) $trip->start_latitude : null,
+            'start_longitude' => $trip->start_longitude !== null ? (float) $trip->start_longitude : null,
+            'end_latitude' => $trip->end_latitude !== null ? (float) $trip->end_latitude : null,
+            'end_longitude' => $trip->end_longitude !== null ? (float) $trip->end_longitude : null,
         ];
     }
 }

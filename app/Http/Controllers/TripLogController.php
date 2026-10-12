@@ -8,6 +8,7 @@ use App\Models\Station;
 use App\Models\TripLog;
 use App\Models\Unit;
 use App\Models\Vehicle;
+use App\Support\GeoDistance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -196,12 +197,30 @@ class TripLogController extends Controller
             $loggedHtml = '<div class="vehicle-sub-info">' . e(optional($trip->loggedBy)->fullname ?? 'Unknown user') . '</div>' .
                           '<div class="vehicle-sub-info">' . $trip->created_at->format('M d, Y h:i A') . '</div>';
 
+            // GPS column: only trips logged live from the driver app's
+            // Start Trip flow carry a route — everything else (desktop
+            // entry, manual app entry, every return leg in this v1) shows
+            // a plain dash. The "View Route" link embeds the raw point
+            // array as a data attribute rather than hitting a new endpoint,
+            // since DataTables already paginates these rows server-side —
+            // see the Leaflet handler at the bottom of this view.
+            if ($trip->hasGpsRoute()) {
+                $gpsHtml = '<span class="gps-tracked-badge" title="Captured live by the driver app"><i class="fas fa-satellite-dish"></i> GPS</span>';
+                if ($trip->distance_km !== null) {
+                    $gpsHtml .= '<div class="vehicle-sub-info mt-1">' . number_format((float) $trip->distance_km, 2) . ' km</div>';
+                }
+                $gpsHtml .= '<button type="button" class="btn btn-link btn-sm p-0 mt-1 view-route-btn" data-route="' . e(json_encode($trip->route_points)) . '" data-trip-label="' . e($trip->origin . ' → ' . $trip->destination) . '">View Route</button>';
+            } else {
+                $gpsHtml = '<span class="text-muted">—</span>';
+            }
+
             $data[] = [
                 'vehicle_html'  => $vehicleHtml,
                 'driver_html'   => $driverHtml,
                 'trip_html'     => $tripHtml,
                 'route_html'    => $routeHtml,
                 'odometer_html' => $odometerHtml,
+                'gps_html'      => $gpsHtml,
                 'logged_html'   => $loggedHtml,
             ];
         }
@@ -296,6 +315,21 @@ class TripLogController extends Controller
                     $fail('Return odometer (end) can\'t be less than the outbound odometer (end) — mileage only goes up.');
                 }
             }],
+
+            // Real-time GPS capture from the driver app's live-tracked trip
+            // flow — all optional, since a manually-typed trip (desktop or
+            // app) never sends any of these. See GeoDistance::totalKm() for
+            // how distance_km is actually derived once route_points is
+            // present (it overrides whatever the client sent).
+            'start_latitude'           => ['nullable', 'numeric', 'between:-90,90'],
+            'start_longitude'          => ['nullable', 'numeric', 'between:-180,180'],
+            'end_latitude'             => ['nullable', 'numeric', 'between:-90,90'],
+            'end_longitude'            => ['nullable', 'numeric', 'between:-180,180'],
+            'distance_km'              => ['nullable', 'numeric', 'min:0'],
+            'route_points'             => ['nullable', 'array', 'max:3000'],
+            'route_points.*.lat'       => ['required_with:route_points', 'numeric', 'between:-90,90'],
+            'route_points.*.lng'       => ['required_with:route_points', 'numeric', 'between:-180,180'],
+            'route_points.*.recorded_at' => ['nullable', 'date'],
         ];
 
         if ($role === self::ROLE_SUPER_ADMIN) {
@@ -345,6 +379,13 @@ class TripLogController extends Controller
         if ($isRoundTrip) {
             $validated['round_trip_group'] = (string) Str::uuid();
             $validated['leg'] = 'outbound';
+        }
+
+        // Authoritative distance: whenever a full route trail was sent,
+        // it always wins over whatever (if anything) the client computed
+        // on-device, so this can't be spoofed by editing the request.
+        if (! empty($validated['route_points'])) {
+            $validated['distance_km'] = GeoDistance::totalKm($validated['route_points']);
         }
 
         $trip = TripLog::create($validated);

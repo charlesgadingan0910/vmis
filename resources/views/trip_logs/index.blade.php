@@ -7,6 +7,7 @@
 <link href="{{ asset('dist/img/kasurog.png') }}" rel="icon">
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap4.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 @endsection
 
 @section('css')
@@ -27,6 +28,10 @@
   .toolbar-header { padding: 22px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #eef1f6; }
   .toolbar-title h5 { font-weight: 800; color: #0f172a; margin: 0; font-size: 16px; }
   .toolbar-title p { font-size: 12px; color: #94a3b8; margin: 2px 0 0; }
+
+  .gps-tracked-badge { display: inline-flex; align-items: center; gap: 5px; background: rgba(16, 185, 129, 0.12); color: #047857; font-size: 10.5px; font-weight: 800; letter-spacing: 0.3px; padding: 3px 8px; border-radius: 6px; }
+  #routeMapModal .modal-body { padding: 0; }
+  #routeMapEl { width: 100%; height: 420px; border-radius: 0 0 12px 12px; }
 
   .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .search-input-shell { position: relative; width: 200px; }
@@ -187,6 +192,7 @@
                             <th>Trip Date / Time</th>
                             <th>Route / Purpose</th>
                             <th>Odometer</th>
+                            <th>GPS / Distance</th>
                             <th>Logged By</th>
                         </tr>
                     </thead>
@@ -304,12 +310,32 @@
     </div>
 </div>
 @endif
+
+<!-- VIEW ROUTE MODAL — renders a GPS-tracked trip's breadcrumb trail on an
+     OpenStreetMap/Leaflet map. No API key needed (unlike Google Maps), so
+     this works out of the box in every environment. Available to every
+     role that can see this table, not just the Super Administrator who
+     gets the Log Trip modal above. -->
+<div class="modal fade" id="routeMapModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content modal-content-premium">
+            <div class="modal-header-slate d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-satellite-dish mr-2 text-primary"></i> <span id="routeMapTitle">Trip Route</span></h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="routeMapEl"></div>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @section('script')
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap4.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 $(document.body).ready(function() {
@@ -336,6 +362,7 @@ $(document.body).ready(function() {
             { data: 'trip_html', orderable: false, searchable: false },
             { data: 'route_html', orderable: false, searchable: false },
             { data: 'odometer_html', orderable: false, searchable: false },
+            { data: 'gps_html', orderable: false, searchable: false },
             { data: 'logged_html', orderable: false, searchable: false }
         ],
         dom: '<"row"<"col-sm-12"tr>><"row"<"col-sm-5"i><"col-sm-7"p>>',
@@ -356,6 +383,56 @@ $(document.body).ready(function() {
     $('#resetTripFiltersBtn').on('click', function() {
         $('#tripSearchBox, #filterUnit, #filterStation, #filterVehicle, #filterDateFrom, #filterDateTo').val('');
         tripLogsTable.draw();
+    });
+
+    // ---------------- GPS route viewer ----------------
+    // Delegated handler because rows are re-rendered by DataTables on every
+    // page/filter change — a direct .on('click') bound once at load would
+    // only ever hit whatever rows existed at that instant.
+    let routeMap = null;
+    let routeLayer = null;
+    $(document).on('click', '.view-route-btn', function() {
+        let points = [];
+        try {
+            points = JSON.parse($(this).attr('data-route') || '[]');
+        } catch (e) {
+            points = [];
+        }
+        $('#routeMapTitle').text('Trip Route — ' + ($(this).attr('data-trip-label') || ''));
+        $('#routeMapModal').modal('show');
+
+        $('#routeMapModal').off('shown.bs.modal').on('shown.bs.modal', function() {
+            if (!routeMap) {
+                routeMap = L.map('routeMapEl');
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
+                    maxZoom: 19
+                }).addTo(routeMap);
+            }
+            if (routeLayer) {
+                routeMap.removeLayer(routeLayer);
+                routeLayer = null;
+            }
+
+            const latLngs = (points || [])
+                .filter(p => p && typeof p.lat === 'number' && typeof p.lng === 'number')
+                .map(p => [p.lat, p.lng]);
+
+            if (latLngs.length === 0) {
+                routeMap.setView([0, 0], 2);
+                return;
+            }
+
+            routeLayer = L.layerGroup().addTo(routeMap);
+            L.polyline(latLngs, { color: '#3b82f6', weight: 4, opacity: 0.85 }).addTo(routeLayer);
+            L.circleMarker(latLngs[0], { radius: 7, color: '#16a34a', fillColor: '#16a34a', fillOpacity: 1 }).bindTooltip('Start').addTo(routeLayer);
+            if (latLngs.length > 1) {
+                L.circleMarker(latLngs[latLngs.length - 1], { radius: 7, color: '#dc2626', fillColor: '#dc2626', fillOpacity: 1 }).bindTooltip('End').addTo(routeLayer);
+            }
+
+            routeMap.invalidateSize();
+            routeMap.fitBounds(L.latLngBounds(latLngs), { padding: [24, 24] });
+        });
     });
 
     @if($canLogForAnyVehicle)
