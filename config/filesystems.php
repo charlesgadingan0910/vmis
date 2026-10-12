@@ -38,13 +38,30 @@ return [
             'report' => false,
         ],
 
+        // Laravel Cloud's environment filesystem is ephemeral and not shared
+        // between replicas, so uploads (receipts, photos, docs) saved to a
+        // 'local' driver here silently vanish on production. In Cloud, attach
+        // a public Object Storage bucket and set PUBLIC_DISK_DRIVER=s3 (plus
+        // the AWS_* vars the bucket settings page gives you — AWS_URL isn't
+        // auto-injected for public buckets, add it manually). Leave
+        // PUBLIC_DISK_DRIVER unset locally to keep using local disk + the
+        // storage:link symlink during development.
         'public' => [
-            'driver' => 'local',
+            'driver' => env('PUBLIC_DISK_DRIVER', 'local'),
             'root' => storage_path('app/public'),
-            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+            'url' => env('PUBLIC_DISK_DRIVER') === 's3'
+                ? env('AWS_URL')
+                : rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
+            // Only read when 'driver' resolves to 's3' above; harmless otherwise.
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => env('AWS_BUCKET'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
         ],
 
         's3' => [

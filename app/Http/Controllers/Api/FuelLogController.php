@@ -9,6 +9,7 @@ use App\Models\FuelLog;
 use App\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Fuel Monitoring for the VMIS mobile app. Mirrors
@@ -147,6 +148,10 @@ class FuelLogController extends Controller
             'distance_since_last_refuel' => $log->distanceSinceLastRefuel(),
             'km_per_liter' => $log->kmPerLiter(),
             'has_receipt' => (bool) $log->receipt_path,
+            // The 'public' disk is served via the public/storage symlink with
+            // no auth check, so a direct URL is safe to hand to the app —
+            // same access level the desktop site already gives this file.
+            'receipt_url' => $log->receipt_path ? Storage::disk('public')->url($log->receipt_path) : null,
             'logged_at' => optional($log->created_at)->toIso8601String(),
         ];
     }
