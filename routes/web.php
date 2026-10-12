@@ -18,6 +18,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DocumentIntelligenceController;
 use App\Http\Controllers\AccountTypeController;
 use App\Http\Controllers\TripLogController;
+use App\Http\Controllers\TripRegistrationController;
 use App\Http\Controllers\FuelLogController;
 use App\Http\Controllers\VehicleAccidentController;
 use App\Http\Controllers\NotificationController;
@@ -132,6 +133,21 @@ Route::middleware('auth')->group(function () {
         Route::prefix('live-monitoring')->name('live-monitoring.')->group(function () {
             Route::get('/', [LiveMonitoringController::class, 'index'])->name('index');
             Route::get('/active-trips', [LiveMonitoringController::class, 'activeTrips'])->name('active-trips');
+        });
+
+        // Trip Registrations — Register → Assign Personnel → Approve, ahead
+        // of a trip. Only ever used for a scheduled trip or one with an
+        // assistant assigned; a routine solo trip skips this entirely and
+        // starts instantly from the app, unchanged. Gated inside
+        // TripRegistrationController (DRIVER accounts 403 — they use the
+        // mobile app instead; VIEWER can see the page shell but every
+        // mutating action still re-checks role server-side).
+        Route::prefix('trip-registrations')->name('trip-registrations.')->group(function () {
+            Route::get('/', [TripRegistrationController::class, 'index'])->name('index');
+            Route::post('/', [TripRegistrationController::class, 'store'])->name('store');
+            Route::post('/{tripRegistration}/approve', [TripRegistrationController::class, 'approve'])->name('approve');
+            Route::post('/{tripRegistration}/reject', [TripRegistrationController::class, 'reject'])->name('reject');
+            Route::post('/{tripRegistration}/cancel', [TripRegistrationController::class, 'cancel'])->name('cancel');
         });
 
         // Fuel Monitoring — same permission shape as Trip Logs (a DRIVER logs

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Driver;
 use App\Models\TripLog;
+use App\Models\TripRegistration;
 use App\Models\Vehicle;
 use App\Support\GeoDistance;
 use Illuminate\Http\JsonResponse;
@@ -130,6 +131,11 @@ class TripLogController extends Controller
             'route_points.*.lat'       => ['required_with:route_points', 'numeric', 'between:-90,90'],
             'route_points.*.lng'       => ['required_with:route_points', 'numeric', 'between:-180,180'],
             'route_points.*.recorded_at' => ['nullable', 'date'],
+
+            // Set only when this trip started from an approved
+            // TripRegistration (see Api\TripRegistrationController::start())
+            // — a routine instant-start trip never sends this at all.
+            'trip_registration_id' => ['nullable', 'integer', 'exists:trip_registrations,id'],
         ]);
 
         $vehicle = Vehicle::where('assigned_driver_id', $driver->id)
@@ -146,7 +152,11 @@ class TripLogController extends Controller
             'arrival_time' => $validated['return_arrival_time'] ?? null,
             'odometer_end' => $validated['return_odometer_end'] ?? null,
         ];
-        unset($validated['round_trip'], $validated['return_departure_time'], $validated['return_arrival_time'], $validated['return_odometer_end'], $validated['vehicle_id']);
+        $registrationId = $validated['trip_registration_id'] ?? null;
+        unset(
+            $validated['round_trip'], $validated['return_departure_time'], $validated['return_arrival_time'],
+            $validated['return_odometer_end'], $validated['vehicle_id'], $validated['trip_registration_id']
+        );
 
         $validated['vehicle_id'] = $vehicle->id;
         $validated['driver_id'] = $driver->id;
@@ -165,6 +175,23 @@ class TripLogController extends Controller
         }
 
         $trip = TripLog::create($validated);
+
+        // Close out the TripRegistration this trip started from, if any —
+        // only ever one this driver (or their assigned assistant) actually
+        // started (see Api\TripRegistrationController::start()), never
+        // trusted blindly off a client-sent id.
+        if ($registrationId) {
+            $registration = TripRegistration::where('id', $registrationId)
+                ->where('status', 'active')
+                ->where(function ($q) use ($driver) {
+                    $q->where('driver_id', $driver->id)->orWhere('assistant_driver_id', $driver->id);
+                })
+                ->first();
+
+            if ($registration) {
+                $registration->update(['status' => 'completed', 'trip_log_id' => $trip->id]);
+            }
+        }
 
         $returnTrip = null;
         if ($isRoundTrip) {

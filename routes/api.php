@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PasswordController;
 use App\Http\Controllers\Api\ServiceHistoryController;
 use App\Http\Controllers\Api\TripLogController;
+use App\Http\Controllers\Api\TripRegistrationController;
 use App\Http\Controllers\Api\VehicleController;
 use Illuminate\Support\Facades\Route;
 
@@ -46,6 +47,13 @@ Route::prefix('v1')->group(function () {
         // Api\ActiveTripController's own docblock.
         Route::post('/active-trips/ping', [ActiveTripController::class, 'ping']);
         Route::post('/active-trips/end', [ActiveTripController::class, 'end']);
+
+        // Trip Registrations — the driver-facing half of Register → Assign
+        // Personnel → Approve. Only ever populated for a scheduled or
+        // assistant-crewed trip (see TripRegistration's own docblock); a
+        // routine solo trip never shows up here at all.
+        Route::get('/trip-registrations', [TripRegistrationController::class, 'index']);
+        Route::post('/trip-registrations/{tripRegistration}/start', [TripRegistrationController::class, 'start']);
 
         Route::get('/fuel-logs', [FuelLogController::class, 'index']);
         Route::post('/fuel-logs', [FuelLogController::class, 'store']);
