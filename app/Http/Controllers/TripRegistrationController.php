@@ -28,6 +28,14 @@ use Illuminate\Support\Str;
  * ADMINISTRATOR is scoped to their unit, STATION ADMINISTRATOR to their
  * station. DRIVER accounts don't use this page — they see their own
  * registrations in the mobile app.
+ *
+ * One exception: destroy() permanently deletes a registration (any
+ * status) and is restricted to SUPER ADMINISTRATOR only — stricter than
+ * the MANAGE_ROLES used for approve/reject/cancel, matching the same
+ * SUPER-ADMIN-only precedent set for TripLogController::destroy() and
+ * FuelLogController::destroy(). Safe to hard-delete: nothing else in the
+ * schema has a foreign key pointing at trip_registrations.id, so removing
+ * a registration can never cascade into trip_logs or any other table.
  */
 class TripRegistrationController extends Controller
 {
@@ -201,6 +209,12 @@ class TripRegistrationController extends Controller
         $registrations = $query->skip($start)->take($length)->get();
 
         $canManage = in_array($role, self::MANAGE_ROLES, true);
+        // Deliberately separate from $canManage — only a SUPER
+        // ADMINISTRATOR may permanently delete a registration, and it's
+        // offered regardless of status (unlike Approve/Reject/Cancel,
+        // which only apply while a registration is still pending/active).
+        // See destroy() below.
+        $canDelete = $role === self::ROLE_SUPER_ADMIN;
 
         $data = [];
         foreach ($registrations as $r) {
@@ -257,6 +271,11 @@ class TripRegistrationController extends Controller
                 } elseif ($r->status === 'approved') {
                     $actionsHtml .= '<button type="button" class="btn btn-outline-secondary btn-sm cancel-reg-btn" data-id="' . $r->id . '">Cancel</button>';
                 }
+            }
+            if ($canDelete) {
+                $actionsHtml .= ($actionsHtml !== '' ? ' ' : '') .
+                    '<button type="button" class="btn btn-sm btn-light border delete-reg-btn" data-id="' . $r->id .
+                    '" title="Delete this trip registration (Super Administrator only)"><i class="fas fa-trash text-danger"></i></button>';
             }
             if ($actionsHtml === '') {
                 $actionsHtml = '<span class="text-muted">—</span>';
@@ -425,5 +444,39 @@ class TripRegistrationController extends Controller
         ActivityLog::record('updated', 'Trip Registration', 'Cancelled trip registration #' . $tripRegistration->id . '.', $tripRegistration);
 
         return response()->json(['success' => true, 'message' => 'Trip registration cancelled.']);
+    }
+
+    /**
+     * Permanent delete — SUPER ADMINISTRATOR only, regardless of status.
+     * Unlike cancel() (which only flips pending/approved to 'cancelled'),
+     * this removes the row entirely, for a Super Admin cleaning up any
+     * registration including terminal ones (completed/rejected/cancelled)
+     * that otherwise have no action available at all. See this class's
+     * docblock for why this is safe to hard-delete without a cascade risk.
+     */
+    public function destroy(TripRegistration $tripRegistration): JsonResponse
+    {
+        $user = auth()->user();
+        $role = $this->role($user);
+        if ($role !== self::ROLE_SUPER_ADMIN) {
+            abort(403, 'Only a Super Administrator may delete a trip registration.');
+        }
+
+        $vehicle = $tripRegistration->vehicle;
+        $plateLabel = $vehicle ? strtoupper($vehicle->plate_number) : 'unknown vehicle';
+        $statusLabel = str_replace('_', ' ', $tripRegistration->status);
+        $snapshot = $tripRegistration->toArray();
+
+        $tripRegistration->delete();
+
+        ActivityLog::record(
+            'deleted',
+            'Trip Registration',
+            'Deleted a ' . $statusLabel . ' trip registration for [' . $plateLabel . '] (' . $tripRegistration->origin . ' to ' . $tripRegistration->destination . ').',
+            $tripRegistration,
+            ['before' => $snapshot]
+        );
+
+        return response()->json(['success' => true, 'message' => 'Trip registration deleted.']);
     }
 }

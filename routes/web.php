@@ -149,6 +149,10 @@ Route::middleware('auth')->group(function () {
             Route::post('/{tripRegistration}/approve', [TripRegistrationController::class, 'approve'])->name('approve');
             Route::post('/{tripRegistration}/reject', [TripRegistrationController::class, 'reject'])->name('reject');
             Route::post('/{tripRegistration}/cancel', [TripRegistrationController::class, 'cancel'])->name('cancel');
+            // Permanent delete — SUPER ADMINISTRATOR only, any status (see
+            // TripRegistrationController::destroy()). Explicit route, not
+            // Route::resource, matching the rest of this group.
+            Route::delete('/{tripRegistration}', [TripRegistrationController::class, 'destroy'])->name('destroy');
         });
 
         // Fuel Monitoring — same permission shape as Trip Logs (a DRIVER logs

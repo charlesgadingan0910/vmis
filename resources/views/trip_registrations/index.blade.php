@@ -421,6 +421,27 @@ $(document.body).ready(function() {
         });
     });
 
+    // ---------------- Delete (Super Administrator only — any status) ----------------
+    const tripRegDestroyUrlTemplate = @json(route('trip-registrations.destroy', ['tripRegistration' => ':id']));
+    $(document).on('click', '.delete-reg-btn', function() {
+        const id = $(this).data('id');
+        Swal.fire({
+            title: 'Delete this trip registration?',
+            text: 'This will permanently delete this registration record. This cannot be undone.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#94a3b8',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+            $.ajax({ url: tripRegDestroyUrlTemplate.replace(':id', id), type: 'DELETE' })
+                .done(function(res) { Swal.fire('Deleted!', res.message, 'success').then(() => regTable.ajax.reload(null, false)); })
+                .fail(function(xhr) { Swal.fire('Error!', xhr.responseJSON?.message || 'Could not delete this trip registration.', 'error'); });
+        });
+    });
+
     @if($canManage)
     // ---------------- Register Trip modal ----------------
     function updateScheduleVisibility() {
