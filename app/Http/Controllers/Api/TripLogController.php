@@ -127,6 +127,12 @@ class TripLogController extends Controller
             'end_latitude'             => ['nullable', 'numeric', 'between:-90,90'],
             'end_longitude'            => ['nullable', 'numeric', 'between:-180,180'],
             'distance_km'              => ['nullable', 'numeric', 'min:0'],
+            // Speed summary from the live-tracked "Start Trip" flow
+            // (TripTrackingService) — like distance_km, only ever sent for
+            // a GPS-tracked trip and stored on the primary/outbound leg's
+            // row only, never duplicated onto an auto-created return leg.
+            'avg_speed_kmh'            => ['nullable', 'numeric', 'min:0', 'max:9999'],
+            'max_speed_kmh'            => ['nullable', 'numeric', 'min:0', 'max:9999'],
             'route_points'             => ['nullable', 'array', 'max:3000'],
             'route_points.*.lat'       => ['required_with:route_points', 'numeric', 'between:-90,90'],
             'route_points.*.lng'       => ['required_with:route_points', 'numeric', 'between:-180,180'],
@@ -157,6 +163,17 @@ class TripLogController extends Controller
             $validated['round_trip'], $validated['return_departure_time'], $validated['return_arrival_time'],
             $validated['return_odometer_end'], $validated['vehicle_id'], $validated['trip_registration_id']
         );
+
+        // A registration marked round-trip by the admin (TripRegistration
+        // ::round_trip) is enforced here too, not just pre-checked/locked
+        // client-side — the app can't bypass it just by sending round_trip
+        // false for a trip it started from that registration.
+        if ($registrationId) {
+            $sourceRegistration = TripRegistration::find($registrationId);
+            if ($sourceRegistration && $sourceRegistration->isRoundTrip()) {
+                $isRoundTrip = true;
+            }
+        }
 
         $validated['vehicle_id'] = $vehicle->id;
         $validated['driver_id'] = $driver->id;
@@ -268,6 +285,8 @@ class TripLogController extends Controller
             // distance_km); the app has no map view to draw it in yet.
             'has_gps_route' => $trip->hasGpsRoute(),
             'distance_km' => $trip->distance_km !== null ? (float) $trip->distance_km : null,
+            'avg_speed_kmh' => $trip->avg_speed_kmh !== null ? (float) $trip->avg_speed_kmh : null,
+            'max_speed_kmh' => $trip->max_speed_kmh !== null ? (float) $trip->max_speed_kmh : null,
             'start_latitude' => $trip->start_latitude !== null ? (float) $trip->start_latitude : null,
             'start_longitude' => $trip->start_longitude !== null ? (float) $trip->start_longitude : null,
             'end_latitude' => $trip->end_latitude !== null ? (float) $trip->end_latitude : null,

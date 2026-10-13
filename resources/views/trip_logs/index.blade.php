@@ -15,7 +15,8 @@
   .fleet-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 22px; }
   @media (max-width: 991px) { .fleet-stats-grid { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 575px) { .fleet-stats-grid { grid-template-columns: 1fr; } }
-  .stat-card-modern { background: #ffffff; border-radius: 14px; padding: 18px 20px; border: 1px solid #eef1f6; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04); display: flex; align-items: center; gap: 16px; }
+  .stat-card-modern { background: #ffffff; border-radius: 14px; padding: 18px 20px; border: 1px solid #eef1f6; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04); display: flex; align-items: center; gap: 16px; transition: transform .15s ease, box-shadow .15s ease; }
+  .stat-card-modern:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08); }
   .stat-icon-wrapper { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
   .stat-card-modern.tl-total .stat-icon-wrapper { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
   .stat-card-modern.tl-today .stat-icon-wrapper { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
@@ -30,8 +31,13 @@
   .toolbar-title p { font-size: 12px; color: #94a3b8; margin: 2px 0 0; }
 
   .gps-tracked-badge { display: inline-flex; align-items: center; gap: 5px; background: rgba(16, 185, 129, 0.12); color: #047857; font-size: 10.5px; font-weight: 800; letter-spacing: 0.3px; padding: 3px 8px; border-radius: 6px; }
-  #routeMapModal .modal-body { padding: 0; }
-  #routeMapEl { width: 100%; height: 420px; border-radius: 12px; }
+  .speed-chip { display: inline-flex; align-items: center; gap: 5px; background: rgba(99, 102, 241, 0.12); color: #4338ca; font-size: 10.5px; font-weight: 700; letter-spacing: 0.2px; padding: 3px 8px; border-radius: 6px; }
+  #routeMapModal .modal-body { padding: 20px; }
+  #routeMapStats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  #routeMapStats .route-stat-pill { flex: 1; min-width: 110px; background: #f8fafc; border: 1.5px solid #eef1f6; border-radius: 10px; padding: 10px 14px; }
+  #routeMapStats .route-stat-pill .label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #94a3b8; }
+  #routeMapStats .route-stat-pill .value { font-size: 16px; font-weight: 800; color: #0f172a; margin-top: 2px; }
+  #routeMapEl { width: 100%; height: 420px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(15,23,42,0.08); }
   #routeMapCaption { font-size: 11.5px; color: #94a3b8; padding: 10px 2px 0; display: flex; align-items: center; gap: 6px; }
   #routeMapCaption.is-matched { color: #16a34a; font-weight: 600; }
   #routeMapCaption.is-fallback { color: #d97706; font-weight: 600; }
@@ -48,6 +54,8 @@
 
   .fleet-table thead th { background: #f8fafc; color: #475569; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 14px 24px; white-space: nowrap; border: none; }
   .fleet-table tbody td { padding: 16px 24px; vertical-align: middle; border-top: 1px solid #f1f5f9; font-size: 13.5px; }
+  .fleet-table tbody tr { transition: background-color .12s ease; }
+  .fleet-table tbody tr:hover { background-color: #f8fafc; }
 
   @media (max-width: 767.98px) {
     .fleet-table thead { display: none !important; }
@@ -69,7 +77,8 @@
     .fleet-table td:nth-child(3)::before { content: "Trip Date"; }
     .fleet-table td:nth-child(4)::before { content: "Route"; }
     .fleet-table td:nth-child(5)::before { content: "Odometer"; }
-    .fleet-table td:nth-child(6)::before { content: "Logged By"; }
+    .fleet-table td:nth-child(6)::before { content: "GPS / Distance / Speed"; }
+    .fleet-table td:nth-child(7)::before { content: "Logged By"; }
   }
 
   .plate-badge { display: inline-block; font-family: 'Courier New', monospace; font-weight: 800; font-size: 13px; background: #0f172a; color: #fff; padding: 3px 9px; border-radius: 6px; letter-spacing: 0.5px; }
@@ -195,7 +204,7 @@
                             <th>Trip Date / Time</th>
                             <th>Route / Purpose</th>
                             <th>Odometer</th>
-                            <th>GPS / Distance</th>
+                            <th>GPS / Distance / Speed</th>
                             <th>Logged By</th>
                         </tr>
                     </thead>
@@ -327,6 +336,7 @@
                 <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
+                <div id="routeMapStats"></div>
                 <div id="routeMapEl"></div>
                 <div id="routeMapCaption"></div>
             </div>
@@ -484,6 +494,22 @@ $(document.body).ready(function() {
             points = [];
         }
         $('#routeMapTitle').text('Trip Route — ' + ($(this).attr('data-trip-label') || ''));
+
+        const distance = $(this).attr('data-distance');
+        const avgSpeed = $(this).attr('data-avg-speed');
+        const maxSpeed = $(this).attr('data-max-speed');
+        let statsHtml = '';
+        if (distance) {
+            statsHtml += '<div class="route-stat-pill"><div class="label">Distance</div><div class="value">' + parseFloat(distance).toFixed(2) + ' km</div></div>';
+        }
+        if (avgSpeed) {
+            statsHtml += '<div class="route-stat-pill"><div class="label">Avg Speed</div><div class="value">' + parseFloat(avgSpeed).toFixed(1) + ' km/h</div></div>';
+        }
+        if (maxSpeed) {
+            statsHtml += '<div class="route-stat-pill"><div class="label">Top Speed</div><div class="value">' + parseFloat(maxSpeed).toFixed(1) + ' km/h</div></div>';
+        }
+        $('#routeMapStats').html(statsHtml);
+
         $('#routeMapModal').modal('show');
 
         $('#routeMapModal').off('shown.bs.modal').on('shown.bs.modal', async function() {

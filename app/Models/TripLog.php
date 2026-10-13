@@ -32,6 +32,8 @@ class TripLog extends Model
         'end_latitude',
         'end_longitude',
         'distance_km',
+        'avg_speed_kmh',
+        'max_speed_kmh',
         'route_points',
     ];
 
@@ -44,8 +46,20 @@ class TripLog extends Model
             'end_latitude' => 'decimal:7',
             'end_longitude' => 'decimal:7',
             'distance_km' => 'decimal:2',
+            'avg_speed_kmh' => 'decimal:2',
+            'max_speed_kmh' => 'decimal:2',
             'route_points' => 'array',
         ];
+    }
+
+    /**
+     * True once this trip has speed data on file — only ever set for a
+     * GPS-tracked trip (TripTrackingService samples live speed), same gate
+     * as hasGpsRoute().
+     */
+    public function hasSpeedData(): bool
+    {
+        return ! is_null($this->avg_speed_kmh) || ! is_null($this->max_speed_kmh);
     }
 
     /**

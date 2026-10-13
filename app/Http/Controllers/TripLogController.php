@@ -209,7 +209,18 @@ class TripLogController extends Controller
                 if ($trip->distance_km !== null) {
                     $gpsHtml .= '<div class="vehicle-sub-info mt-1">' . number_format((float) $trip->distance_km, 2) . ' km</div>';
                 }
-                $gpsHtml .= '<button type="button" class="btn btn-link btn-sm p-0 mt-1 view-route-btn" data-route="' . e(json_encode($trip->route_points)) . '" data-trip-label="' . e($trip->origin . ' → ' . $trip->destination) . '">View Route</button>';
+                if ($trip->hasSpeedData()) {
+                    $gpsHtml .= '<div class="speed-chip mt-1" title="Average / top speed during this trip"><i class="fas fa-tachometer-alt"></i> ' .
+                        ($trip->avg_speed_kmh !== null ? number_format((float) $trip->avg_speed_kmh, 1) . ' avg' : '—');
+                    if ($trip->max_speed_kmh !== null) {
+                        $gpsHtml .= ' · ' . number_format((float) $trip->max_speed_kmh, 1) . ' max';
+                    }
+                    $gpsHtml .= ' km/h</div>';
+                }
+                $gpsHtml .= '<button type="button" class="btn btn-link btn-sm p-0 mt-1 view-route-btn" data-route="' . e(json_encode($trip->route_points)) . '" data-trip-label="' . e($trip->origin . ' → ' . $trip->destination) .
+                    '" data-distance="' . e($trip->distance_km ?? '') .
+                    '" data-avg-speed="' . e($trip->avg_speed_kmh ?? '') .
+                    '" data-max-speed="' . e($trip->max_speed_kmh ?? '') . '">View Route</button>';
             } else {
                 $gpsHtml = '<span class="text-muted">—</span>';
             }

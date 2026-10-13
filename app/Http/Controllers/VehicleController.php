@@ -471,6 +471,10 @@ class VehicleController extends Controller
         $validated = $this->normalizeBerFields($validated);
         $validated = $this->normalizeUnserviceableTracking($validated);
 
+        if ($expiredDriverError = $this->expiredLicenseAssignmentError($validated['assigned_driver_id'] ?? null)) {
+            return redirect()->back()->withErrors(['assigned_driver_id' => $expiredDriverError])->withInput();
+        }
+
         $validated['qr_code'] = Str::upper(Str::random(10));
         $validated['is_active'] = '1';
         $validated['encoded_by'] = $user->id;
@@ -573,6 +577,19 @@ class VehicleController extends Controller
         // Must run before $vehicle->update() below — it compares the incoming
         // status against $vehicle's still-original (pre-update) status.
         $validated = $this->normalizeUnserviceableTracking($validated, $vehicle);
+
+        // A driver whose license has expired can't be (re-)assigned to a
+        // vehicle — same guard as store() above, surfaced here as a
+        // blocking JSON error so the admin sees exactly why the save
+        // didn't go through. Only checked when assigned_driver_id is
+        // actually changing, so an already-assigned driver whose license
+        // later expires doesn't lock the admin out of editing anything
+        // else about this vehicle.
+        if (array_key_exists('assigned_driver_id', $validated) && $validated['assigned_driver_id'] != $vehicle->assigned_driver_id) {
+            if ($expiredDriverError = $this->expiredLicenseAssignmentError($validated['assigned_driver_id'] ?? null)) {
+                return response()->json(['success' => false, 'message' => $expiredDriverError], 422);
+            }
+        }
 
         $before = $vehicle->getOriginal();
         $vehicle->update($validated);
@@ -1323,5 +1340,26 @@ class VehicleController extends Controller
         if ($role === self::ROLE_VIEWER) {
             abort(403, 'Viewer accounts have read-only access.');
         }
+    }
+
+    /**
+     * Shared guard for store()/update(): a driver whose Driver's License
+     * has expired can't be assigned to a vehicle at all. Returns the
+     * message to show the admin, or null when the assignment is fine
+     * (including when no driver was selected — assigning nobody is
+     * always allowed).
+     */
+    protected function expiredLicenseAssignmentError($driverId): ?string
+    {
+        if (! $driverId) {
+            return null;
+        }
+
+        $driver = Driver::find($driverId);
+        if (! $driver || ! $driver->isLicenseExpired()) {
+            return null;
+        }
+
+        return 'Cannot assign ' . trim($driver->firstname . ' ' . $driver->lastname) . " to this vehicle — their Driver's License expired on " . $driver->license_expiration_date->format('M d, Y') . '. Update the license record before assigning this driver.';
     }
 }

@@ -48,6 +48,38 @@ class Driver extends Model
     ];
 
     /**
+     * Days remaining until license_expiration_date, negative once overdue,
+     * null if no expiration date is on file yet. Same timestamp-based
+     * computation as Vehicle::registrationDaysRemaining() / pmsDaysRemaining(),
+     * for the same sign-convention reason (positive = future, negative =
+     * overdue, 0 = expires today).
+     */
+    public function licenseDaysRemaining(): ?int
+    {
+        if (! $this->license_expiration_date) {
+            return null;
+        }
+
+        $today = now()->startOfDay();
+        $expiryDay = $this->license_expiration_date->copy()->startOfDay();
+
+        return (int) round(($expiryDay->getTimestamp() - $today->getTimestamp()) / 86400);
+    }
+
+    /**
+     * True once license_expiration_date has passed. False (not true) when
+     * there is no expiration date on file at all — an incomplete record
+     * should not silently block registration/assignment; that is a data
+     * gap for the admin to fill in, not an expired license.
+     */
+    public function isLicenseExpired(): bool
+    {
+        $days = $this->licenseDaysRemaining();
+
+        return $days !== null && $days < 0;
+    }
+
+    /**
      * The DRIVER-type login account linked to this profile, if one has been
      * created for them on the System Users page — most drivers on file may
      * not have a login account at all, so this is frequently null.

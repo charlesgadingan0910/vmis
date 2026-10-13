@@ -124,7 +124,10 @@ class TripRegistrationController extends Controller
         // Not scoped by unit/station — a Logistics Run's assistant may
         // come from anywhere in the roster, same as how the existing
         // driver picker elsewhere in VMIS isn't scoped either.
-        $drivers = Driver::orderBy('lastname')->get(['id', 'firstname', 'lastname']);
+        // license_expiration_date is included so the Register Trip modal
+        // can warn inline the moment an expired-license driver is picked,
+        // ahead of the server-side block in store().
+        $drivers = Driver::orderBy('lastname')->get(['id', 'firstname', 'lastname', 'license_expiration_date']);
 
         $units = $hasBroadVisibility ? Unit::orderBy('unit_name')->get() : Unit::where('id', $user->unit_id)->orderBy('unit_name')->get();
         $stations = $hasBroadVisibility
@@ -135,7 +138,19 @@ class TripRegistrationController extends Controller
 
         $canManage = in_array($role, self::MANAGE_ROLES, true);
 
-        return view('trip_registrations.index', compact('vehicles', 'drivers', 'units', 'stations', 'hasBroadVisibility', 'canManage'));
+        $statsScope = function () use ($user, $role) {
+            $q = TripRegistration::query();
+            $this->scopeToVisibleVehicles($q, $user, $role, viaRelation: true);
+            return $q;
+        };
+        $stats = [
+            'total' => $statsScope()->count(),
+            'pending' => $statsScope()->where('status', 'pending_approval')->count(),
+            'active' => $statsScope()->whereIn('status', ['approved', 'active'])->count(),
+            'completed_month' => $statsScope()->where('status', 'completed')->whereMonth('updated_at', now()->month)->whereYear('updated_at', now()->year)->count(),
+        ];
+
+        return view('trip_registrations.index', compact('vehicles', 'drivers', 'units', 'stations', 'hasBroadVisibility', 'canManage', 'stats'));
     }
 
     protected function ajaxList(Request $request, $user, string $role): JsonResponse
@@ -150,6 +165,20 @@ class TripRegistrationController extends Controller
         }
         if ($vehicleId = $request->get('vehicle_id')) {
             $query->where('vehicle_id', $vehicleId);
+        }
+        if ($tripType = $request->get('trip_type')) {
+            $query->where('trip_type', $tripType);
+        }
+        if ($driverId = $request->get('driver_id')) {
+            $query->where(function ($q) use ($driverId) {
+                $q->where('driver_id', $driverId)->orWhere('assistant_driver_id', $driverId);
+            });
+        }
+        if ($dateFrom = $request->get('date_from')) {
+            $query->whereDate('scheduled_date', '>=', $dateFrom);
+        }
+        if ($dateTo = $request->get('date_to')) {
+            $query->whereDate('scheduled_date', '<=', $dateTo);
         }
 
         if ($search = trim((string) $request->input('search.value'))) {
@@ -189,8 +218,11 @@ class TripRegistrationController extends Controller
 
             $typeLabel = ucfirst($r->trip_type);
             $typeBadgeClass = $r->trip_type === 'emergency' ? 'badge-danger' : ($r->trip_type === 'scheduled' ? 'badge-info' : 'badge-secondary');
-            $tripHtml = '<span class="badge ' . $typeBadgeClass . ' mb-1">' . e($typeLabel) . '</span>' .
-                '<div class="vehicle-main-name" style="font-size:13px;">' . e($r->origin) . ' → ' . e($r->destination) . '</div>';
+            $tripHtml = '<span class="badge ' . $typeBadgeClass . ' mb-1">' . e($typeLabel) . '</span>';
+            if ($r->round_trip) {
+                $tripHtml .= ' <span class="badge badge-light text-dark mb-1" title="Round trip"><i class="fas fa-rotate"></i> Round Trip</span>';
+            }
+            $tripHtml .= '<div class="vehicle-main-name" style="font-size:13px;">' . e($r->origin) . ' → ' . e($r->destination) . '</div>';
             if ($r->purpose) {
                 $tripHtml .= '<div class="vehicle-sub-info">' . e(Str::limit($r->purpose, 60)) . '</div>';
             }
@@ -264,6 +296,7 @@ class TripRegistrationController extends Controller
             'destination' => ['required', 'string', 'max:150'],
             'scheduled_date' => ['required_if:trip_type,scheduled', 'nullable', 'date'],
             'scheduled_departure_time' => ['nullable', 'date_format:H:i'],
+            'round_trip' => ['nullable', 'boolean'],
         ]);
 
         // The chosen vehicle must actually be within this admin's own
@@ -277,10 +310,32 @@ class TripRegistrationController extends Controller
             return response()->json(['success' => false, 'message' => 'That vehicle is outside your assigned scope.'], 403);
         }
 
+        // A driver (or assistant driver) with an expired Driver's License
+        // cannot be put on a trip at all — surfaced here as a blocking
+        // validation error so the admin sees exactly why, same wording
+        // used in VehicleController's assignment guard for consistency.
+        $driver = Driver::find($validated['driver_id']);
+        if ($driver && $driver->isLicenseExpired()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This trip cannot be registered — ' . trim($driver->firstname . ' ' . $driver->lastname) . "'s Driver's License expired on " . $driver->license_expiration_date->format('M d, Y') . '. Update the license record before registering a trip for this driver.',
+            ], 422);
+        }
+        if (! empty($validated['assistant_driver_id'])) {
+            $assistant = Driver::find($validated['assistant_driver_id']);
+            if ($assistant && $assistant->isLicenseExpired()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This trip cannot be registered — the assistant driver, ' . trim($assistant->firstname . ' ' . $assistant->lastname) . "'s Driver's License expired on " . $assistant->license_expiration_date->format('M d, Y') . '. Update the license record before assigning this driver.',
+                ], 422);
+            }
+        }
+
         $isEmergency = $validated['trip_type'] === 'emergency';
 
         $registration = TripRegistration::create([
             ...$validated,
+            'round_trip' => $validated['round_trip'] ?? false,
             'status' => $isEmergency ? 'approved' : 'pending_approval',
             'registered_by' => $user->id,
             // Emergency trips are auto-approved at the moment of

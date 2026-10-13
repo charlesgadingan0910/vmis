@@ -23,6 +23,7 @@ class TripRegistration extends Model
         'destination',
         'scheduled_date',
         'scheduled_departure_time',
+        'round_trip',
         'status',
         'registered_by',
         'approved_by',
@@ -36,6 +37,7 @@ class TripRegistration extends Model
         return [
             'scheduled_date' => 'date',
             'approved_at' => 'datetime',
+            'round_trip' => 'boolean',
         ];
     }
 
@@ -77,6 +79,18 @@ class TripRegistration extends Model
     public function hasAssistant(): bool
     {
         return ! is_null($this->assistant_driver_id);
+    }
+
+    /**
+     * True when this registration was marked as a round trip at the time
+     * it was created — the mobile app's "Start Trip" flow for this
+     * registration pre-checks/locks its own round-trip toggle to match
+     * (see Api\TripRegistrationController::payload() and
+     * TripsScreen's _GpsTripEndingForm), so the two stay consistent.
+     */
+    public function isRoundTrip(): bool
+    {
+        return (bool) $this->round_trip;
     }
 
     /**

@@ -156,6 +156,7 @@ class TripRegistrationController extends Controller
             'destination' => $r->destination,
             'scheduled_date' => optional($r->scheduled_date)->toDateString(),
             'scheduled_departure_time' => $r->scheduled_departure_time,
+            'round_trip' => (bool) $r->round_trip,
             'status' => $r->status,
             'is_assistant' => $r->assistant_driver_id === $viewingDriver->id,
             'driver_name' => $r->driver ? trim($r->driver->firstname . ' ' . $r->driver->lastname) : null,
