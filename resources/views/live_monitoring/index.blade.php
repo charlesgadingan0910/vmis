@@ -74,27 +74,38 @@
      script below) — CSS alone can't fake the metallic-paint gradient, so
      only the flatter details (glass, wheels, lights, mirrors) are
      styled here. ---------------- */
-  .vehicle-marker-wrap { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; position: relative; }
-  .vehicle-marker-ring { position: absolute; inset: 0; border-radius: 50%; background: rgba(37, 99, 235, 0.18); animation: marker-pulse 2s ease-out infinite; }
+  .vehicle-marker-wrap { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; position: relative; }
+  /* Soft radial glow instead of a flat pulsing disc — premium nav-app
+     "puck" feel (Waze/Google Maps live-location marker) rather than a
+     plain ring. */
+  .vehicle-marker-ring { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, rgba(59, 130, 246, 0.14) 55%, rgba(59, 130, 246, 0) 76%); animation: marker-pulse 2s ease-out infinite; }
   .vehicle-marker-wrap.is-stale .vehicle-marker-ring { display: none; }
   @keyframes marker-pulse { 0% { transform: scale(0.45); opacity: 0.9; } 100% { transform: scale(1); opacity: 0; } }
-  .vehicle-marker-car { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; transition: transform 0.2s ease; filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.5)); }
+  /* Ground shadow — static (doesn't rotate with the car), so the vehicle
+     reads as sitting on the map rather than a flat sticker. */
+  .vehicle-marker-shadow { position: absolute; left: 50%; bottom: 1px; width: 24px; height: 8px; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(15, 23, 42, 0.42) 0%, rgba(15, 23, 42, 0.16) 55%, rgba(15, 23, 42, 0) 80%); transform: translateX(-50%); }
+  .vehicle-marker-wrap.is-stale .vehicle-marker-shadow { opacity: 0.55; }
+  .vehicle-marker-car { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; transition: transform 0.2s ease; filter: drop-shadow(0 3px 4px rgba(15, 23, 42, 0.5)); }
   .car-wheel { fill: #0f172a; }
-  .car-body { stroke: rgba(15, 23, 42, 0.35); stroke-width: 0.5; }
+  .car-body { stroke: #1e3a8a; stroke-width: 0.6; }
+  .car-shine { pointer-events: none; }
+  .car-hood-seam { stroke: rgba(255, 255, 255, 0.35); stroke-width: 0.45; stroke-linecap: round; fill: none; }
   .car-headlight { fill: #fde68a; }
   .car-glass { fill: #bfdbfe; opacity: 0.92; }
   .car-roof { fill: rgba(15, 23, 42, 0.2); }
   .car-taillight { fill: #ef4444; }
   .car-mirror { fill: rgba(15, 23, 42, 0.55); }
-  .car-highlight { stroke: rgba(255, 255, 255, 0.55); stroke-width: 1; stroke-linecap: round; fill: none; }
+  .car-highlight { stroke: rgba(255, 255, 255, 0.6); stroke-width: 1; stroke-linecap: round; fill: none; }
   .vehicle-marker-wrap.is-stale .vehicle-marker-car { filter: none; opacity: 0.85; }
   .vehicle-marker-wrap.is-stale .car-wheel { fill: #475569; }
+  .vehicle-marker-wrap.is-stale .car-body { stroke: #475569; }
   .vehicle-marker-wrap.is-stale .car-headlight { fill: #e2e8f0; opacity: 0.6; }
   .vehicle-marker-wrap.is-stale .car-glass { fill: #e2e8f0; }
   .vehicle-marker-wrap.is-stale .car-roof { fill: rgba(100, 116, 139, 0.25); }
   .vehicle-marker-wrap.is-stale .car-taillight { fill: #94a3b8; }
   .vehicle-marker-wrap.is-stale .car-mirror { fill: rgba(100, 116, 139, 0.6); }
   .vehicle-marker-wrap.is-stale .car-highlight { stroke: rgba(255, 255, 255, 0.25); }
+  .vehicle-marker-wrap.is-stale .car-hood-seam { stroke: rgba(255, 255, 255, 0.15); }
 
   /* ---------------- Marker popup — Leaflet's default popup is a plain
      square box of text; this re-skins the chrome once (wrapper/close
@@ -209,24 +220,39 @@ $(document.body).ready(function() {
     }
 
     /// Builds the actual car artwork shared by the map marker and the
-    /// sidebar avatar: wheels peeking out at all four corners (drawn
-    /// first, so the body overlaps their inner half), a glossy gradient
-    /// body, windshield/rear glass, a shaded roof panel, headlights/
-    /// taillights, side mirrors, and a soft paint-highlight streak — a
-    /// real vehicle silhouette rather than a flat triangle/blob. gradId
-    /// must be unique per <svg> on the page (gradients are referenced by
-    /// id) since several vehicles can be visible at once.
-    function carSvgMarkup(gradId, lightColor, darkColor, size) {
+    /// sidebar avatar — a premium, Waze/Google-Maps-nav-puck style
+    /// vehicle rather than a flat silhouette: wheels peeking out at all
+    /// four corners, a rich 3-stop gradient body (bright sky highlight →
+    /// brand blue → deep navy shadow) with a glossy sheen painted over
+    /// the *same* body outline (so the shine is naturally contained
+    /// without needing a separate SVG clip-path), a hood seam line,
+    /// windshield/rear glass, a shaded roof panel, headlights/
+    /// taillights, side mirrors, and a diagonal paint-highlight streak.
+    /// idSuffix must be unique per <svg> on the page (gradients are
+    /// referenced by id) since several vehicles can be visible at once.
+    function carSvgMarkup(idSuffix, lightColor, midColor, darkColor, size) {
+        const gradId = 'carGrad' + idSuffix;
+        const shineId = 'carShine' + idSuffix;
+        const bodyPath = 'M14,3.3 C16.7,3.3 18.2,5.4 18.9,8.1 L19.8,11 C20.3,12.6 20.4,13.9 20.4,15.4 L20.4,21.5 C20.4,24.2 18.7,25.1 16.2,25.3 L11.8,25.3 C9.3,25.1 7.6,24.2 7.6,21.5 L7.6,15.4 C7.6,13.9 7.7,12.6 8.2,11 L9.1,8.1 C9.8,5.4 11.3,3.3 14,3.3 Z';
         return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">' +
-            '<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="1" y2="1">' +
-                '<stop offset="0%" stop-color="' + lightColor + '"></stop>' +
-                '<stop offset="100%" stop-color="' + darkColor + '"></stop>' +
-            '</linearGradient></defs>' +
+            '<defs>' +
+                '<linearGradient id="' + gradId + '" x1="0.15" y1="0" x2="0.85" y2="1">' +
+                    '<stop offset="0%" stop-color="' + lightColor + '"></stop>' +
+                    '<stop offset="48%" stop-color="' + midColor + '"></stop>' +
+                    '<stop offset="100%" stop-color="' + darkColor + '"></stop>' +
+                '</linearGradient>' +
+                '<radialGradient id="' + shineId + '" cx="38%" cy="26%" r="55%">' +
+                    '<stop offset="0%" stop-color="#ffffff" stop-opacity="0.85"></stop>' +
+                    '<stop offset="100%" stop-color="#ffffff" stop-opacity="0"></stop>' +
+                '</radialGradient>' +
+            '</defs>' +
             '<rect class="car-wheel" x="4.6" y="9.3" width="2.6" height="5.6" rx="1.3"></rect>' +
             '<rect class="car-wheel" x="20.8" y="9.3" width="2.6" height="5.6" rx="1.3"></rect>' +
             '<rect class="car-wheel" x="4.6" y="18.4" width="2.6" height="6" rx="1.3"></rect>' +
             '<rect class="car-wheel" x="20.8" y="18.4" width="2.6" height="6" rx="1.3"></rect>' +
-            '<path class="car-body" fill="url(#' + gradId + ')" d="M14,3.3 C16.7,3.3 18.2,5.4 18.9,8.1 L19.8,11 C20.3,12.6 20.4,13.9 20.4,15.4 L20.4,21.5 C20.4,24.2 18.7,25.1 16.2,25.3 L11.8,25.3 C9.3,25.1 7.6,24.2 7.6,21.5 L7.6,15.4 C7.6,13.9 7.7,12.6 8.2,11 L9.1,8.1 C9.8,5.4 11.3,3.3 14,3.3 Z"></path>' +
+            '<path class="car-body" fill="url(#' + gradId + ')" d="' + bodyPath + '"></path>' +
+            '<path class="car-shine" fill="url(#' + shineId + ')" d="' + bodyPath + '"></path>' +
+            '<path class="car-hood-seam" d="M14,4.6 L14,8.2"></path>' +
             '<ellipse class="car-headlight" cx="10.3" cy="4.9" rx="1" ry="0.7"></ellipse>' +
             '<ellipse class="car-headlight" cx="17.7" cy="4.9" rx="1" ry="0.7"></ellipse>' +
             '<path class="car-glass" d="M9.4,8.4 C9.4,7 11.3,6.1 14,6.1 C16.7,6.1 18.6,7 18.6,8.4 L18.1,11.8 C17.5,12.6 10.5,12.6 9.9,11.8 Z"></path>' +
@@ -244,15 +270,16 @@ $(document.body).ready(function() {
     /// convention the old arrow used, so the existing bearingDeg/rotate
     /// logic below needs no changes, only a better-looking icon to rotate.
     function markerIcon(stale, headingDeg, vehicleId) {
-        const gradId = 'carGradMap' + (vehicleId === undefined || vehicleId === null ? 'x' : vehicleId) + (stale ? 'S' : 'A');
+        const idSuffix = 'Map' + (vehicleId === undefined || vehicleId === null ? 'x' : vehicleId) + (stale ? 'S' : 'A');
         const carSvg = stale
-            ? carSvgMarkup(gradId, '#cbd5e1', '#64748b', 34)
-            : carSvgMarkup(gradId, '#60a5fa', '#1d4ed8', 34);
+            ? carSvgMarkup(idSuffix, '#e2e8f0', '#94a3b8', '#475569', 38)
+            : carSvgMarkup(idSuffix, '#93c5fd', '#3b82f6', '#1e3a8a', 38);
         const html = '<div class="vehicle-marker-wrap' + (stale ? ' is-stale' : '') + '">' +
             '<div class="vehicle-marker-ring"></div>' +
+            '<div class="vehicle-marker-shadow"></div>' +
             '<div class="vehicle-marker-car" style="transform: rotate(' + headingDeg + 'deg);">' + carSvg + '</div>' +
             '</div>';
-        return L.divIcon({ className: '', html: html, iconSize: [40, 40], iconAnchor: [20, 20] });
+        return L.divIcon({ className: '', html: html, iconSize: [44, 44], iconAnchor: [22, 22] });
     }
 
     /// Glides a marker from its current position to [lat,lng] over
@@ -338,10 +365,10 @@ $(document.body).ready(function() {
             if (t.stale) {
                 metaHtml += '<span class="text-warning"><i class="fas fa-exclamation-triangle"></i> Signal lost</span>';
             }
-            const sidebarGradId = 'carGradSB' + (t.vehicle_id === undefined || t.vehicle_id === null ? 'x' : t.vehicle_id) + (t.stale ? 'S' : 'A');
+            const sidebarIdSuffix = 'SB' + (t.vehicle_id === undefined || t.vehicle_id === null ? 'x' : t.vehicle_id) + (t.stale ? 'S' : 'A');
             const sidebarCarSvg = t.stale
-                ? carSvgMarkup(sidebarGradId, '#cbd5e1', '#94a3b8', 24)
-                : carSvgMarkup(sidebarGradId, '#60a5fa', '#1d4ed8', 24);
+                ? carSvgMarkup(sidebarIdSuffix, '#e2e8f0', '#94a3b8', '#64748b', 26)
+                : carSvgMarkup(sidebarIdSuffix, '#93c5fd', '#3b82f6', '#1e3a8a', 26);
             item.html(
                 '<div class="live-trip-avatar">' + sidebarCarSvg + '</div>' +
                 '<div class="live-trip-main">' +
