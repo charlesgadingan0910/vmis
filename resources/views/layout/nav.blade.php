@@ -195,6 +195,12 @@
                 <p>Driver Management</p>
             </a>
         </li>
+        <li class="nav-item">
+            <a href="{{ route('driver-assignments.index') }}" class="nav-link {{ request()->routeIs('driver-assignments.*') ? 'active' : '' }}">
+                <i class="nav-icon fas fa-exchange-alt"></i>
+                <p>Driver Assignments</p>
+            </a>
+        </li>
 
         <!-- SYSTEM SETTINGS -->
         <li class="nav-header small text-muted text-uppercase mb-1 mt-3 tracking-wider">System Settings</li>

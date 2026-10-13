@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\Vehicle;
 use App\Models\Driver;
+use App\Models\DriverAssignment;
 use App\Models\VehicleType;
 use App\Models\VehicleQrPrint;
 use App\Models\Unit;
@@ -481,6 +482,19 @@ class VehicleController extends Controller
 
         $vehicle = Vehicle::create($validated);
 
+        // Opens the vehicle's first assignment-history row when it's
+        // registered with a driver already picked — see
+        // DriverAssignmentController's class docblock for why both entry
+        // points into assigned_driver_id write to driver_assignments.
+        if (! empty($validated['assigned_driver_id'])) {
+            DriverAssignment::create([
+                'vehicle_id'  => $vehicle->id,
+                'driver_id'   => $validated['assigned_driver_id'],
+                'assigned_by' => $user->id,
+                'assigned_at' => now(),
+            ]);
+        }
+
         if ($request->hasFile('or_file') && $request->hasFile('cr_file') && $request->hasFile('insurance_file')) {
             $vehicle->registrations()->create([
                 'or_file_path'        => $request->file('or_file')->store('vehicle_docs/or', 'public'),
@@ -595,6 +609,30 @@ class VehicleController extends Controller
         $vehicle->update($validated);
         $changed = $vehicle->getChanges();
         unset($changed['updated_at']);
+
+        // Keep driver_assignments in sync whenever this form is what
+        // changed assigned_driver_id — same hook as store() above, and
+        // the exact same vehicle-assignment history DriverAssignmentController
+        // writes to from its own dedicated page.
+        if (array_key_exists('assigned_driver_id', $changed)) {
+            $previousDriverId = $before['assigned_driver_id'] ?? null;
+            $newDriverId = $changed['assigned_driver_id'];
+
+            if ($previousDriverId) {
+                DriverAssignment::where('vehicle_id', $vehicle->id)->active()->update([
+                    'unassigned_at' => now(),
+                    'unassigned_by' => $user->id,
+                ]);
+            }
+            if ($newDriverId) {
+                DriverAssignment::create([
+                    'vehicle_id'  => $vehicle->id,
+                    'driver_id'   => $newDriverId,
+                    'assigned_by' => $user->id,
+                    'assigned_at' => now(),
+                ]);
+            }
+        }
 
         if (!empty($changed)) {
             ActivityLog::record(

@@ -23,6 +23,7 @@ use App\Http\Controllers\FuelLogController;
 use App\Http\Controllers\VehicleAccidentController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\LiveMonitoringController;
+use App\Http\Controllers\DriverAssignmentController;
 use Illuminate\Support\Facades\Route;
 
 // ---------------------------------------------------------------------
@@ -258,9 +259,19 @@ Route::middleware('auth')->group(function () {
         Route::get('/vehicle-requisitions/{maintenanceRecord}', [VehicleRepairRequisitionController::class, 'edit'])->name('vehicle-requisitions.edit');
         Route::post('/vehicle-requisitions/{maintenanceRecord}', [VehicleRepairRequisitionController::class, 'save'])->name('vehicle-requisitions.save');
 
-        // Placeholder pages for planned modules — swap Route::view for a real
-        // controller + view once each module is built. Keeps the nav links live.
-        Route::view('/driver-assignments', 'coming-soon', ['title' => 'Driver Assignment'])->name('driver-assignments.index');
+        // Driver Assignments — who currently has custody of which vehicle,
+        // plus the full assignment history (see driver_assignments
+        // migration's docblock). Writes the exact same
+        // vehicles.assigned_driver_id column the Vehicle Inventory Edit
+        // form's "Assigned Driver" field does; DriverAssignmentController
+        // enforces the same unit/station write-scoping as
+        // VehicleController::authorizeVehicleWrite().
+        Route::prefix('driver-assignments')->name('driver-assignments.')->group(function () {
+            Route::get('/', [DriverAssignmentController::class, 'index'])->name('index');
+            Route::post('/{vehicle}/assign', [DriverAssignmentController::class, 'assign'])->name('assign');
+            Route::post('/{vehicle}/unassign', [DriverAssignmentController::class, 'unassign'])->name('unassign');
+            Route::get('/{vehicle}/history', [DriverAssignmentController::class, 'history'])->name('history');
+        });
 
         // User Management
         Route::resource('users', \App\Http\Controllers\UserController::class)->except(['create', 'show', 'edit']);
