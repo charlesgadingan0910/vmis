@@ -206,6 +206,7 @@
                             <th>Odometer</th>
                             <th>GPS / Distance / Speed</th>
                             <th>Logged By</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -377,7 +378,8 @@ $(document.body).ready(function() {
             { data: 'route_html', orderable: false, searchable: false },
             { data: 'odometer_html', orderable: false, searchable: false },
             { data: 'gps_html', orderable: false, searchable: false },
-            { data: 'logged_html', orderable: false, searchable: false }
+            { data: 'logged_html', orderable: false, searchable: false },
+            { data: 'actions_html', orderable: false, searchable: false }
         ],
         dom: '<"row"<"col-sm-12"tr>><"row"<"col-sm-5"i><"col-sm-7"p>>',
         pageLength: 10,
@@ -569,7 +571,7 @@ $(document.body).ready(function() {
         e.preventDefault();
         Swal.fire({
             title: 'Save Trip Log?',
-            text: "Trip logs are permanent records and cannot be edited or deleted afterward.",
+            text: "Trip logs are permanent records — only a Super Administrator can remove one afterward.",
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#3b82f6',
@@ -598,6 +600,40 @@ $(document.body).ready(function() {
                     }
                 });
             }
+        });
+    });
+
+    // ---------------- Delete (Super Administrator only — see actions_html
+    // in TripLogController::buildTripRow()) ----------------
+    const tripLogDestroyUrlTemplate = @json(route('trip-logs.destroy', ['trip_log' => ':id']));
+
+    $('#tripLogsTable').on('click', '.delete-trip-btn', function() {
+        const id = $(this).data('id');
+        const isRoundTrip = $(this).data('round-trip') == 1;
+
+        Swal.fire({
+            title: 'Delete this trip log?',
+            text: isRoundTrip
+                ? 'This will permanently delete BOTH legs of this round trip. This cannot be undone.'
+                : 'This will permanently delete this trip log. This cannot be undone.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#94a3b8',
+            cancelButtonText: 'Cancel',
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+
+            $.ajax({
+                url: tripLogDestroyUrlTemplate.replace(':id', id),
+                type: 'DELETE',
+            }).done(function(res) {
+                Swal.fire('Deleted!', res.message, 'success');
+                tripLogsTable.ajax.reload(null, false);
+            }).fail(function(xhr) {
+                Swal.fire('Error!', xhr.responseJSON?.message || 'Could not delete this trip log.', 'error');
+            });
         });
     });
     @endif

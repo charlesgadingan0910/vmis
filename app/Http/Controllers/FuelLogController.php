@@ -29,8 +29,10 @@ use Illuminate\Support\Facades\Storage;
  * ADMINISTRATOR is scoped to their own unit; STATION ADMINISTRATOR is
  * scoped to their own station.
  *
- * Fuel logs are never edited or deleted once created (see() store()) — the
- * same audit-trail treatment already given to Trip Logs/Activity Log.
+ * Fuel logs are never edited once created (see store()) — still the same
+ * audit-trail treatment as Trip Logs/Activity Log. The one exception is
+ * destroy(): a SUPER ADMINISTRATOR alone may permanently remove a fuel
+ * log, for genuinely mistaken or duplicate entries — see that method.
  */
 class FuelLogController extends Controller
 {
@@ -156,6 +158,9 @@ class FuelLogController extends Controller
         $length = $request->input('length', 10);
         $logs = $query->skip($start)->take($length)->get();
 
+        // Computed once per request, not per row.
+        $canDelete = $role === self::ROLE_SUPER_ADMIN;
+
         $data = [];
         foreach ($logs as $log) {
             $vehicle = $log->vehicle;
@@ -189,6 +194,12 @@ class FuelLogController extends Controller
             $loggedHtml = '<div class="vehicle-sub-info">' . e(optional($log->loggedBy)->fullname ?? 'Unknown user') . '</div>' .
                           '<div class="vehicle-sub-info">' . $log->created_at->format('M d, Y h:i A') . '</div>';
 
+            // Delete is the one write action a SUPER ADMINISTRATOR alone gets
+            // on an otherwise permanent record — see destroy().
+            $actionsHtml = $canDelete
+                ? '<button type="button" class="btn btn-sm btn-light border delete-fuel-log-btn" data-id="' . $log->id . '" title="Delete this fuel log (Super Administrator only)"><i class="fas fa-trash text-danger"></i></button>'
+                : '<span class="text-muted">—</span>';
+
             $data[] = [
                 'vehicle_html'  => $vehicleHtml,
                 'driver_html'   => $driverHtml,
@@ -197,6 +208,7 @@ class FuelLogController extends Controller
                 'odometer_html' => $odometerHtml,
                 'receipt_html'  => $receiptHtml,
                 'logged_html'   => $loggedHtml,
+                'actions_html'  => $actionsHtml,
             ];
         }
 
@@ -336,6 +348,44 @@ class FuelLogController extends Controller
             'success' => true,
             'message' => 'Refuel logged for [' . strtoupper($vehicle->plate_number) . '].',
         ]);
+    }
+
+    /**
+     * Permanently removes a fuel log — the one capability intentionally
+     * withheld everywhere else in this controller (see the class docblock:
+     * fuel logs are otherwise create + view only, like Trip Logs/Activity
+     * Log). Restricted to SUPER ADMINISTRATOR alone, same reasoning as
+     * TripLogController::destroy(). A full snapshot is written to the
+     * Activity Log before anything is removed.
+     */
+    public function destroy(FuelLog $fuelLog): JsonResponse
+    {
+        $user = auth()->user();
+        $role = $this->role($user);
+
+        if ($role !== self::ROLE_SUPER_ADMIN) {
+            abort(403, 'Only a Super Administrator may delete a fuel log.');
+        }
+
+        $vehicle = $fuelLog->vehicle;
+        $plateLabel = $vehicle ? strtoupper($vehicle->plate_number) : 'unknown vehicle';
+        $snapshot = $fuelLog->toArray();
+
+        if ($fuelLog->receipt_path) {
+            Storage::disk('public')->delete($fuelLog->receipt_path);
+        }
+
+        $fuelLog->delete();
+
+        ActivityLog::record(
+            'deleted',
+            'Fuel Log',
+            'Deleted a fuel log for [' . $plateLabel . '] (' . number_format((float) $snapshot['liters'], 2) . ' L, ₱' . number_format((float) $snapshot['total_cost'], 2) . ').',
+            $fuelLog,
+            ['before' => $snapshot]
+        );
+
+        return response()->json(['success' => true, 'message' => 'Fuel log deleted.']);
     }
 
     /**

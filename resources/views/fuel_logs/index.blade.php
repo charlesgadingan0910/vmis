@@ -182,6 +182,7 @@
                             <th>Odometer / Efficiency</th>
                             <th>Receipt</th>
                             <th>Logged By</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -280,7 +281,8 @@ $(document.body).ready(function() {
             { data: 'fuel_html', orderable: false, searchable: false },
             { data: 'odometer_html', orderable: false, searchable: false },
             { data: 'receipt_html', orderable: false, searchable: false },
-            { data: 'logged_html', orderable: false, searchable: false }
+            { data: 'logged_html', orderable: false, searchable: false },
+            { data: 'actions_html', orderable: false, searchable: false }
         ],
         dom: '<"row"<"col-sm-12"tr>><"row"<"col-sm-5"i><"col-sm-7"p>>',
         pageLength: 10,
@@ -309,7 +311,7 @@ $(document.body).ready(function() {
 
         Swal.fire({
             title: 'Save Refuel Log?',
-            text: "Fuel logs are permanent records and cannot be edited or deleted afterward.",
+            text: "Fuel logs are permanent records — only a Super Administrator can remove one afterward.",
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#3b82f6',
@@ -342,6 +344,37 @@ $(document.body).ready(function() {
                 $('#logFuelErrorBanner').text(msg).show();
             }).always(function() {
                 $btn.prop('disabled', false).html('<i class="fas fa-check mr-1"></i> Save Refuel Log');
+            });
+        });
+    });
+
+    // ---------------- Delete (Super Administrator only — see actions_html
+    // in FuelLogController::adminAjaxList()) ----------------
+    const fuelLogDestroyUrlTemplate = @json(route('fuel-logs.destroy', ['fuel_log' => ':id']));
+
+    $('#fuelLogsTable').on('click', '.delete-fuel-log-btn', function() {
+        const id = $(this).data('id');
+
+        Swal.fire({
+            title: 'Delete this fuel log?',
+            text: 'This will permanently delete this refuel record. This cannot be undone.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#94a3b8',
+            cancelButtonText: 'Cancel',
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+
+            $.ajax({
+                url: fuelLogDestroyUrlTemplate.replace(':id', id),
+                type: 'DELETE',
+            }).done(function(res) {
+                Swal.fire('Deleted!', res.message, 'success');
+                fuelLogsTable.ajax.reload(null, false);
+            }).fail(function(xhr) {
+                Swal.fire('Error!', xhr.responseJSON?.message || 'Could not delete this fuel log.', 'error');
             });
         });
     });

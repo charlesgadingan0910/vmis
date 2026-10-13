@@ -120,9 +120,10 @@ Route::middleware('auth')->group(function () {
         // Trip Logs — a DRIVER logs trips for their own assigned vehicle (mobile
         // view), a SUPER ADMINISTRATOR may log for any vehicle; every other role
         // is read-only, scoped by unit/station same as Vehicle Inventory. Gated
-        // entirely inside TripLogController — see its class docblock. No edit/
-        // delete: logged trips are permanent records, like Activity Logs.
-        Route::resource('trip-logs', TripLogController::class)->only(['index', 'store']);
+        // entirely inside TripLogController — see its class docblock. No edit —
+        // logged trips are otherwise permanent, like Activity Logs — but a
+        // SUPER ADMINISTRATOR alone may delete one (TripLogController::destroy()).
+        Route::resource('trip-logs', TripLogController::class)->only(['index', 'store', 'destroy']);
 
         // Live Monitoring — a real-time map of every vehicle currently
         // mid-trip, fed by the driver app's periodic GPS pings (see
@@ -154,9 +155,10 @@ Route::middleware('auth')->group(function () {
         // refuels for their own assigned vehicle via the mobile view, a SUPER
         // ADMINISTRATOR may log for any vehicle, everyone else is read-only,
         // scoped by unit/station). See FuelLogController's class docblock for
-        // why this is its own module rather than part of Trip Logs. No edit/
-        // delete: logged refuels are permanent records, like Trip Logs.
-        Route::resource('fuel-logs', FuelLogController::class)->only(['index', 'store']);
+        // why this is its own module rather than part of Trip Logs. No edit —
+        // logged refuels are otherwise permanent, like Trip Logs — but a
+        // SUPER ADMINISTRATOR alone may delete one (FuelLogController::destroy()).
+        Route::resource('fuel-logs', FuelLogController::class)->only(['index', 'store', 'destroy']);
 
         // Serves uploaded refuel receipts directly (bypasses the public/storage
         // symlink, unreliable on Windows/WAMP) and keeps document access behind login.

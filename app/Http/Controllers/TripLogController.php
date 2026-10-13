@@ -23,8 +23,12 @@ use Illuminate\Support\Str;
  * UNIT ADMINISTRATOR is scoped to their own unit; STATION ADMINISTRATOR is
  * scoped to their own station.
  *
- * Trip logs are never edited or deleted once created (see() store()) — the
- * same audit-trail treatment already given to ActivityLog.
+ * Trip logs are never edited once created (see store()) — still the same
+ * audit-trail treatment as ActivityLog. The one exception is destroy(): a
+ * SUPER ADMINISTRATOR alone (no other role, however broad its visibility
+ * otherwise) may permanently remove a trip log, for genuinely mistaken or
+ * duplicate entries. Every deletion writes a full snapshot to the Activity
+ * Log first, so even this stays auditable after the fact.
  */
 class TripLogController extends Controller
 {
@@ -175,9 +179,13 @@ class TripLogController extends Controller
         $length = $request->input('length', 10);
         $trips = $query->skip($start)->take($length)->get();
 
+        // Computed once per request, not per row — see buildTripRow()'s
+        // $canDelete param.
+        $canDelete = $role === self::ROLE_SUPER_ADMIN;
+
         $data = [];
         foreach ($trips as $trip) {
-            $data[] = $this->buildTripRow($trip);
+            $data[] = $this->buildTripRow($trip, $canDelete);
         }
 
         return response()->json([
@@ -199,8 +207,12 @@ class TripLogController extends Controller
      * return leg is still its own permanent, append-only TripLog record
      * underneath (TripLogController::store() / Api\TripLogController::
      * store() haven't changed); only how it's *displayed* has.
+     *
+     * $canDelete gates the new Delete button in actions_html — computed
+     * once by the caller (adminAjaxList()) rather than re-checking the
+     * role on every row.
      */
-    protected function buildTripRow(TripLog $trip): array
+    protected function buildTripRow(TripLog $trip, bool $canDelete = false): array
     {
         $returnLeg = $trip->leg === 'outbound' ? $trip->roundTripPartner() : null;
         $isRoundTrip = $returnLeg !== null;
@@ -282,6 +294,16 @@ class TripLogController extends Controller
             $gpsHtml = '<span class="text-muted">—</span>';
         }
 
+        // Delete is the one write action a SUPER ADMINISTRATOR alone gets on
+        // an otherwise permanent record — see destroy() and the class
+        // docblock. Every other role sees a dash, same empty-state style
+        // used elsewhere in this row.
+        $actionsHtml = $canDelete
+            ? '<button type="button" class="btn btn-sm btn-light border delete-trip-btn" data-id="' . $trip->id .
+                '" data-round-trip="' . ($isRoundTrip ? '1' : '0') .
+                '" title="Delete this trip log (Super Administrator only)"><i class="fas fa-trash text-danger"></i></button>'
+            : '<span class="text-muted">—</span>';
+
         return [
             'vehicle_html'  => $vehicleHtml,
             'driver_html'   => $driverHtml,
@@ -290,7 +312,66 @@ class TripLogController extends Controller
             'odometer_html' => $odometerHtml,
             'gps_html'      => $gpsHtml,
             'logged_html'   => $loggedHtml,
+            'actions_html'  => $actionsHtml,
         ];
+    }
+
+    /**
+     * Permanently removes a trip log — the one capability intentionally
+     * withheld everywhere else in this controller (see the class docblock:
+     * trip logs are otherwise create + view only, like Activity Logs).
+     * Restricted to SUPER ADMINISTRATOR alone, not the broader
+     * BROAD_VISIBILITY_ROLES/ADMIN_VIEW_ROLES used for reading, because this
+     * is the one action that can erase part of the permanent record rather
+     * than just view it.
+     *
+     * $tripLog may be either leg of a round trip — whichever one the
+     * admin's Delete button was on. Both legs are removed together so the
+     * pair never ends up with an orphaned partner still on file, which
+     * buildTripRow()'s merge display assumes never happens. A full
+     * snapshot of whatever is removed is written to the Activity Log
+     * first, so even this stays auditable after the fact.
+     *
+     * Parameter is named $tripLog (not $trip) so Laravel's implicit route
+     * model binding resolves it against Route::resource('trip-logs', ...)'s
+     * {trip_log} wildcard — see Illuminate\Routing\ImplicitRouteBinding's
+     * Str::snake() fallback, same convention VehicleTypeController::
+     * destroy(VehicleType $vehicleType) already relies on for 'vehicle-types'.
+     */
+    public function destroy(TripLog $tripLog): JsonResponse
+    {
+        $user = auth()->user();
+        $role = $this->role($user);
+
+        if ($role !== self::ROLE_SUPER_ADMIN) {
+            abort(403, 'Only a Super Administrator may delete a trip log.');
+        }
+
+        $partner = $tripLog->roundTripPartner();
+        $isRoundTrip = $partner !== null;
+        $vehicle = $tripLog->vehicle;
+        $plateLabel = $vehicle ? strtoupper($vehicle->plate_number) : 'unknown vehicle';
+
+        $snapshot = $tripLog->toArray();
+        $partnerSnapshot = $partner?->toArray();
+
+        $tripLog->delete();
+        $partner?->delete();
+
+        ActivityLog::record(
+            'deleted',
+            'Trip Log',
+            $isRoundTrip
+                ? 'Deleted a round trip log for [' . $plateLabel . '] (' . $tripLog->origin . ' ⇄ ' . $tripLog->destination . ') — both legs removed.'
+                : 'Deleted a trip log for [' . $plateLabel . '] (' . $tripLog->origin . ' to ' . $tripLog->destination . ').',
+            $tripLog,
+            $isRoundTrip ? ['before' => $snapshot, 'before_return_leg' => $partnerSnapshot] : ['before' => $snapshot]
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => $isRoundTrip ? 'Round trip log deleted — both legs removed.' : 'Trip log deleted.',
+        ]);
     }
 
     protected function adminIndex($user, string $role)
