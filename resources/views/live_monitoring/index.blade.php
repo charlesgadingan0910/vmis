@@ -21,15 +21,33 @@
   .live-map-wrap { position: relative; height: calc(100vh - 230px); min-height: 460px; border-radius: 16px; overflow: hidden; border: 1px solid #eef1f6; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04); }
   #liveMapEl { width: 100%; height: 100%; z-index: 1; }
 
-  .live-sidebar { position: absolute; top: 14px; left: 14px; width: 300px; max-width: calc(100% - 28px); max-height: calc(100% - 28px); overflow-y: auto; background: rgba(255, 255, 255, 0.97); border-radius: 12px; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.14); z-index: 1000; }
-  .live-sidebar-header { padding: 13px 16px; border-bottom: 1px solid #eef1f6; font-weight: 800; font-size: 12.5px; color: #0f172a; display: flex; align-items: center; justify-content: space-between; text-transform: uppercase; letter-spacing: 0.3px; }
-  .live-trip-item { padding: 10px 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s; }
-  .live-trip-item:hover { background: #f8fafc; }
-  .live-trip-item.is-stale { opacity: 0.55; }
-  .live-trip-plate { font-weight: 800; font-size: 12.5px; color: #0f172a; }
-  .live-trip-driver { font-size: 11.5px; color: #64748b; margin-top: 2px; }
-  .live-trip-meta { font-size: 10.5px; color: #94a3b8; margin-top: 4px; display: flex; gap: 12px; flex-wrap: wrap; }
-  .live-trip-meta .text-warning { color: #d97706 !important; }
+  .plate-badge { display: inline-block; font-family: 'Courier New', monospace; font-weight: 800; font-size: 13px; background: #0f172a; color: #fff; padding: 3px 9px; border-radius: 6px; letter-spacing: 0.5px; }
+
+  /* ---------------- Active Trips sidebar — a floating card of individual
+     trip "tiles" (icon avatar + plate + live stat chips) rather than a
+     flat list of text rows, matching the stat-card language used
+     elsewhere in VMIS (see trip_registrations' stat cards). ---------------- */
+  .live-sidebar { position: absolute; top: 14px; left: 14px; width: 310px; max-width: calc(100% - 28px); max-height: calc(100% - 28px); overflow-y: auto; background: rgba(255, 255, 255, 0.98); border-radius: 14px; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16); border: 1px solid rgba(226, 232, 240, 0.7); z-index: 1000; }
+  .live-sidebar-header { padding: 13px 16px; background: linear-gradient(135deg, #0f172a, #1e293b); border-radius: 14px 14px 0 0; font-weight: 800; font-size: 11.5px; color: #fff; display: flex; align-items: center; justify-content: space-between; text-transform: uppercase; letter-spacing: 0.4px; position: sticky; top: 0; z-index: 2; }
+  .live-sidebar-title { display: flex; align-items: center; gap: 7px; }
+  .live-sidebar-title i { color: #60a5fa; }
+  .live-sidebar-count-badge { background: rgba(255, 255, 255, 0.16); color: #fff; font-weight: 800; font-size: 10.5px; padding: 3px 9px; border-radius: 20px; min-width: 20px; text-align: center; }
+
+  .live-trip-list-inner { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .live-trip-item { border-radius: 12px; border: 1px solid #eef1f6; background: #fff; padding: 11px 12px; cursor: pointer; display: flex; align-items: flex-start; gap: 10px; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
+  .live-trip-item:hover { border-color: #bfdbfe; box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08); transform: translateY(-1px); }
+  .live-trip-item.is-stale { opacity: 0.68; }
+  .live-trip-avatar { width: 36px; height: 36px; border-radius: 10px; background: rgba(37, 99, 235, 0.1); color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .live-trip-item.is-stale .live-trip-avatar { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+  .live-trip-main { flex: 1; min-width: 0; }
+  .live-trip-top-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .live-trip-plate { font-weight: 800; font-size: 12.5px; color: #0f172a; font-family: 'Courier New', monospace; letter-spacing: 0.3px; }
+  .live-trip-status-dot { width: 7px; height: 7px; border-radius: 50%; background: #16a34a; flex-shrink: 0; animation: live-pulse 1.8s infinite; }
+  .live-trip-item.is-stale .live-trip-status-dot { background: #f59e0b; animation: none; }
+  .live-trip-driver { font-size: 11.5px; color: #64748b; margin-top: 2px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .live-trip-meta { font-size: 10px; color: #64748b; margin-top: 7px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .live-trip-meta span { display: inline-flex; align-items: center; gap: 4px; background: #f8fafc; padding: 3px 8px; border-radius: 7px; font-weight: 700; }
+  .live-trip-meta .text-warning { color: #b45309 !important; background: #fef3c7 !important; }
   .live-empty-state { padding: 34px 18px; text-align: center; color: #94a3b8; font-size: 12.5px; }
 
   .live-pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; display: inline-block; margin-right: 7px; animation: live-pulse 1.8s infinite; }
@@ -40,19 +58,60 @@
   .live-updated-label.is-fetching i { animation: live-spin 0.8s linear infinite; }
   @keyframes live-spin { to { transform: rotate(360deg); } }
 
-  /* Vehicle marker — a heading-aware arrow (rotated in JS to the bearing
-     of travel) inside a soft ring that pulses only while the trip is
+  /* ---------------- Vehicle marker — a real top-down car silhouette
+     (inline SVG, not a generic pin/arrow) rotated in JS to the bearing of
+     travel, inside a soft ring that pulses only while the trip is
      actually live, so "is this vehicle's data current" reads at a glance
      the same way the sidebar's pulse dot does. Position changes are
      animated in JS (see animateMarkerTo) rather than jumping on every
-     10s refresh, which is what actually makes this feel "live" instead
-     of a page that quietly teleports a dot every few seconds. */
-  .vehicle-marker-wrap { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; position: relative; transition: transform 0.2s ease; }
+     10s refresh — that, plus the marker actually looking like a car, is
+     what sells "this is really moving" instead of a dot that teleports
+     on a map every few seconds. ---------------- */
+  .vehicle-marker-wrap { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; position: relative; }
   .vehicle-marker-ring { position: absolute; inset: 0; border-radius: 50%; background: rgba(37, 99, 235, 0.18); animation: marker-pulse 2s ease-out infinite; }
   .vehicle-marker-wrap.is-stale .vehicle-marker-ring { display: none; }
   @keyframes marker-pulse { 0% { transform: scale(0.45); opacity: 0.9; } 100% { transform: scale(1); opacity: 0; } }
-  .vehicle-marker-arrow { width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 16px solid #2563eb; filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.5)); position: relative; z-index: 1; }
-  .vehicle-marker-wrap.is-stale .vehicle-marker-arrow { border-bottom-color: #94a3b8; filter: none; opacity: 0.85; }
+  .vehicle-marker-car { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; transition: transform 0.2s ease; filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.45)); }
+  .vehicle-marker-car .car-body { fill: #2563eb; stroke: #1d4ed8; stroke-width: 0.6; }
+  .vehicle-marker-car .car-glass { fill: #dbeafe; }
+  .vehicle-marker-car .car-roof-accent { fill: #1d4ed8; opacity: 0.22; }
+  .vehicle-marker-car .car-mirror { fill: #1d4ed8; }
+  .vehicle-marker-wrap.is-stale .vehicle-marker-car { filter: none; opacity: 0.85; }
+  .vehicle-marker-wrap.is-stale .vehicle-marker-car .car-body { fill: #94a3b8; stroke: #64748b; }
+  .vehicle-marker-wrap.is-stale .vehicle-marker-car .car-glass { fill: #e2e8f0; }
+  .vehicle-marker-wrap.is-stale .vehicle-marker-car .car-roof-accent { fill: #64748b; }
+  .vehicle-marker-wrap.is-stale .vehicle-marker-car .car-mirror { fill: #64748b; }
+
+  /* ---------------- Marker popup — Leaflet's default popup is a plain
+     square box of text; this re-skins the chrome once (wrapper/close
+     button) and the trip-popup-* classes below lay it out as a small
+     stat-card (plate badge + live/stale status chip, driver row, stat
+     tiles) instead of a few bare lines. ---------------- */
+  .leaflet-popup-content-wrapper { border-radius: 14px; padding: 0; box-shadow: 0 14px 32px rgba(15, 23, 42, 0.2); overflow: hidden; }
+  .leaflet-popup-content { margin: 0 !important; width: 252px !important; }
+  .leaflet-popup-close-button { top: 9px !important; right: 10px !important; font-size: 18px !important; color: #94a3b8 !important; }
+  .leaflet-popup-close-button:hover { color: #0f172a !important; }
+
+  .trip-popup-header { padding: 14px 32px 11px 16px; border-bottom: 1px solid #f1f5f9; }
+  .trip-popup-header-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .trip-popup-vehicle-label { font-size: 11.5px; color: #64748b; margin-top: 5px; font-weight: 600; }
+  .trip-popup-status { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; padding: 4px 8px; border-radius: 20px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .trip-popup-status.is-live { background: #dcfce7; color: #15803d; }
+  .trip-popup-status.is-stale { background: #fef3c7; color: #b45309; }
+  .trip-popup-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .trip-popup-status.is-live .trip-popup-status-dot { animation: live-pulse 1.8s infinite; }
+
+  .trip-popup-body { padding: 12px 16px 14px; }
+  .trip-popup-driver { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: #0f172a; margin-bottom: 12px; }
+  .trip-popup-driver-avatar { width: 25px; height: 25px; border-radius: 50%; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+
+  .trip-popup-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .trip-popup-stat { background: #f8fafc; border-radius: 10px; padding: 8px 9px; display: flex; align-items: center; gap: 8px; }
+  .trip-popup-stat-icon { width: 26px; height: 26px; border-radius: 8px; background: rgba(37, 99, 235, 0.1); color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+  .trip-popup-stat-value { font-size: 12.5px; font-weight: 800; color: #0f172a; line-height: 1.2; }
+  .trip-popup-stat-label { font-size: 9px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 1px; }
+
+  .trip-popup-alert { margin-top: 10px; background: #fef2f2; color: #b91c1c; font-size: 11px; font-weight: 600; padding: 7px 9px; border-radius: 8px; display: flex; align-items: center; gap: 6px; }
 </style>
 @endsection
 
@@ -78,10 +137,10 @@
             <div id="liveMapEl"></div>
             <div class="live-sidebar">
                 <div class="live-sidebar-header">
-                    <span>Active Trips</span>
-                    <span id="liveSidebarCount" class="text-muted" style="font-weight: 700;">0</span>
+                    <span class="live-sidebar-title"><i class="fas fa-location-dot"></i> Active Trips</span>
+                    <span id="liveSidebarCount" class="live-sidebar-count-badge">0</span>
                 </div>
-                <div id="liveTripList"></div>
+                <div id="liveTripList" class="live-trip-list-inner"></div>
             </div>
         </div>
 
@@ -125,12 +184,34 @@ $(document.body).ready(function() {
         return (toDeg(Math.atan2(y, x)) + 360) % 360;
     }
 
+    /// Minimal HTML-escape for anything coming from the API before it's
+    /// concatenated into marker/sidebar markup (plate number, driver
+    /// name, vehicle label) — these ultimately originate from user-edited
+    /// records (Vehicles, Drivers), so don't trust them verbatim.
+    function escHtml(s) {
+        return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function(c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    /// A real top-down car silhouette (inline SVG) instead of a plain
+    /// directional arrow — nose points toward 0deg (north) at rest, same
+    /// convention the old arrow used, so the existing bearingDeg/rotate
+    /// logic below needs no changes, only a better-looking icon to rotate.
     function markerIcon(stale, headingDeg) {
+        const carSvg = '<svg width="30" height="30" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">' +
+            '<path class="car-body" d="M14,3.6 C16.6,3.6 18,5.6 18.7,8.2 L19.6,11.1 C20.1,12.6 20.2,13.9 20.2,15.4 L20.2,21.3 C20.2,23.8 18.6,24.6 16.3,24.8 L11.7,24.8 C9.4,24.6 7.8,23.8 7.8,21.3 L7.8,15.4 C7.8,13.9 7.9,12.6 8.4,11.1 L9.3,8.2 C10,5.6 11.4,3.6 14,3.6 Z"></path>' +
+            '<circle class="car-mirror" cx="6.4" cy="12.3" r="1.25"></circle>' +
+            '<circle class="car-mirror" cx="21.6" cy="12.3" r="1.25"></circle>' +
+            '<rect class="car-glass" x="9.6" y="7.4" width="8.8" height="4.7" rx="2.1"></rect>' +
+            '<rect class="car-roof-accent" x="10.5" y="13" width="7" height="5" rx="1.6"></rect>' +
+            '<rect class="car-glass" x="9.8" y="19.6" width="8.4" height="3.6" rx="1.4"></rect>' +
+            '</svg>';
         const html = '<div class="vehicle-marker-wrap' + (stale ? ' is-stale' : '') + '">' +
             '<div class="vehicle-marker-ring"></div>' +
-            '<div class="vehicle-marker-arrow" style="transform: rotate(' + headingDeg + 'deg);"></div>' +
+            '<div class="vehicle-marker-car" style="transform: rotate(' + headingDeg + 'deg);">' + carSvg + '</div>' +
             '</div>';
-        return L.divIcon({ className: '', html: html, iconSize: [34, 34], iconAnchor: [17, 17] });
+        return L.divIcon({ className: '', html: html, iconSize: [36, 36], iconAnchor: [18, 18] });
     }
 
     /// Glides a marker from its current position to [lat,lng] over
@@ -172,17 +253,32 @@ $(document.body).ready(function() {
     }
 
     function popupHtml(t) {
-        let html = '<div style="min-width:170px; font-size:12.5px;">' +
-            '<strong>' + (t.plate_number || 'Unknown vehicle') + '</strong><br>' +
-            (t.vehicle_label ? t.vehicle_label + '<br>' : '') +
-            '<span class="text-muted">Driver:</span> ' + (t.driver_name || 'Unknown') + '<br>' +
-            '<span class="text-muted">Elapsed:</span> ' + fmtElapsed(t.started_at) + '<br>' +
-            '<span class="text-muted">Distance:</span> ' + (t.distance_km || 0).toFixed(1) + ' km';
-        if (t.stale) {
+        const stale = !!t.stale;
+        const statusHtml = stale
+            ? '<span class="trip-popup-status is-stale"><span class="trip-popup-status-dot"></span> Signal lost</span>'
+            : '<span class="trip-popup-status is-live"><span class="trip-popup-status-dot"></span> Live</span>';
+
+        let html = '<div class="trip-popup-header">' +
+                '<div class="trip-popup-header-top">' +
+                    '<span class="plate-badge">' + escHtml(t.plate_number || 'Unknown') + '</span>' +
+                    statusHtml +
+                '</div>' +
+                (t.vehicle_label ? '<div class="trip-popup-vehicle-label">' + escHtml(t.vehicle_label) + '</div>' : '') +
+            '</div>' +
+            '<div class="trip-popup-body">' +
+                '<div class="trip-popup-driver"><span class="trip-popup-driver-avatar"><i class="fas fa-user"></i></span> ' + escHtml(t.driver_name || 'Unknown driver') + '</div>' +
+                '<div class="trip-popup-stats">' +
+                    '<div class="trip-popup-stat"><span class="trip-popup-stat-icon"><i class="fas fa-clock"></i></span><div><div class="trip-popup-stat-value">' + fmtElapsed(t.started_at) + '</div><div class="trip-popup-stat-label">Elapsed</div></div></div>' +
+                    '<div class="trip-popup-stat"><span class="trip-popup-stat-icon"><i class="fas fa-road"></i></span><div><div class="trip-popup-stat-value">' + (t.distance_km || 0).toFixed(1) + ' km</div><div class="trip-popup-stat-label">Distance</div></div></div>' +
+                '</div>';
+
+        if (stale) {
             const lastSeen = t.last_ping_at ? new Date(t.last_ping_at).toLocaleTimeString() : 'unknown';
-            html += '<br><span style="color:#d97706;"><i class="fas fa-exclamation-triangle"></i> Signal lost — last seen ' + lastSeen + '</span>';
+            html += '<div class="trip-popup-alert"><i class="fas fa-triangle-exclamation"></i> Last seen ' + lastSeen + '</div>';
         }
-        return html + '</div>';
+
+        html += '</div>';
+        return html;
     }
 
     function renderSidebar(trips) {
@@ -202,9 +298,15 @@ $(document.body).ready(function() {
                 metaHtml += '<span class="text-warning"><i class="fas fa-exclamation-triangle"></i> Signal lost</span>';
             }
             item.html(
-                '<div class="live-trip-plate">' + (t.plate_number || 'Unknown') + '</div>' +
-                '<div class="live-trip-driver">' + (t.driver_name || 'Unknown driver') + (t.vehicle_label ? ' · ' + t.vehicle_label : '') + '</div>' +
-                '<div class="live-trip-meta">' + metaHtml + '</div>'
+                '<div class="live-trip-avatar"><i class="fas fa-car-side"></i></div>' +
+                '<div class="live-trip-main">' +
+                    '<div class="live-trip-top-row">' +
+                        '<span class="live-trip-plate">' + escHtml(t.plate_number || 'Unknown') + '</span>' +
+                        '<span class="live-trip-status-dot"></span>' +
+                    '</div>' +
+                    '<div class="live-trip-driver">' + escHtml(t.driver_name || 'Unknown driver') + (t.vehicle_label ? ' · ' + escHtml(t.vehicle_label) : '') + '</div>' +
+                    '<div class="live-trip-meta">' + metaHtml + '</div>' +
+                '</div>'
             );
             item.on('click', function() {
                 const marker = markers[t.vehicle_id];
