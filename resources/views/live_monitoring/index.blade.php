@@ -58,29 +58,43 @@
   .live-updated-label.is-fetching i { animation: live-spin 0.8s linear infinite; }
   @keyframes live-spin { to { transform: rotate(360deg); } }
 
-  /* ---------------- Vehicle marker — a real top-down car silhouette
-     (inline SVG, not a generic pin/arrow) rotated in JS to the bearing of
-     travel, inside a soft ring that pulses only while the trip is
-     actually live, so "is this vehicle's data current" reads at a glance
-     the same way the sidebar's pulse dot does. Position changes are
-     animated in JS (see animateMarkerTo) rather than jumping on every
-     10s refresh — that, plus the marker actually looking like a car, is
-     what sells "this is really moving" instead of a dot that teleports
-     on a map every few seconds. ---------------- */
-  .vehicle-marker-wrap { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; position: relative; }
+  /* ---------------- Vehicle marker — a detailed top-down car (inline
+     SVG: glossy gradient body, wheels peeking out at all four corners,
+     windshield/rear glass, roof panel, headlights/taillights, mirrors,
+     a paint highlight streak) rather than a flat silhouette, so it reads
+     as an actual vehicle instead of a blob even at marker size. Rotated
+     in JS to the bearing of travel, inside a soft ring that pulses only
+     while the trip is actually live, so "is this vehicle's data current"
+     reads at a glance the same way the sidebar's pulse dot does.
+     Position changes are animated in JS (see animateMarkerTo) rather
+     than jumping on every 10s refresh — that, plus the marker actually
+     looking like a car, is what sells "this is really moving" instead of
+     a dot that teleports on a map every few seconds. The body's fill is
+     an inline per-marker <linearGradient> (see carSvgMarkup() in the
+     script below) — CSS alone can't fake the metallic-paint gradient, so
+     only the flatter details (glass, wheels, lights, mirrors) are
+     styled here. ---------------- */
+  .vehicle-marker-wrap { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; position: relative; }
   .vehicle-marker-ring { position: absolute; inset: 0; border-radius: 50%; background: rgba(37, 99, 235, 0.18); animation: marker-pulse 2s ease-out infinite; }
   .vehicle-marker-wrap.is-stale .vehicle-marker-ring { display: none; }
   @keyframes marker-pulse { 0% { transform: scale(0.45); opacity: 0.9; } 100% { transform: scale(1); opacity: 0; } }
-  .vehicle-marker-car { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; transition: transform 0.2s ease; filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.45)); }
-  .vehicle-marker-car .car-body { fill: #2563eb; stroke: #1d4ed8; stroke-width: 0.6; }
-  .vehicle-marker-car .car-glass { fill: #dbeafe; }
-  .vehicle-marker-car .car-roof-accent { fill: #1d4ed8; opacity: 0.22; }
-  .vehicle-marker-car .car-mirror { fill: #1d4ed8; }
+  .vehicle-marker-car { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; transition: transform 0.2s ease; filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.5)); }
+  .car-wheel { fill: #0f172a; }
+  .car-body { stroke: rgba(15, 23, 42, 0.35); stroke-width: 0.5; }
+  .car-headlight { fill: #fde68a; }
+  .car-glass { fill: #bfdbfe; opacity: 0.92; }
+  .car-roof { fill: rgba(15, 23, 42, 0.2); }
+  .car-taillight { fill: #ef4444; }
+  .car-mirror { fill: rgba(15, 23, 42, 0.55); }
+  .car-highlight { stroke: rgba(255, 255, 255, 0.55); stroke-width: 1; stroke-linecap: round; fill: none; }
   .vehicle-marker-wrap.is-stale .vehicle-marker-car { filter: none; opacity: 0.85; }
-  .vehicle-marker-wrap.is-stale .vehicle-marker-car .car-body { fill: #94a3b8; stroke: #64748b; }
-  .vehicle-marker-wrap.is-stale .vehicle-marker-car .car-glass { fill: #e2e8f0; }
-  .vehicle-marker-wrap.is-stale .vehicle-marker-car .car-roof-accent { fill: #64748b; }
-  .vehicle-marker-wrap.is-stale .vehicle-marker-car .car-mirror { fill: #64748b; }
+  .vehicle-marker-wrap.is-stale .car-wheel { fill: #475569; }
+  .vehicle-marker-wrap.is-stale .car-headlight { fill: #e2e8f0; opacity: 0.6; }
+  .vehicle-marker-wrap.is-stale .car-glass { fill: #e2e8f0; }
+  .vehicle-marker-wrap.is-stale .car-roof { fill: rgba(100, 116, 139, 0.25); }
+  .vehicle-marker-wrap.is-stale .car-taillight { fill: #94a3b8; }
+  .vehicle-marker-wrap.is-stale .car-mirror { fill: rgba(100, 116, 139, 0.6); }
+  .vehicle-marker-wrap.is-stale .car-highlight { stroke: rgba(255, 255, 255, 0.25); }
 
   /* ---------------- Marker popup — Leaflet's default popup is a plain
      square box of text; this re-skins the chrome once (wrapper/close
@@ -194,24 +208,51 @@ $(document.body).ready(function() {
         });
     }
 
-    /// A real top-down car silhouette (inline SVG) instead of a plain
-    /// directional arrow — nose points toward 0deg (north) at rest, same
+    /// Builds the actual car artwork shared by the map marker and the
+    /// sidebar avatar: wheels peeking out at all four corners (drawn
+    /// first, so the body overlaps their inner half), a glossy gradient
+    /// body, windshield/rear glass, a shaded roof panel, headlights/
+    /// taillights, side mirrors, and a soft paint-highlight streak — a
+    /// real vehicle silhouette rather than a flat triangle/blob. gradId
+    /// must be unique per <svg> on the page (gradients are referenced by
+    /// id) since several vehicles can be visible at once.
+    function carSvgMarkup(gradId, lightColor, darkColor, size) {
+        return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">' +
+            '<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="1" y2="1">' +
+                '<stop offset="0%" stop-color="' + lightColor + '"></stop>' +
+                '<stop offset="100%" stop-color="' + darkColor + '"></stop>' +
+            '</linearGradient></defs>' +
+            '<rect class="car-wheel" x="4.6" y="9.3" width="2.6" height="5.6" rx="1.3"></rect>' +
+            '<rect class="car-wheel" x="20.8" y="9.3" width="2.6" height="5.6" rx="1.3"></rect>' +
+            '<rect class="car-wheel" x="4.6" y="18.4" width="2.6" height="6" rx="1.3"></rect>' +
+            '<rect class="car-wheel" x="20.8" y="18.4" width="2.6" height="6" rx="1.3"></rect>' +
+            '<path class="car-body" fill="url(#' + gradId + ')" d="M14,3.3 C16.7,3.3 18.2,5.4 18.9,8.1 L19.8,11 C20.3,12.6 20.4,13.9 20.4,15.4 L20.4,21.5 C20.4,24.2 18.7,25.1 16.2,25.3 L11.8,25.3 C9.3,25.1 7.6,24.2 7.6,21.5 L7.6,15.4 C7.6,13.9 7.7,12.6 8.2,11 L9.1,8.1 C9.8,5.4 11.3,3.3 14,3.3 Z"></path>' +
+            '<ellipse class="car-headlight" cx="10.3" cy="4.9" rx="1" ry="0.7"></ellipse>' +
+            '<ellipse class="car-headlight" cx="17.7" cy="4.9" rx="1" ry="0.7"></ellipse>' +
+            '<path class="car-glass" d="M9.4,8.4 C9.4,7 11.3,6.1 14,6.1 C16.7,6.1 18.6,7 18.6,8.4 L18.1,11.8 C17.5,12.6 10.5,12.6 9.9,11.8 Z"></path>' +
+            '<rect class="car-roof" x="10.3" y="13" width="7.4" height="5" rx="1.6"></rect>' +
+            '<path class="car-glass" d="M9.9,19.2 C10.5,18.5 17.5,18.5 18.1,19.2 L18.5,21.9 C18.5,22.9 17,23.4 14,23.4 C11,23.4 9.5,22.9 9.5,21.9 Z"></path>' +
+            '<rect class="car-taillight" x="8.3" y="22.6" width="1.6" height="1" rx="0.4"></rect>' +
+            '<rect class="car-taillight" x="18.1" y="22.6" width="1.6" height="1" rx="0.4"></rect>' +
+            '<circle class="car-mirror" cx="6.5" cy="11.2" r="1.15"></circle>' +
+            '<circle class="car-mirror" cx="21.5" cy="11.2" r="1.15"></circle>' +
+            '<path class="car-highlight" d="M10,5 C9.3,9 9.1,14 9.6,20"></path>' +
+            '</svg>';
+    }
+
+    /// Map marker icon — nose points toward 0deg (north) at rest, same
     /// convention the old arrow used, so the existing bearingDeg/rotate
     /// logic below needs no changes, only a better-looking icon to rotate.
-    function markerIcon(stale, headingDeg) {
-        const carSvg = '<svg width="30" height="30" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">' +
-            '<path class="car-body" d="M14,3.6 C16.6,3.6 18,5.6 18.7,8.2 L19.6,11.1 C20.1,12.6 20.2,13.9 20.2,15.4 L20.2,21.3 C20.2,23.8 18.6,24.6 16.3,24.8 L11.7,24.8 C9.4,24.6 7.8,23.8 7.8,21.3 L7.8,15.4 C7.8,13.9 7.9,12.6 8.4,11.1 L9.3,8.2 C10,5.6 11.4,3.6 14,3.6 Z"></path>' +
-            '<circle class="car-mirror" cx="6.4" cy="12.3" r="1.25"></circle>' +
-            '<circle class="car-mirror" cx="21.6" cy="12.3" r="1.25"></circle>' +
-            '<rect class="car-glass" x="9.6" y="7.4" width="8.8" height="4.7" rx="2.1"></rect>' +
-            '<rect class="car-roof-accent" x="10.5" y="13" width="7" height="5" rx="1.6"></rect>' +
-            '<rect class="car-glass" x="9.8" y="19.6" width="8.4" height="3.6" rx="1.4"></rect>' +
-            '</svg>';
+    function markerIcon(stale, headingDeg, vehicleId) {
+        const gradId = 'carGradMap' + (vehicleId === undefined || vehicleId === null ? 'x' : vehicleId) + (stale ? 'S' : 'A');
+        const carSvg = stale
+            ? carSvgMarkup(gradId, '#cbd5e1', '#64748b', 34)
+            : carSvgMarkup(gradId, '#60a5fa', '#1d4ed8', 34);
         const html = '<div class="vehicle-marker-wrap' + (stale ? ' is-stale' : '') + '">' +
             '<div class="vehicle-marker-ring"></div>' +
             '<div class="vehicle-marker-car" style="transform: rotate(' + headingDeg + 'deg);">' + carSvg + '</div>' +
             '</div>';
-        return L.divIcon({ className: '', html: html, iconSize: [36, 36], iconAnchor: [18, 18] });
+        return L.divIcon({ className: '', html: html, iconSize: [40, 40], iconAnchor: [20, 20] });
     }
 
     /// Glides a marker from its current position to [lat,lng] over
@@ -297,8 +338,12 @@ $(document.body).ready(function() {
             if (t.stale) {
                 metaHtml += '<span class="text-warning"><i class="fas fa-exclamation-triangle"></i> Signal lost</span>';
             }
+            const sidebarGradId = 'carGradSB' + (t.vehicle_id === undefined || t.vehicle_id === null ? 'x' : t.vehicle_id) + (t.stale ? 'S' : 'A');
+            const sidebarCarSvg = t.stale
+                ? carSvgMarkup(sidebarGradId, '#cbd5e1', '#94a3b8', 24)
+                : carSvgMarkup(sidebarGradId, '#60a5fa', '#1d4ed8', 24);
             item.html(
-                '<div class="live-trip-avatar"><i class="fas fa-car-side"></i></div>' +
+                '<div class="live-trip-avatar">' + sidebarCarSvg + '</div>' +
                 '<div class="live-trip-main">' +
                     '<div class="live-trip-top-row">' +
                         '<span class="live-trip-plate">' + escHtml(t.plate_number || 'Unknown') + '</span>' +
@@ -347,9 +392,9 @@ $(document.body).ready(function() {
 
                 if (markers[t.vehicle_id]) {
                     animateMarkerTo(markers[t.vehicle_id], latLng, 1800);
-                    markers[t.vehicle_id].setIcon(markerIcon(t.stale, heading)).setPopupContent(popupHtml(t));
+                    markers[t.vehicle_id].setIcon(markerIcon(t.stale, heading, t.vehicle_id)).setPopupContent(popupHtml(t));
                 } else {
-                    markers[t.vehicle_id] = L.marker(latLng, { icon: markerIcon(t.stale, heading) }).addTo(map).bindPopup(popupHtml(t));
+                    markers[t.vehicle_id] = L.marker(latLng, { icon: markerIcon(t.stale, heading, t.vehicle_id) }).addTo(map).bindPopup(popupHtml(t));
                 }
 
                 const trail = (t.route_points || [])
