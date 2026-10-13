@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActiveTripSession;
+use App\Models\Station;
+use App\Models\Unit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -58,13 +60,33 @@ class LiveMonitoringController extends Controller
 
     public function index()
     {
-        $role = $this->role(auth()->user());
+        $user = auth()->user();
+        $role = $this->role($user);
 
         if ($role === self::ROLE_DRIVER) {
             abort(403, 'Your account type does not have access to Live Monitoring.');
         }
 
-        return view('live_monitoring.index');
+        $hasBroadVisibility = in_array($role, self::BROAD_VISIBILITY_ROLES, true);
+
+        // Same "cannot write" set GeofenceController itself enforces —
+        // VIEWER sees the Geofences panel read-only, everyone else here
+        // (every non-DRIVER role that reaches this page) can draw zones,
+        // scoped to their own unit/station for a Unit/Station
+        // Administrator (see GeofenceController::resolveScope()).
+        $canManageGeofences = $role !== self::ROLE_VIEWER;
+
+        $units = $hasBroadVisibility
+            ? Unit::orderBy('unit_name')->get()
+            : Unit::where('id', $user->unit_id)->orderBy('unit_name')->get();
+
+        $stations = $hasBroadVisibility
+            ? Station::orderBy('station_name')->get()
+            : ($role === self::ROLE_UNIT_ADMIN
+                ? Station::where('unit_id', $user->unit_id)->orderBy('station_name')->get()
+                : Station::where('id', $user->station_id)->orderBy('station_name')->get());
+
+        return view('live_monitoring.index', compact('units', 'stations', 'canManageGeofences', 'hasBroadVisibility'));
     }
 
     public function activeTrips(Request $request): JsonResponse

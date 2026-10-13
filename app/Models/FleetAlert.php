@@ -18,12 +18,16 @@ class FleetAlert extends Model
     public const TYPE_PMS_DUE          = 'pms_due';
     public const TYPE_UNSERVICEABLE    = 'unserviceable_alert';
     public const TYPE_LICENSE_EXPIRY   = 'license_expiry';
+    public const TYPE_GEOFENCE_ENTER   = 'geofence_enter';
+    public const TYPE_GEOFENCE_EXIT    = 'geofence_exit';
 
     public const TYPE_LABELS = [
         self::TYPE_REGISTRATION_DUE => 'Registration',
         self::TYPE_PMS_DUE          => 'PMS',
         self::TYPE_UNSERVICEABLE    => 'Unserviceable',
         self::TYPE_LICENSE_EXPIRY   => "Driver's License",
+        self::TYPE_GEOFENCE_ENTER   => 'Geofence Entry',
+        self::TYPE_GEOFENCE_EXIT    => 'Geofence Exit',
     ];
 
     public const TYPE_ICONS = [
@@ -31,6 +35,8 @@ class FleetAlert extends Model
         self::TYPE_PMS_DUE          => 'fa-tools',
         self::TYPE_UNSERVICEABLE    => 'fa-car-crash',
         self::TYPE_LICENSE_EXPIRY   => 'fa-id-card',
+        self::TYPE_GEOFENCE_ENTER   => 'fa-draw-polygon',
+        self::TYPE_GEOFENCE_EXIT    => 'fa-draw-polygon',
     ];
 
     public const SEVERITY_OVERDUE  = 'overdue';

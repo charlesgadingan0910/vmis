@@ -86,7 +86,25 @@ class NotificationController extends Controller
             'body'       => $a->body,
             'is_read'    => $a->isRead(),
             'created_at' => $a->created_at->diffForHumans(),
-            'link'       => $a->vehicle_id ? route('vehicles.index') : null,
+            'link'       => $this->linkFor($a),
         ];
+    }
+
+    /**
+     * Geofence alerts belong on Live Monitoring (that's where the zone and
+     * the vehicle's live position are visible) rather than the Vehicles
+     * list every other vehicle-scoped alert type links to.
+     */
+    protected function linkFor(FleetAlert $a): ?string
+    {
+        if (! $a->vehicle_id) {
+            return null;
+        }
+
+        if (in_array($a->type, [FleetAlert::TYPE_GEOFENCE_ENTER, FleetAlert::TYPE_GEOFENCE_EXIT], true)) {
+            return route('live-monitoring.index');
+        }
+
+        return route('vehicles.index');
     }
 }

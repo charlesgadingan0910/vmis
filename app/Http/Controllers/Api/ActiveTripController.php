@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ActiveTripSession;
 use App\Models\Driver;
 use App\Models\Vehicle;
+use App\Services\GeofenceDetectionService;
 use App\Support\GeoDistance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,7 +14,7 @@ use Illuminate\Http\Request;
 /**
  * Powers the admin Live Monitoring map — NOT the permanent trip-log
  * record (see TripLogController for that). The driver app calls ping()
- * roughly every 15s while a GPS trip is active (TripTrackingService on
+ * roughly every 10s while a GPS trip is active (TripTrackingService on
  * the Flutter side), giving admins a near-real-time "where is this
  * vehicle right now" view. Once the driver taps End Trip, the full
  * authoritative route is submitted the normal way to
@@ -84,6 +85,18 @@ class ActiveTripController extends Controller
         $distanceDelta = $previousPoint
             ? GeoDistance::totalKm([$previousPoint, ['lat' => $validated['latitude'], 'lng' => $validated['longitude']]])
             : 0.0;
+
+        // Geofence enter/exit detection — stateless, just compares this
+        // vehicle's previous fix against its new one (see
+        // GeofenceDetectionService's docblock). Independent of the
+        // ActiveTripSession update below, so it runs even though the
+        // session row itself doesn't track zone membership.
+        app(GeofenceDetectionService::class)->detect(
+            $vehicle,
+            $driver->id,
+            $previousPoint,
+            ['lat' => $validated['latitude'], 'lng' => $validated['longitude']]
+        );
 
         $points = $session->route_points ?? [];
         $points[] = ['lat' => $validated['latitude'], 'lng' => $validated['longitude'], 'recorded_at' => $now->toIso8601String()];

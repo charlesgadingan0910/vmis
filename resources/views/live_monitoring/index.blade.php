@@ -6,6 +6,7 @@
 <title>VMIS | Live Monitoring</title>
 <link href="{{ asset('dist/img/kasurog.png') }}" rel="icon">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
 @endsection
 
 @section('css')
@@ -137,6 +138,34 @@
   .trip-popup-stat-label { font-size: 9px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 1px; }
 
   .trip-popup-alert { margin-top: 10px; background: #fef2f2; color: #b91c1c; font-size: 11px; font-weight: 600; padding: 7px 9px; border-radius: 8px; display: flex; align-items: center; gap: 6px; }
+
+  /* ---------------- Geofences panel — mirrors the Active Trips sidebar
+     exactly (same card chrome/header language), just docked top-right
+     instead of top-left so the two floating panels never overlap. ---------------- */
+  .geofence-panel { position: absolute; top: 14px; right: 14px; width: 290px; max-width: calc(100% - 28px); max-height: calc(100% - 28px); overflow-y: auto; background: rgba(255, 255, 255, 0.98); border-radius: 14px; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16); border: 1px solid rgba(226, 232, 240, 0.7); z-index: 1000; }
+  .geofence-panel-header { padding: 13px 16px; background: linear-gradient(135deg, #0f172a, #1e293b); border-radius: 14px 14px 0 0; font-weight: 800; font-size: 11.5px; color: #fff; display: flex; align-items: center; justify-content: space-between; text-transform: uppercase; letter-spacing: 0.4px; position: sticky; top: 0; z-index: 2; }
+  .geofence-panel-title { display: flex; align-items: center; gap: 7px; }
+  .geofence-panel-title i { color: #fbbf24; }
+  .geofence-panel-count-badge { background: rgba(255, 255, 255, 0.16); color: #fff; font-weight: 800; font-size: 10.5px; padding: 3px 9px; border-radius: 20px; min-width: 20px; text-align: center; }
+
+  .geofence-draw-actions { display: flex; gap: 6px; padding: 10px; border-bottom: 1px solid #f1f5f9; }
+  .geofence-draw-actions .btn { flex: 1; font-size: 11px; font-weight: 700; padding: 6px 8px; }
+
+  .geofence-shape-edit-bar { display: none; align-items: center; justify-content: space-between; gap: 6px; padding: 8px 10px; background: #fff7ed; border-bottom: 1px solid #fed7aa; font-size: 11px; font-weight: 700; color: #9a3412; }
+  .geofence-shape-edit-bar.is-active { display: flex; }
+
+  .geofence-list-inner { padding: 10px; display: flex; flex-direction: column; gap: 7px; }
+  .geofence-item { border-radius: 11px; border: 1px solid #eef1f6; background: #fff; padding: 9px 10px; display: flex; align-items: flex-start; gap: 9px; }
+  .geofence-swatch { width: 13px; height: 13px; border-radius: 4px; flex-shrink: 0; margin-top: 2px; border: 1px solid rgba(15, 23, 42, 0.12); }
+  .geofence-item-main { flex: 1; min-width: 0; }
+  .geofence-item-name { font-weight: 800; font-size: 12px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .geofence-item-meta { font-size: 10px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; margin-top: 1px; }
+  .geofence-item-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .geofence-item-actions .btn { padding: 3px 7px; font-size: 10.5px; }
+  .geofence-empty-state { padding: 26px 16px; text-align: center; color: #94a3b8; font-size: 12px; }
+
+  .geofence-form-swatch-row { display: flex; align-items: center; gap: 10px; }
+  .geofence-form-swatch-row input[type="color"] { width: 44px; height: 32px; padding: 2px; border-radius: 8px; border: 1px solid #e2e8f0; }
 </style>
 @endsection
 
@@ -167,6 +196,32 @@
                 </div>
                 <div id="liveTripList" class="live-trip-list-inner"></div>
             </div>
+
+            {{-- Geofences panel — zones drawn on this same map that raise a
+                 Notification Center alert when a tracked vehicle enters/exits
+                 one. Docked top-right so it never overlaps the Active Trips
+                 sidebar (top-left). See GeofenceController for the JSON API
+                 this panel talks to. --}}
+            <div class="geofence-panel">
+                <div class="geofence-panel-header">
+                    <span class="geofence-panel-title"><i class="fas fa-draw-polygon"></i> Geofences</span>
+                    <span id="geofenceCount" class="geofence-panel-count-badge">0</span>
+                </div>
+                @if($canManageGeofences)
+                    <div class="geofence-draw-actions">
+                        <button type="button" id="drawPolygonBtn" class="btn btn-outline-dark"><i class="fas fa-draw-polygon"></i> Polygon</button>
+                        <button type="button" id="drawCircleBtn" class="btn btn-outline-dark"><i class="far fa-circle"></i> Circle</button>
+                    </div>
+                    <div id="shapeEditBar" class="geofence-shape-edit-bar">
+                        <span><i class="fas fa-pen"></i> Editing shape…</span>
+                        <span>
+                            <button type="button" id="saveShapeBtn" class="btn btn-sm btn-success">Save</button>
+                            <button type="button" id="cancelShapeBtn" class="btn btn-sm btn-light border">Cancel</button>
+                        </span>
+                    </div>
+                @endif
+                <div id="geofenceList" class="geofence-list-inner"></div>
+            </div>
         </div>
 
         <p class="text-muted mt-2" style="font-size: 11px;">
@@ -176,10 +231,112 @@
         </p>
     </div>
 </section>
+
+@if($canManageGeofences)
+{{-- Create/Edit Geofence modal — shared by both flows (a hidden geofence_id
+     field is blank for Create, populated for Edit). Geometry itself isn't
+     edited here — it comes from the shape just drawn (Create) or from the
+     zone's already-loaded data untouched (Edit); use "Edit Shape" on the
+     zone's popup/list row to change the drawn area itself. --}}
+<div class="modal fade" id="geofenceFormModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-premium">
+            <div class="modal-header-slate d-flex justify-content-between align-items-center">
+                <h5 class="m-0"><i class="fas fa-draw-polygon mr-2"></i> <span id="gfModalTitle">New Geofence</span></h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <form id="geofenceForm">
+                @csrf
+                <input type="hidden" id="gf_id" name="id">
+                <input type="hidden" id="gf_shape_type" name="shape_type">
+                <div class="modal-body p-4">
+                    <div class="form-group mb-3">
+                        <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Zone Name <span class="text-danger">*</span></label>
+                        <input type="text" id="gf_name" name="name" class="form-control form-control-modern" maxlength="150" required placeholder="e.g. Camp Simeon A. Ola Compound">
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Description (optional)</label>
+                        <textarea id="gf_description" name="description" class="form-control form-control-modern" rows="2" maxlength="500"></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-md-6 mb-3">
+                            <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Zone Type</label>
+                            <select id="gf_zone_type" name="zone_type" class="form-control form-control-modern">
+                                <option value="restricted">Restricted</option>
+                                <option value="allowed">Allowed</option>
+                                <option value="checkpoint">Checkpoint</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-6 mb-3">
+                            <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Color</label>
+                            <div class="geofence-form-swatch-row">
+                                <input type="color" id="gf_color" name="color" value="#ef4444">
+                                <span class="text-muted" style="font-size:11px;">Shown on the map &amp; this panel</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if($hasBroadVisibility)
+                        <div class="form-row">
+                            <div class="form-group col-md-6 mb-3">
+                                <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Unit scope</label>
+                                <select id="gf_unit_id" name="unit_id" class="form-control form-control-modern">
+                                    <option value="">Fleet-wide (all units)</option>
+                                    @foreach($units as $unit)
+                                        <option value="{{ $unit->id }}">{{ $unit->unit_name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="form-group col-md-6 mb-3">
+                                <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Station scope</label>
+                                <select id="gf_station_id" name="station_id" class="form-control form-control-modern">
+                                    <option value="">Every station</option>
+                                    @foreach($stations as $station)
+                                        <option value="{{ $station->id }}" data-unit-id="{{ $station->unit_id }}">{{ $station->station_name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                    @else
+                        <input type="hidden" id="gf_unit_id" name="unit_id" value="">
+                        <input type="hidden" id="gf_station_id" name="station_id" value="">
+                        <div class="info-notice-box" style="display:block;">
+                            <i class="fas fa-circle-info"></i>
+                            <span>This zone will be scoped to your own unit/station — it won't be visible to other units.</span>
+                        </div>
+                    @endif
+
+                    <div class="form-row mt-2">
+                        <div class="form-group col-md-6 mb-0">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" id="gf_alert_on_enter" class="custom-control-input" checked>
+                                <label class="custom-control-label font-weight-bold" for="gf_alert_on_enter" style="font-size:12.5px;">Alert when a vehicle enters</label>
+                            </div>
+                        </div>
+                        <div class="form-group col-md-6 mb-0">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" id="gf_alert_on_exit" class="custom-control-input">
+                                <label class="custom-control-label font-weight-bold" for="gf_alert_on_exit" style="font-size:12.5px;">Alert when a vehicle exits</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light border" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-check mr-1"></i> Save Geofence</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endif
 @endsection
 
 @section('script')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 <script>
 $(document.body).ready(function() {
     // Rough Bicol Region centroid — only ever seen before the first
@@ -467,6 +624,383 @@ $(document.body).ready(function() {
 
     refresh();
     setInterval(refresh, 10000);
+
+    // ================================================================
+    // Geofences — zones drawn on this same map (Leaflet.draw) that back
+    // GeofenceController's JSON API. A vehicle crossing one is detected
+    // server-side on every GPS ping (see GeofenceDetectionService) and,
+    // depending on the zone's alert_on_enter/alert_on_exit flags, raises
+    // a Notification Center alert — this panel is only about defining
+    // the zones themselves, not about the enter/exit events they produce.
+    // ================================================================
+    const canManageGeofences = {{ $canManageGeofences ? 'true' : 'false' }};
+    const geofenceLayers = {};   // id -> Leaflet layer (L.circle or L.polygon)
+    const geofenceData = {};     // id -> raw geofence object from the API
+    let pendingDrawnLayer = null; // the just-drawn, not-yet-saved shape (Create flow)
+    let pendingShapeType = null;
+    let activeDrawHandler = null;
+    let shapeEditingId = null;   // id of the zone currently being reshaped, if any
+
+    $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') } });
+
+    const ZONE_TYPE_LABELS = { restricted: 'Restricted', allowed: 'Allowed', checkpoint: 'Checkpoint' };
+
+    function geofenceColor(g) {
+        return g.color || '#ef4444';
+    }
+
+    function geofenceLayerFor(g) {
+        if (g.shape_type === 'circle') {
+            const c = g.geometry && g.geometry.center;
+            const r = g.geometry && g.geometry.radius_meters;
+            if (!c || !r) return null;
+            return L.circle([c.lat, c.lng], { radius: r, color: geofenceColor(g), weight: 2, fillOpacity: 0.12 });
+        }
+        if (g.shape_type === 'polygon') {
+            const pts = (g.geometry && g.geometry.points) || [];
+            if (pts.length < 3) return null;
+            return L.polygon(pts.map(function(p) { return [p.lat, p.lng]; }), { color: geofenceColor(g), weight: 2, fillOpacity: 0.12 });
+        }
+        return null;
+    }
+
+    function geofencePopupHtml(g) {
+        const typeLabel = ZONE_TYPE_LABELS[g.zone_type] || g.zone_type;
+        let html = '<div style="min-width:180px;">' +
+            '<div style="font-weight:800; font-size:13px; color:#0f172a;">' + escHtml(g.name) + '</div>' +
+            '<div style="font-size:10.5px; color:#94a3b8; font-weight:700; text-transform:uppercase; margin-top:2px;">' + escHtml(typeLabel) + '</div>';
+        if (g.description) {
+            html += '<div style="font-size:11.5px; color:#475569; margin-top:6px;">' + escHtml(g.description) + '</div>';
+        }
+        if (g.can_edit) {
+            html += '<div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">' +
+                '<button type="button" class="btn btn-sm btn-outline-dark gf-edit-btn" data-id="' + g.id + '">Edit</button>' +
+                '<button type="button" class="btn btn-sm btn-outline-dark gf-shape-btn" data-id="' + g.id + '">Edit Shape</button>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger gf-delete-btn" data-id="' + g.id + '">Delete</button>' +
+                '</div>';
+        }
+        html += '</div>';
+        return html;
+    }
+
+    function renderGeofenceList(geofences) {
+        const list = $('#geofenceList');
+        list.empty();
+
+        if (geofences.length === 0) {
+            list.html('<div class="geofence-empty-state"><i class="fas fa-draw-polygon mb-2" style="font-size:20px; display:block;"></i>No zones drawn yet.</div>');
+            return;
+        }
+
+        geofences.forEach(function(g) {
+            const item = $('<div class="geofence-item"></div>');
+            const typeLabel = ZONE_TYPE_LABELS[g.zone_type] || g.zone_type;
+            let actionsHtml = '';
+            if (g.can_edit) {
+                actionsHtml = '<div class="geofence-item-actions">' +
+                    '<button type="button" class="btn btn-light border gf-edit-btn" data-id="' + g.id + '" title="Edit"><i class="fas fa-pen"></i></button>' +
+                    '<button type="button" class="btn btn-light border text-danger gf-delete-btn" data-id="' + g.id + '" title="Delete"><i class="fas fa-trash"></i></button>' +
+                    '</div>';
+            }
+            item.html(
+                '<span class="geofence-swatch" style="background:' + geofenceColor(g) + ';"></span>' +
+                '<div class="geofence-item-main">' +
+                    '<div class="geofence-item-name">' + escHtml(g.name) + '</div>' +
+                    '<div class="geofence-item-meta">' + escHtml(typeLabel) + '</div>' +
+                '</div>' +
+                actionsHtml
+            );
+            item.on('click', function(e) {
+                if ($(e.target).closest('button').length) return;
+                const layer = geofenceLayers[g.id];
+                if (!layer) return;
+                if (layer.getBounds) {
+                    map.fitBounds(layer.getBounds(), { padding: [40, 40], maxZoom: 16 });
+                } else {
+                    map.setView(layer.getLatLng(), 15);
+                }
+                layer.openPopup();
+            });
+            list.append(item);
+        });
+    }
+
+    function loadGeofences() {
+        $.getJSON("{{ route('geofences.index') }}", function(res) {
+            if (!res || !res.success) return;
+
+            Object.keys(geofenceLayers).forEach(function(id) {
+                map.removeLayer(geofenceLayers[id]);
+                delete geofenceLayers[id];
+            });
+
+            const geofences = res.geofences || [];
+            geofences.forEach(function(g) {
+                geofenceData[g.id] = g;
+                const layer = geofenceLayerFor(g);
+                if (!layer) return;
+                layer.bindPopup(geofencePopupHtml(g));
+                layer.addTo(map);
+                geofenceLayers[g.id] = layer;
+            });
+
+            $('#geofenceCount').text(geofences.length);
+            renderGeofenceList(geofences);
+        });
+    }
+
+    loadGeofences();
+
+    if (canManageGeofences) {
+        function resetGeofenceForm() {
+            $('#geofenceForm')[0].reset();
+            $('#gf_color').val('#ef4444');
+            $('#gf_alert_on_enter').prop('checked', true);
+            $('#gf_alert_on_exit').prop('checked', false);
+            $('#gf_unit_id').val('');
+            $('#gf_station_id').val('');
+        }
+
+        function openGeofenceModal(geofenceId) {
+            resetGeofenceForm();
+            if (geofenceId) {
+                const g = geofenceData[geofenceId];
+                if (!g) return;
+                $('#gfModalTitle').text('Edit Geofence');
+                $('#gf_id').val(g.id);
+                $('#gf_shape_type').val(g.shape_type);
+                $('#gf_name').val(g.name);
+                $('#gf_description').val(g.description || '');
+                $('#gf_zone_type').val(g.zone_type);
+                $('#gf_color').val(g.color || '#ef4444');
+                $('#gf_unit_id').val(g.unit_id || '');
+                $('#gf_station_id').val(g.station_id || '');
+                $('#gf_alert_on_enter').prop('checked', !!g.alert_on_enter);
+                $('#gf_alert_on_exit').prop('checked', !!g.alert_on_exit);
+            } else {
+                $('#gfModalTitle').text('New Geofence');
+                $('#gf_id').val('');
+                $('#gf_shape_type').val(pendingShapeType);
+            }
+            $('#geofenceFormModal').modal('show');
+        }
+
+        function stopActiveDraw() {
+            if (activeDrawHandler) {
+                activeDrawHandler.disable();
+                activeDrawHandler = null;
+            }
+        }
+
+        $('#drawPolygonBtn').on('click', function() {
+            stopActiveDraw();
+            activeDrawHandler = new L.Draw.Polygon(map, { shapeOptions: { color: '#ef4444', weight: 2 } });
+            activeDrawHandler.enable();
+        });
+
+        $('#drawCircleBtn').on('click', function() {
+            stopActiveDraw();
+            activeDrawHandler = new L.Draw.Circle(map, { shapeOptions: { color: '#ef4444', weight: 2 } });
+            activeDrawHandler.enable();
+        });
+
+        map.on(L.Draw.Event.CREATED, function(e) {
+            activeDrawHandler = null;
+            pendingDrawnLayer = e.layer;
+            pendingShapeType = e.layerType === 'circle' ? 'circle' : 'polygon';
+            pendingDrawnLayer.addTo(map);
+            openGeofenceModal(null);
+        });
+
+        // Cascading unit -> station filter in the create/edit form (only
+        // present when $hasBroadVisibility rendered the real selects — a
+        // harmless no-op change event on the hidden-input fallback).
+        $('#gf_unit_id').on('change', function() {
+            const unitId = $(this).val();
+            $('#gf_station_id option').each(function() {
+                if (!$(this).val()) return; // "Every station" always visible
+                const optUnitId = $(this).data('unit-id');
+                $(this).toggle(!unitId || String(optUnitId) === String(unitId));
+            });
+            $('#gf_station_id').val('');
+        });
+
+        $('#geofenceFormModal').on('hidden.bs.modal', function() {
+            // Only reached with pendingDrawnLayer still set when the Create
+            // flow was cancelled (a successful save already nulls it out
+            // below before hiding the modal) — discard the unsaved shape.
+            if (pendingDrawnLayer) {
+                map.removeLayer(pendingDrawnLayer);
+                pendingDrawnLayer = null;
+                pendingShapeType = null;
+            }
+        });
+
+        $('#geofenceForm').on('submit', function(e) {
+            e.preventDefault();
+
+            const id = $('#gf_id').val();
+            const shapeType = $('#gf_shape_type').val();
+            let geometry = null;
+
+            if (id) {
+                // Editing metadata only here — the shape itself is only
+                // ever changed via "Edit Shape" (see saveShapeBtn below),
+                // so re-send the zone's already-loaded geometry untouched.
+                geometry = geofenceData[id] ? geofenceData[id].geometry : null;
+            } else if (pendingDrawnLayer) {
+                geometry = shapeType === 'circle'
+                    ? { center: { lat: pendingDrawnLayer.getLatLng().lat, lng: pendingDrawnLayer.getLatLng().lng }, radius_meters: pendingDrawnLayer.getRadius() }
+                    : { points: pendingDrawnLayer.getLatLngs()[0].map(function(ll) { return { lat: ll.lat, lng: ll.lng }; }) };
+            }
+
+            if (!geometry) {
+                Swal.fire('Error!', 'No shape data to save — please draw the zone again.', 'error');
+                return;
+            }
+
+            const payload = {
+                name: $('#gf_name').val(),
+                description: $('#gf_description').val(),
+                zone_type: $('#gf_zone_type').val(),
+                shape_type: shapeType,
+                geometry: geometry,
+                color: $('#gf_color').val(),
+                alert_on_enter: $('#gf_alert_on_enter').is(':checked') ? 1 : 0,
+                alert_on_exit: $('#gf_alert_on_exit').is(':checked') ? 1 : 0,
+                unit_id: $('#gf_unit_id').val() || null,
+                station_id: $('#gf_station_id').val() || null,
+            };
+
+            $.ajax({
+                url: id ? "{{ url('/geofences') }}/" + id : "{{ route('geofences.store') }}",
+                method: id ? 'PUT' : 'POST',
+                data: payload,
+                success: function(res) {
+                    if (res.success) {
+                        if (pendingDrawnLayer) {
+                            map.removeLayer(pendingDrawnLayer);
+                            pendingDrawnLayer = null;
+                            pendingShapeType = null;
+                        }
+                        $('#geofenceFormModal').modal('hide');
+                        Swal.fire('Saved!', res.message, 'success');
+                        loadGeofences();
+                    } else {
+                        Swal.fire({ icon: 'warning', title: 'Cannot Save', text: res.message, confirmButtonColor: '#d33' });
+                    }
+                },
+                error: function(xhr) {
+                    const msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Something went wrong.';
+                    Swal.fire('Error!', msg, 'error');
+                }
+            });
+        });
+
+        $(document).on('click', '.gf-edit-btn', function() {
+            map.closePopup();
+            openGeofenceModal($(this).data('id'));
+        });
+
+        $(document).on('click', '.gf-delete-btn', function() {
+            const id = $(this).data('id');
+            const g = geofenceData[id];
+            map.closePopup();
+            Swal.fire({
+                title: 'Delete "' + (g ? g.name : 'this zone') + '"?',
+                text: 'This removes the zone from the map and stops future alerts for it. Its past enter/exit history is kept.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete it'
+            }).then(function(result) {
+                if (!result.isConfirmed) return;
+                $.ajax({
+                    url: "{{ url('/geofences') }}/" + id,
+                    method: 'DELETE',
+                    success: function(res) {
+                        Swal.fire('Deleted!', res.message, 'success');
+                        loadGeofences();
+                    },
+                    error: function(xhr) {
+                        const msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Something went wrong.';
+                        Swal.fire('Error!', msg, 'error');
+                    }
+                });
+            });
+        });
+
+        // "Edit Shape" — lets the admin drag/resize the actual drawn zone
+        // (via Leaflet.draw's per-layer editing handlers) rather than only
+        // its name/settings. Save reads the layer's current geometry back
+        // out and PUTs it with the rest of the zone's fields unchanged;
+        // Cancel just reloads from the server, discarding any dragging.
+        $(document).on('click', '.gf-shape-btn', function() {
+            const id = $(this).data('id');
+            const layer = geofenceLayers[id];
+            if (!layer) return;
+            stopActiveDraw();
+            map.closePopup();
+            shapeEditingId = id;
+            layer.editing.enable();
+            $('#shapeEditBar').addClass('is-active');
+        });
+
+        $('#cancelShapeBtn').on('click', function() {
+            if (shapeEditingId && geofenceLayers[shapeEditingId]) {
+                geofenceLayers[shapeEditingId].editing.disable();
+            }
+            shapeEditingId = null;
+            $('#shapeEditBar').removeClass('is-active');
+            loadGeofences();
+        });
+
+        $('#saveShapeBtn').on('click', function() {
+            if (!shapeEditingId) return;
+            const id = shapeEditingId;
+            const layer = geofenceLayers[id];
+            const g = geofenceData[id];
+            if (!layer || !g) return;
+
+            const geometry = g.shape_type === 'circle'
+                ? { center: { lat: layer.getLatLng().lat, lng: layer.getLatLng().lng }, radius_meters: layer.getRadius() }
+                : { points: layer.getLatLngs()[0].map(function(ll) { return { lat: ll.lat, lng: ll.lng }; }) };
+
+            layer.editing.disable();
+            $('#shapeEditBar').removeClass('is-active');
+            shapeEditingId = null;
+
+            $.ajax({
+                url: "{{ url('/geofences') }}/" + id,
+                method: 'PUT',
+                data: {
+                    name: g.name,
+                    description: g.description,
+                    zone_type: g.zone_type,
+                    shape_type: g.shape_type,
+                    geometry: geometry,
+                    color: g.color,
+                    alert_on_enter: g.alert_on_enter ? 1 : 0,
+                    alert_on_exit: g.alert_on_exit ? 1 : 0,
+                    unit_id: g.unit_id,
+                    station_id: g.station_id,
+                },
+                success: function(res) {
+                    if (res.success) {
+                        Swal.fire('Saved!', 'Zone shape updated.', 'success');
+                    } else {
+                        Swal.fire({ icon: 'warning', title: 'Cannot Save', text: res.message, confirmButtonColor: '#d33' });
+                    }
+                    loadGeofences();
+                },
+                error: function(xhr) {
+                    const msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Something went wrong.';
+                    Swal.fire('Error!', msg, 'error');
+                    loadGeofences();
+                }
+            });
+        });
+    }
 });
 </script>
 @endsection

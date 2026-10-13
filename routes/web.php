@@ -24,6 +24,7 @@ use App\Http\Controllers\VehicleAccidentController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\LiveMonitoringController;
 use App\Http\Controllers\DriverAssignmentController;
+use App\Http\Controllers\GeofenceController;
 use Illuminate\Support\Facades\Route;
 
 // ---------------------------------------------------------------------
@@ -135,6 +136,17 @@ Route::middleware('auth')->group(function () {
         Route::prefix('live-monitoring')->name('live-monitoring.')->group(function () {
             Route::get('/', [LiveMonitoringController::class, 'index'])->name('index');
             Route::get('/active-trips', [LiveMonitoringController::class, 'activeTrips'])->name('active-trips');
+        });
+
+        // Geofence zones drawn on the Live Monitoring map — see
+        // GeofenceController's class docblock. JSON API only, no view of
+        // its own; the "Geofences" panel on live-monitoring.index calls
+        // these directly.
+        Route::prefix('geofences')->name('geofences.')->group(function () {
+            Route::get('/', [GeofenceController::class, 'index'])->name('index');
+            Route::post('/', [GeofenceController::class, 'store'])->name('store');
+            Route::put('/{geofence}', [GeofenceController::class, 'update'])->name('update');
+            Route::delete('/{geofence}', [GeofenceController::class, 'destroy'])->name('destroy');
         });
 
         // Trip Registrations — Register → Assign Personnel → Approve, ahead

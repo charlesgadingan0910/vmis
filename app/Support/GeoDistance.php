@@ -43,6 +43,16 @@ class GeoDistance
         return round($totalMeters / 1000, 2);
     }
 
+    /**
+     * Great-circle distance between two points, in meters — the same
+     * haversine math totalKm() sums internally, exposed directly for a
+     * single-pair check like Geofence::containsPoint()'s circle case.
+     */
+    public static function pointDistanceMeters(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        return self::haversineMeters($lat1, $lng1, $lat2, $lng2);
+    }
+
     protected static function haversineMeters(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
         $earthRadiusMeters = 6371000;
