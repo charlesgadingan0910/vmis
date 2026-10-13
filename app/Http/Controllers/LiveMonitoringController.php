@@ -69,6 +69,17 @@ class LiveMonitoringController extends Controller
 
         $hasBroadVisibility = in_array($role, self::BROAD_VISIBILITY_ROLES, true);
 
+        // Geofencing UI is hidden for now — per request, the freehand
+        // circle/polygon drawing this shipped with is being reworked into
+        // picking a predefined city/municipality/province boundary
+        // instead. The backend (GeofenceController, the geofences/
+        // geofence_events tables, GeofenceDetectionService's per-ping
+        // enter/exit check) is untouched and still safe to run — it just
+        // has nothing to show while no zone can be created through the
+        // UI. Flip this back to true once boundary-based zone creation
+        // replaces the draw tool in live_monitoring/index.blade.php.
+        $geofencingEnabled = false;
+
         // Same "cannot write" set GeofenceController itself enforces —
         // VIEWER sees the Geofences panel read-only, everyone else here
         // (every non-DRIVER role that reaches this page) can draw zones,
@@ -86,7 +97,7 @@ class LiveMonitoringController extends Controller
                 ? Station::where('unit_id', $user->unit_id)->orderBy('station_name')->get()
                 : Station::where('id', $user->station_id)->orderBy('station_name')->get());
 
-        return view('live_monitoring.index', compact('units', 'stations', 'canManageGeofences', 'hasBroadVisibility'));
+        return view('live_monitoring.index', compact('units', 'stations', 'canManageGeofences', 'hasBroadVisibility', 'geofencingEnabled'));
     }
 
     public function activeTrips(Request $request): JsonResponse

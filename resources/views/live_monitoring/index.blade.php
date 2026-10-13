@@ -201,7 +201,16 @@
                  Notification Center alert when a tracked vehicle enters/exits
                  one. Docked top-right so it never overlaps the Active Trips
                  sidebar (top-left). See GeofenceController for the JSON API
-                 this panel talks to. --}}
+                 this panel talks to.
+
+                 TEMPORARILY HIDDEN ($geofencingEnabled, set in
+                 LiveMonitoringController::index()) — the freehand circle/
+                 polygon drawing below is being replaced with picking a
+                 predefined city/municipality/province boundary instead.
+                 Nothing here was removed, just gated off, so re-enabling
+                 is a one-line flip once the boundary-based zone picker
+                 replaces the Draw Polygon/Circle buttons. --}}
+            @if($geofencingEnabled)
             <div class="geofence-panel">
                 <div class="geofence-panel-header">
                     <span class="geofence-panel-title"><i class="fas fa-draw-polygon"></i> Geofences</span>
@@ -222,6 +231,7 @@
                 @endif
                 <div id="geofenceList" class="geofence-list-inner"></div>
             </div>
+            @endif
         </div>
 
         <p class="text-muted mt-2" style="font-size: 11px;">
@@ -232,12 +242,15 @@
     </div>
 </section>
 
-@if($canManageGeofences)
+@if($geofencingEnabled && $canManageGeofences)
 {{-- Create/Edit Geofence modal — shared by both flows (a hidden geofence_id
      field is blank for Create, populated for Edit). Geometry itself isn't
      edited here — it comes from the shape just drawn (Create) or from the
      zone's already-loaded data untouched (Edit); use "Edit Shape" on the
-     zone's popup/list row to change the drawn area itself. --}}
+     zone's popup/list row to change the drawn area itself.
+
+     TEMPORARILY HIDDEN along with the panel above — see
+     $geofencingEnabled's note on the Geofences panel further up. --}}
 <div class="modal fade" id="geofenceFormModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content modal-content-premium">
@@ -625,6 +638,7 @@ $(document.body).ready(function() {
     refresh();
     setInterval(refresh, 10000);
 
+@if($geofencingEnabled)
     // ================================================================
     // Geofences — zones drawn on this same map (Leaflet.draw) that back
     // GeofenceController's JSON API. A vehicle crossing one is detected
@@ -632,6 +646,10 @@ $(document.body).ready(function() {
     // depending on the zone's alert_on_enter/alert_on_exit flags, raises
     // a Notification Center alert — this panel is only about defining
     // the zones themselves, not about the enter/exit events they produce.
+    //
+    // TEMPORARILY HIDDEN — see $geofencingEnabled's note on the panel
+    // markup above. This whole block is skipped entirely when it's off,
+    // so none of the AJAX calls below (loadGeofences, etc.) ever fire.
     // ================================================================
     const canManageGeofences = {{ $canManageGeofences ? 'true' : 'false' }};
     const geofenceLayers = {};   // id -> Leaflet layer (L.circle or L.polygon)
@@ -1001,6 +1019,7 @@ $(document.body).ready(function() {
             });
         });
     }
+@endif
 });
 </script>
 @endsection
