@@ -133,6 +133,50 @@ class DriverAssignmentController extends Controller
         return 'Cannot assign ' . trim($driver->firstname . ' ' . $driver->lastname) . " to this vehicle — their Driver's License expired on " . $driver->license_expiration_date->format('M d, Y') . '. Update the license record before assigning this driver.';
     }
 
+    /**
+     * Closes a vehicle's open driver_assignments row, if one exists.
+     *
+     * IMPORTANT: vehicles.assigned_driver_id — not an "active" row in this
+     * table — is the actual source of truth for "who currently has this
+     * vehicle" (that's what every ->driver relation and the Driver
+     * Management table read). driver_assignments is a log of that column's
+     * history, and it can have GAPS: any assignment made before this table
+     * existed, or made by writing assigned_driver_id directly, has no
+     * matching row here. Code that queried DriverAssignment::active() to
+     * decide "does this driver currently have a vehicle" used to report
+     * false negatives for exactly that reason (e.g. Unassign saying
+     * "no vehicle currently assigned" for a driver the table clearly
+     * showed one for) — see assignToDriver()/unassignDriver() below,
+     * which now read Vehicle::where('assigned_driver_id', ...) instead.
+     *
+     * This helper closes the open row when one exists, and otherwise
+     * backfills a closed one from the vehicle's current state — so the
+     * history stays a usable accountability trail instead of silently
+     * losing that the vehicle had a driver, and so this gap can't recur
+     * for the same vehicle going forward.
+     */
+    protected function closeOpenAssignment(Vehicle $vehicle, $user): void
+    {
+        $open = DriverAssignment::where('vehicle_id', $vehicle->id)->active()->first();
+
+        if ($open) {
+            $open->update(['unassigned_at' => now(), 'unassigned_by' => $user->id]);
+            return;
+        }
+
+        if ($vehicle->assigned_driver_id) {
+            DriverAssignment::create([
+                'vehicle_id'    => $vehicle->id,
+                'driver_id'     => $vehicle->assigned_driver_id,
+                'assigned_by'   => null,
+                'assigned_at'   => $vehicle->updated_at ?? now(),
+                'unassigned_by' => $user->id,
+                'unassigned_at' => now(),
+                'notes'         => 'Backfilled — this vehicle already showed this driver assigned with no earlier assignment record on file.',
+            ]);
+        }
+    }
+
     public function index(Request $request)
     {
         $user = auth()->user();
@@ -306,11 +350,9 @@ class DriverAssignmentController extends Controller
 
         // Close this vehicle's currently-open assignment (if any) before
         // opening the new one — a vehicle only ever has one active
-        // assignment at a time.
-        DriverAssignment::where('vehicle_id', $vehicle->id)->active()->update([
-            'unassigned_at' => now(),
-            'unassigned_by' => $user->id,
-        ]);
+        // assignment at a time. See closeOpenAssignment()'s docblock for
+        // why this isn't just an inline ->active()->update() call.
+        $this->closeOpenAssignment($vehicle, $user);
 
         DriverAssignment::create([
             'vehicle_id'   => $vehicle->id,
@@ -349,10 +391,7 @@ class DriverAssignmentController extends Controller
         $driver = Driver::find($vehicle->assigned_driver_id);
         $driverName = $driver ? trim($driver->firstname . ' ' . $driver->lastname) : 'the assigned driver';
 
-        DriverAssignment::where('vehicle_id', $vehicle->id)->active()->update([
-            'unassigned_at' => now(),
-            'unassigned_by' => $user->id,
-        ]);
+        $this->closeOpenAssignment($vehicle, $user);
 
         $previousDriverId = $vehicle->assigned_driver_id;
         $vehicle->update(['assigned_driver_id' => null]);
@@ -448,13 +487,19 @@ class DriverAssignmentController extends Controller
             return response()->json(['success' => false, 'message' => trim($driver->firstname . ' ' . $driver->lastname) . ' is already assigned to this vehicle.'], 422);
         }
 
-        $otherActive = DriverAssignment::active()->where('driver_id', $driver->id)->where('vehicle_id', '!=', $vehicle->id)->get();
+        // Source of truth for "what else does this driver currently have"
+        // is vehicles.assigned_driver_id, NOT driver_assignments — see
+        // closeOpenAssignment()'s docblock for why the history table can
+        // have gaps and must never be queried as if it were authoritative.
+        $otherVehicles = Vehicle::excludingDisposed()
+            ->where('assigned_driver_id', $driver->id)
+            ->where('id', '!=', $vehicle->id)
+            ->get();
 
-        // Check scope on every other active assignment BEFORE closing any
-        // of them — an all-or-nothing check, not a partial one.
-        foreach ($otherActive as $openAssignment) {
-            $otherVehicle = Vehicle::find($openAssignment->vehicle_id);
-            if ($otherVehicle && ! $this->canWriteVehicle($otherVehicle, $user, $role)) {
+        // Check scope on every other vehicle BEFORE releasing any of them —
+        // an all-or-nothing check, not a partial one.
+        foreach ($otherVehicles as $otherVehicle) {
+            if (! $this->canWriteVehicle($otherVehicle, $user, $role)) {
                 return response()->json([
                     'success' => false,
                     'message' => trim($driver->firstname . ' ' . $driver->lastname) . ' is already assigned to [' . strtoupper($otherVehicle->plate_number) . '], which is outside your management scope. Ask an administrator with access to that vehicle to unassign it first.',
@@ -462,12 +507,9 @@ class DriverAssignmentController extends Controller
             }
         }
 
-        foreach ($otherActive as $openAssignment) {
-            $otherVehicle = Vehicle::find($openAssignment->vehicle_id);
-            $openAssignment->update(['unassigned_at' => now(), 'unassigned_by' => $user->id]);
-            if ($otherVehicle) {
-                $otherVehicle->update(['assigned_driver_id' => null]);
-            }
+        foreach ($otherVehicles as $otherVehicle) {
+            $this->closeOpenAssignment($otherVehicle, $user);
+            $otherVehicle->update(['assigned_driver_id' => null]);
         }
 
         $previousDriverId = $vehicle->assigned_driver_id;
@@ -475,10 +517,7 @@ class DriverAssignmentController extends Controller
         // Close this vehicle's own currently-open assignment (if any)
         // before opening the new one — a vehicle only ever has one active
         // assignment at a time, same rule assign() above enforces.
-        DriverAssignment::where('vehicle_id', $vehicle->id)->active()->update([
-            'unassigned_at' => now(),
-            'unassigned_by' => $user->id,
-        ]);
+        $this->closeOpenAssignment($vehicle, $user);
 
         DriverAssignment::create([
             'vehicle_id'  => $vehicle->id,
@@ -520,26 +559,28 @@ class DriverAssignmentController extends Controller
             abort(403, 'Your account type cannot change vehicle assignments.');
         }
 
-        $activeAssignments = DriverAssignment::active()->where('driver_id', $driver->id)->get();
+        // Source of truth: vehicles.assigned_driver_id, not
+        // driver_assignments — see closeOpenAssignment()'s docblock. This
+        // used to query DriverAssignment::active() here instead, which
+        // reported "no vehicle currently assigned" for a driver the
+        // Driver Management table clearly showed one for, whenever that
+        // assignment predated (or otherwise bypassed) the history table.
+        $vehicles = Vehicle::excludingDisposed()->where('assigned_driver_id', $driver->id)->get();
 
-        if ($activeAssignments->isEmpty()) {
+        if ($vehicles->isEmpty()) {
             return response()->json(['success' => false, 'message' => trim($driver->firstname . ' ' . $driver->lastname) . ' has no vehicle currently assigned.'], 422);
         }
 
         $unassignedPlates = [];
         $skippedPlates = [];
 
-        foreach ($activeAssignments as $assignment) {
-            $vehicle = Vehicle::find($assignment->vehicle_id);
-            if (! $vehicle) {
-                continue;
-            }
+        foreach ($vehicles as $vehicle) {
             if (! $this->canWriteVehicle($vehicle, $user, $role)) {
                 $skippedPlates[] = strtoupper($vehicle->plate_number);
                 continue;
             }
 
-            $assignment->update(['unassigned_at' => now(), 'unassigned_by' => $user->id]);
+            $this->closeOpenAssignment($vehicle, $user);
             $vehicle->update(['assigned_driver_id' => null]);
             $unassignedPlates[] = strtoupper($vehicle->plate_number);
 
