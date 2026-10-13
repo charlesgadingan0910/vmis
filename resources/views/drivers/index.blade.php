@@ -89,6 +89,41 @@
   #photoPreviewImg { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
 
   /* ============================================================ */
+  /* Vehicle Assignment — folded in from the former standalone     */
+  /* Driver Assignments page so managing who drives what never     */
+  /* requires leaving Driver Management (see DriverController's    */
+  /* and DriverAssignmentController's class docblocks).            */
+  /* ============================================================ */
+  .stat-card-modern.with-vehicle .stat-icon-wrapper { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
+  .stat-card-modern.without-vehicle .stat-icon-wrapper { background: rgba(14, 165, 233, 0.12); color: #0ea5e9; }
+
+  .plate-badge { display: inline-block; font-family: 'Courier New', monospace; font-weight: 800; font-size: 12.5px; background: #0f172a; color: #fff; padding: 3px 9px; border-radius: 6px; letter-spacing: 0.5px; }
+  .vehicle-sub-info { font-size: 12px; color: #64748b; }
+
+  .license-warning-box { background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 10px; padding: 10px 14px; margin-top: -6px; margin-bottom: 18px; font-size: 12.5px; color: #b91c1c; font-weight: 600; display: none; align-items: center; gap: 8px; }
+  .license-warning-box i { font-size: 14px; }
+
+  .info-notice-box { background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 10px; padding: 10px 14px; margin-top: -6px; margin-bottom: 18px; font-size: 12.5px; color: #92400e; font-weight: 600; display: none; align-items: center; gap: 8px; }
+  .info-notice-box i { font-size: 14px; }
+
+  .assign-current-badge { background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; margin-bottom: 18px; font-size: 13px; color: #334155; }
+
+  /* Vehicle assignment history modal — a simple vertical timeline
+     (append-only list, no pagination), same pattern used for OR/CR
+     history elsewhere in this app. */
+  .history-timeline { max-height: 60vh; overflow-y: auto; padding-right: 4px; }
+  .history-item { position: relative; padding: 0 0 18px 26px; border-left: 2px solid #eef1f6; }
+  .history-item:last-child { border-left-color: transparent; padding-bottom: 0; }
+  .history-item::before { content: ''; position: absolute; left: -6px; top: 2px; width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; border: 2px solid #fff; box-shadow: 0 0 0 1px #eef1f6; }
+  .history-item.is-active::before { background: #16a34a; }
+  .history-item-driver { font-weight: 800; font-size: 13.5px; color: #0f172a; display: flex; align-items: center; gap: 8px; }
+  .history-active-badge { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 20px; }
+  .history-item-range { font-size: 12px; color: #475569; margin-top: 3px; }
+  .history-item-meta { font-size: 11px; color: #94a3b8; margin-top: 3px; }
+  .history-item-notes { font-size: 12px; color: #334155; background: #f8fafc; border-radius: 8px; padding: 6px 10px; margin-top: 6px; }
+  .history-empty { text-align: center; color: #94a3b8; font-size: 12.5px; padding: 30px 10px; }
+
+  /* ============================================================ */
   /* MOBILE: table rows become stacked cards, not a cramped scroll */
   /* ============================================================ */
   @media (max-width: 767.98px) {
@@ -107,12 +142,14 @@
     .fleet-table td:last-child { padding-bottom: 14px !important; }
 
     /* Column order is fixed (Personnel Identity, License Detail, Expiration
-       Status, Contact Info, Actions) — Identity is already self-descriptive
-       (avatar + name + status inline), so it skips a label; the rest get one
-       so a bare phone number or date doesn't sit there with no context. */
+       Status, Contact Info, Vehicle Assignment, Actions) — Identity is
+       already self-descriptive (avatar + name + status inline), so it
+       skips a label; the rest get one so a bare phone number or date
+       doesn't sit there with no context. */
     .fleet-table td:nth-child(2)::before { content: "License"; }
     .fleet-table td:nth-child(3)::before { content: "Expiration"; }
     .fleet-table td:nth-child(4)::before { content: "Contact"; }
+    .fleet-table td:nth-child(5)::before { content: "Vehicle"; }
     .fleet-table td::before {
       display: block; font-size: 10px; font-weight: 700; text-transform: uppercase;
       letter-spacing: .04em; color: #94a3b8; margin-bottom: 5px;
@@ -154,6 +191,14 @@
                 <div class="stat-icon-wrapper"><i class="fas fa-ban"></i></div>
                 <div><div class="stat-num-value">{{ $stats['expired'] }}</div><div class="stat-label-title">Expired Licenses</div></div>
             </div>
+            <div class="stat-card-modern with-vehicle">
+                <div class="stat-icon-wrapper"><i class="fas fa-car"></i></div>
+                <div><div class="stat-num-value">{{ $stats['with_vehicle'] }}</div><div class="stat-label-title">With a Vehicle</div></div>
+            </div>
+            <div class="stat-card-modern without-vehicle">
+                <div class="stat-icon-wrapper"><i class="fas fa-car-side"></i></div>
+                <div><div class="stat-num-value">{{ $stats['without_vehicle'] }}</div><div class="stat-label-title">Without a Vehicle</div></div>
+            </div>
         </div>
 
         <!-- Data Table Container -->
@@ -184,6 +229,7 @@
                             <th>License Detail</th>
                             <th>Expiration Status</th>
                             <th>Contact Info</th>
+                            <th>Vehicle Assignment</th>
                             <th class="text-right">Actions</th>
                         </tr>
                     </thead>
@@ -568,6 +614,73 @@
         </div>
     </div>
 </div>
+
+<!-- ASSIGN / REASSIGN VEHICLE MODAL (folded in from the former standalone Driver Assignments page) -->
+<div class="modal fade" id="assignVehicleModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-premium">
+            <div class="modal-header-slate d-flex justify-content-between align-items-center">
+                <h5 class="m-0"><i class="fas fa-car mr-2"></i> Assign Vehicle — <span id="avModalDriverName"></span></h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <form id="assignVehicleForm">
+                @csrf
+                <div class="modal-body p-4">
+                    <div id="avLicenseWarning" class="license-warning-box">
+                        <i class="fas fa-triangle-exclamation"></i>
+                        <span>This driver's license has expired. Update their license before assigning a vehicle.</span>
+                    </div>
+
+                    <div id="avCurrentBadge" class="assign-current-badge" style="display:none;">
+                        Currently assigned to <strong id="avCurrentVehiclePlate"></strong> — assigning a different vehicle below will release that one first.
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Vehicle <span class="text-danger">*</span></label>
+                        <select name="vehicle_id" id="av_vehicle_id" class="form-control form-control-modern" required>
+                            <option value="">Select vehicle...</option>
+                            @foreach($vehicles as $v)
+                                <option value="{{ $v->id }}"
+                                    data-current-driver-name="{{ $v->driver ? trim($v->driver->firstname . ' ' . $v->driver->lastname) : '' }}">
+                                    {{ strtoupper($v->plate_number) }} &mdash; {{ trim($v->make . ' ' . $v->model) }}{{ $v->driver ? ' (currently: ' . trim($v->driver->firstname . ' ' . $v->driver->lastname) . ')' : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div id="avVehicleWarning" class="info-notice-box">
+                        <i class="fas fa-circle-info"></i>
+                        <span id="avVehicleWarningText"></span>
+                    </div>
+
+                    <div class="form-group mb-0">
+                        <label class="font-weight-bold font-size-12 text-secondary text-uppercase mb-2">Notes (optional)</label>
+                        <textarea name="notes" class="form-control form-control-modern" rows="2" maxlength="255" placeholder="e.g. temporary coverage while regular vehicle is in for PMS"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0 px-4 py-3">
+                    <button type="button" class="btn btn-light font-weight-bold px-4 py-2" data-dismiss="modal" style="border-radius: 9px;">Cancel</button>
+                    <button type="submit" id="btnSubmitAssignVehicle" class="btn btn-primary font-weight-bold shadow-sm px-4 py-2" style="border-radius: 9px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border: none;"><i class="fas fa-check mr-1"></i> Assign</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- VEHICLE ASSIGNMENT HISTORY MODAL -->
+<div class="modal fade" id="vehicleHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-premium">
+            <div class="modal-header-slate d-flex justify-content-between align-items-center">
+                <h5 class="m-0"><i class="fas fa-history mr-2"></i> Vehicle Assignment History — <span id="vhModalDriverName"></span></h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="vehicleHistoryTimeline" class="history-timeline"></div>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @section('script')
@@ -609,6 +722,7 @@ $(document.body).ready(function() {
             { data: 'license_html', name: 'license_number' },
             { data: 'expiry_html', name: 'license_expiration_date' },
             { data: 'contact_html', name: 'contact_number' },
+            { data: 'vehicle_html', orderable: false, searchable: false },
             { data: 'actions_html', orderable: false, searchable: false }
         ],
         dom: '<"row"<"col-sm-12"tr>>' +
@@ -724,6 +838,142 @@ $(document.body).ready(function() {
                 $('body').append(form);
                 form.submit();
             }
+        });
+    });
+
+    // ================================================================
+    // Vehicle Assignment — folded in from the former standalone Driver
+    // Assignments page (see DriverController's and
+    // DriverAssignmentController's class docblocks). Everything below
+    // talks to DriverAssignmentController's driver-centric endpoints.
+    // ================================================================
+    const assignVehicleUrlTemplate = @json(route('drivers.assign-vehicle', ['driver' => ':id']));
+    const unassignVehicleUrlTemplate = @json(route('drivers.unassign-vehicle', ['driver' => ':id']));
+    const vehicleHistoryUrlTemplate = @json(route('drivers.assignment-history', ['driver' => ':id']));
+    let assignDriverId = null;
+
+    $('#driversTable').on('click', '.assign-vehicle-btn', function() {
+        assignDriverId = $(this).data('id');
+        const driverName = $(this).data('name');
+        const licenseExpired = $(this).data('expired') == 1 || $(this).data('expired') === '1';
+        const currentVehicleId = $(this).data('current-vehicle');
+        const currentVehiclePlate = $(this).data('current-vehicle-plate');
+
+        $('#avModalDriverName').text(driverName);
+        $('#assignVehicleForm')[0].reset();
+        $('#avVehicleWarning').hide();
+        $('#avLicenseWarning').toggle(!!licenseExpired);
+        $('#btnSubmitAssignVehicle').prop('disabled', !!licenseExpired);
+
+        if (currentVehicleId) {
+            $('#avCurrentVehiclePlate').text(currentVehiclePlate);
+            $('#avCurrentBadge').show();
+        } else {
+            $('#avCurrentBadge').hide();
+        }
+
+        $('#assignVehicleModal').modal('show');
+    });
+
+    // Informational (non-blocking) heads-up when the picked vehicle already
+    // belongs to someone else — same spirit as the expired-license warning
+    // on the Edit/Create forms, just advisory rather than disabling.
+    $('#av_vehicle_id').on('change', function() {
+        const opt = $(this).find('option:selected');
+        const otherDriverName = opt.data('current-driver-name');
+        if (otherDriverName) {
+            $('#avVehicleWarningText').text('This vehicle is currently assigned to ' + otherDriverName + ' — assigning it here will reassign it away from them.');
+            $('#avVehicleWarning').show();
+        } else {
+            $('#avVehicleWarning').hide();
+        }
+    });
+
+    $('#assignVehicleForm').on('submit', function(e) {
+        e.preventDefault();
+        if (!assignDriverId) return;
+        $.ajax({
+            url: assignVehicleUrlTemplate.replace(':id', assignDriverId),
+            type: 'POST',
+            data: $(this).serialize(),
+            success: function(res) {
+                if (res.success) {
+                    Swal.fire('Assigned!', res.message, 'success').then(() => {
+                        $('#assignVehicleModal').modal('hide');
+                        table.ajax.reload(null, false);
+                    });
+                } else {
+                    Swal.fire({ icon: 'warning', title: 'Cannot Assign', text: res.message, confirmButtonColor: '#d33' });
+                }
+            },
+            error: function(xhr) {
+                const msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Something went wrong.';
+                Swal.fire('Error!', msg, 'error');
+            }
+        });
+    });
+
+    $('#driversTable').on('click', '.unassign-vehicle-btn', function() {
+        const driverId = $(this).data('id');
+        const driverName = $(this).data('name');
+        Swal.fire({
+            title: 'Unassign vehicle from ' + driverName + '?',
+            text: "Their current vehicle(s) will show as Unassigned until a new driver is assigned.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: 'Yes, Unassign',
+            customClass: { popup: 'modal-content-premium' }
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+            $.post(unassignVehicleUrlTemplate.replace(':id', driverId), {}, function(res) {
+                if (res.success) {
+                    Swal.fire('Unassigned', res.message, 'success').then(() => table.ajax.reload(null, false));
+                } else {
+                    Swal.fire('Error!', res.message, 'error');
+                }
+            }).fail(function(xhr) {
+                const msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Something went wrong.';
+                Swal.fire('Error!', msg, 'error');
+            });
+        });
+    });
+
+    function escapeHtmlAssign(str) {
+        const div = document.createElement('div');
+        div.textContent = str == null ? '' : String(str);
+        return div.innerHTML;
+    }
+
+    $('#driversTable').on('click', '.vehicle-history-btn', function() {
+        const driverId = $(this).data('id');
+        const driverName = $(this).data('name');
+        $('#vhModalDriverName').text(driverName);
+        $('#vehicleHistoryTimeline').html('<div class="history-empty"><div class="spinner-border spinner-border-sm text-primary" role="status"></div></div>');
+        $('#vehicleHistoryModal').modal('show');
+
+        $.getJSON(vehicleHistoryUrlTemplate.replace(':id', driverId), function(res) {
+            const records = res.records || [];
+            if (records.length === 0) {
+                $('#vehicleHistoryTimeline').html('<div class="history-empty"><i class="fas fa-history mb-2" style="font-size:22px; display:block;"></i>No vehicle assignment history yet for this driver.</div>');
+                return;
+            }
+
+            let html = '';
+            records.forEach(function(r) {
+                html += '<div class="history-item' + (r.is_active ? ' is-active' : '') + '">' +
+                    '<div class="history-item-driver">' + escapeHtmlAssign(r.vehicle_label) +
+                        (r.is_active ? ' <span class="history-active-badge">Active</span>' : '') +
+                    '</div>' +
+                    '<div class="history-item-range">' + escapeHtmlAssign(r.assigned_at) + ' &rarr; ' + (r.unassigned_at ? escapeHtmlAssign(r.unassigned_at) : 'present') + ' <span class="text-muted">(' + escapeHtmlAssign(r.duration) + ')</span></div>' +
+                    '<div class="history-item-meta">Assigned by ' + escapeHtmlAssign(r.assigned_by) + (r.unassigned_by ? ' &middot; Unassigned by ' + escapeHtmlAssign(r.unassigned_by) : '') + '</div>' +
+                    (r.notes ? '<div class="history-item-notes">' + escapeHtmlAssign(r.notes) + '</div>' : '') +
+                    '</div>';
+            });
+            $('#vehicleHistoryTimeline').html(html);
+        }).fail(function() {
+            $('#vehicleHistoryTimeline').html('<div class="history-empty">Could not load vehicle assignment history.</div>');
         });
     });
 

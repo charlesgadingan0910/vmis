@@ -28,6 +28,18 @@ use Illuminate\Http\Request;
  * VehicleController::store()/update() write to driver_assignments too
  * (see their inline hooks), so this table stays accurate no matter which
  * screen was used to change the assignment.
+ *
+ * index()/ajaxList()/history() below are the original VEHICLE-centric
+ * flow (pick a vehicle, assign/reassign/unassign its driver) that used to
+ * back its own standalone "Driver Assignments" page. That page has since
+ * been folded into Driver Management per request — DriverController now
+ * renders the merged page, and assignToDriver()/unassignDriver()/
+ * driverHistory() below are the DRIVER-centric equivalents it actually
+ * calls (pick a driver, assign/reassign/unassign their vehicle). The
+ * vehicle-centric methods are left in place rather than deleted — nothing
+ * currently links to them (routes/web.php now redirects
+ * driver-assignments.index straight to drivers.index), but they're
+ * harmless to keep and still pass the same authorization rules.
  */
 class DriverAssignmentController extends Controller
 {
@@ -56,19 +68,36 @@ class DriverAssignmentController extends Controller
     }
 
     /**
+     * Non-aborting version of the check authorizeWrite() enforces below —
+     * used by the driver-centric methods, which need to ask "can I touch
+     * this OTHER vehicle too" without blowing up the whole request when
+     * the answer is no (they report a clear message instead; see
+     * assignToDriver()/unassignDriver()).
+     */
+    protected function canWriteVehicle(Vehicle $vehicle, $user, string $role): bool
+    {
+        if ($role === self::ROLE_VIEWER || $role === self::ROLE_DRIVER) {
+            return false;
+        }
+        if ($role === self::ROLE_UNIT_ADMIN && $vehicle->unit_id != $user->unit_id) {
+            return false;
+        }
+        if ($role === self::ROLE_STATION_ADMIN && $vehicle->station_id != $user->station_id) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Same shape as VehicleController::authorizeVehicleWrite() — VIEWER
      * blocked outright, UNIT/STATION admin confined to their own vehicles.
      */
     protected function authorizeWrite(Vehicle $vehicle, $user, string $role): void
     {
-        if ($role === self::ROLE_VIEWER || $role === self::ROLE_DRIVER) {
-            abort(403, 'Your account type cannot change vehicle assignments.');
-        }
-        if ($role === self::ROLE_UNIT_ADMIN && $vehicle->unit_id != $user->unit_id) {
-            abort(403, 'Unauthorized Action');
-        }
-        if ($role === self::ROLE_STATION_ADMIN && $vehicle->station_id != $user->station_id) {
-            abort(403, 'Unauthorized Action');
+        if (! $this->canWriteVehicle($vehicle, $user, $role)) {
+            abort(403, ($role === self::ROLE_VIEWER || $role === self::ROLE_DRIVER)
+                ? 'Your account type cannot change vehicle assignments.'
+                : 'Unauthorized Action');
         }
     }
 
@@ -378,6 +407,201 @@ class DriverAssignmentController extends Controller
             'plate_number' => $vehicle->plate_number,
             'make_model'   => trim($vehicle->make . ' ' . $vehicle->model),
             'records'      => $records,
+        ]);
+    }
+
+    // ------------------------------------------------------------------
+    // Driver-centric methods — back the merged Driver Management page
+    // (DriverController::index()/ajaxList()). See this class's docblock.
+    // ------------------------------------------------------------------
+
+    /**
+     * Assign (or reassign) a vehicle TO a driver, chosen from the Driver
+     * Management page. Mirrors assign() above but enforces an extra rule
+     * that page's design needs: a driver has at most one active vehicle
+     * at a time. If this driver already has a different active vehicle,
+     * that old assignment is closed first — but only when the current
+     * user can actually write to that old vehicle too, so a Unit/Station
+     * Administrator can't reach into another unit/station's vehicle
+     * through this shortcut; if they can't, the whole request is
+     * rejected with a message explaining why, rather than silently
+     * leaving the driver double-booked.
+     */
+    public function assignToDriver(Request $request, Driver $driver): JsonResponse
+    {
+        $user = auth()->user();
+        $role = $this->role($user);
+
+        $validated = $request->validate([
+            'vehicle_id' => ['required', 'exists:vehicles,id'],
+            'notes'      => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $vehicle = Vehicle::findOrFail($validated['vehicle_id']);
+        $this->authorizeWrite($vehicle, $user, $role);
+
+        if ($expiredError = $this->expiredLicenseAssignmentError($driver->id)) {
+            return response()->json(['success' => false, 'message' => $expiredError], 422);
+        }
+
+        if ($vehicle->assigned_driver_id == $driver->id) {
+            return response()->json(['success' => false, 'message' => trim($driver->firstname . ' ' . $driver->lastname) . ' is already assigned to this vehicle.'], 422);
+        }
+
+        $otherActive = DriverAssignment::active()->where('driver_id', $driver->id)->where('vehicle_id', '!=', $vehicle->id)->get();
+
+        // Check scope on every other active assignment BEFORE closing any
+        // of them — an all-or-nothing check, not a partial one.
+        foreach ($otherActive as $openAssignment) {
+            $otherVehicle = Vehicle::find($openAssignment->vehicle_id);
+            if ($otherVehicle && ! $this->canWriteVehicle($otherVehicle, $user, $role)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => trim($driver->firstname . ' ' . $driver->lastname) . ' is already assigned to [' . strtoupper($otherVehicle->plate_number) . '], which is outside your management scope. Ask an administrator with access to that vehicle to unassign it first.',
+                ], 422);
+            }
+        }
+
+        foreach ($otherActive as $openAssignment) {
+            $otherVehicle = Vehicle::find($openAssignment->vehicle_id);
+            $openAssignment->update(['unassigned_at' => now(), 'unassigned_by' => $user->id]);
+            if ($otherVehicle) {
+                $otherVehicle->update(['assigned_driver_id' => null]);
+            }
+        }
+
+        $previousDriverId = $vehicle->assigned_driver_id;
+
+        // Close this vehicle's own currently-open assignment (if any)
+        // before opening the new one — a vehicle only ever has one active
+        // assignment at a time, same rule assign() above enforces.
+        DriverAssignment::where('vehicle_id', $vehicle->id)->active()->update([
+            'unassigned_at' => now(),
+            'unassigned_by' => $user->id,
+        ]);
+
+        DriverAssignment::create([
+            'vehicle_id'  => $vehicle->id,
+            'driver_id'   => $driver->id,
+            'assigned_by' => $user->id,
+            'assigned_at' => now(),
+            'notes'       => $validated['notes'] ?? null,
+        ]);
+
+        $vehicle->update(['assigned_driver_id' => $driver->id]);
+
+        ActivityLog::record(
+            'updated',
+            'Driver Assignment',
+            ($previousDriverId ? 'Reassigned' : 'Assigned') . ' [' . strtoupper($vehicle->plate_number) . '] to ' . trim($driver->firstname . ' ' . $driver->lastname) . '.',
+            $vehicle,
+            ['before' => ['assigned_driver_id' => $previousDriverId], 'after' => ['assigned_driver_id' => $driver->id]]
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => trim($driver->firstname . ' ' . $driver->lastname) . ' assigned to [' . strtoupper($vehicle->plate_number) . '].',
+        ]);
+    }
+
+    /**
+     * Unassign a driver from ALL of their currently active vehicles
+     * (normally just one). Any that are outside the current user's
+     * management scope are skipped rather than failing the whole
+     * request — the response message says which plates were actually
+     * unassigned and which were left alone.
+     */
+    public function unassignDriver(Driver $driver): JsonResponse
+    {
+        $user = auth()->user();
+        $role = $this->role($user);
+
+        if ($role === self::ROLE_VIEWER || $role === self::ROLE_DRIVER) {
+            abort(403, 'Your account type cannot change vehicle assignments.');
+        }
+
+        $activeAssignments = DriverAssignment::active()->where('driver_id', $driver->id)->get();
+
+        if ($activeAssignments->isEmpty()) {
+            return response()->json(['success' => false, 'message' => trim($driver->firstname . ' ' . $driver->lastname) . ' has no vehicle currently assigned.'], 422);
+        }
+
+        $unassignedPlates = [];
+        $skippedPlates = [];
+
+        foreach ($activeAssignments as $assignment) {
+            $vehicle = Vehicle::find($assignment->vehicle_id);
+            if (! $vehicle) {
+                continue;
+            }
+            if (! $this->canWriteVehicle($vehicle, $user, $role)) {
+                $skippedPlates[] = strtoupper($vehicle->plate_number);
+                continue;
+            }
+
+            $assignment->update(['unassigned_at' => now(), 'unassigned_by' => $user->id]);
+            $vehicle->update(['assigned_driver_id' => null]);
+            $unassignedPlates[] = strtoupper($vehicle->plate_number);
+
+            ActivityLog::record(
+                'updated',
+                'Driver Assignment',
+                'Unassigned ' . trim($driver->firstname . ' ' . $driver->lastname) . ' from [' . strtoupper($vehicle->plate_number) . '].',
+                $vehicle,
+                ['before' => ['assigned_driver_id' => $driver->id], 'after' => ['assigned_driver_id' => null]]
+            );
+        }
+
+        if (empty($unassignedPlates)) {
+            return response()->json(['success' => false, 'message' => trim($driver->firstname . ' ' . $driver->lastname) . "'s vehicle(s) are outside your management scope."], 422);
+        }
+
+        $message = trim($driver->firstname . ' ' . $driver->lastname) . ' unassigned from [' . implode(', ', $unassignedPlates) . '].';
+        if (! empty($skippedPlates)) {
+            $message .= ' [' . implode(', ', $skippedPlates) . '] left unchanged — outside your management scope.';
+        }
+
+        return response()->json(['success' => true, 'message' => $message]);
+    }
+
+    /**
+     * Full assignment history for one driver across every vehicle they've
+     * ever been the custodian of, newest first — the driver-centric
+     * mirror of history(Vehicle $vehicle) above, used by the merged
+     * Driver Management page's "Vehicle assignment history" button.
+     */
+    public function driverHistory(Driver $driver): JsonResponse
+    {
+        $role = $this->role(auth()->user());
+
+        if ($role === self::ROLE_DRIVER) {
+            return response()->json(['error' => 'Unauthorized Access'], 403);
+        }
+
+        $records = DriverAssignment::with(['vehicle', 'assignedByUser', 'unassignedByUser'])
+            ->where('driver_id', $driver->id)
+            ->orderByDesc('assigned_at')
+            ->get()
+            ->map(function (DriverAssignment $a) {
+                $vehicleLabel = $a->vehicle
+                    ? strtoupper($a->vehicle->plate_number) . ' — ' . trim($a->vehicle->make . ' ' . $a->vehicle->model)
+                    : 'Unknown vehicle';
+
+                return [
+                    'vehicle_label' => $vehicleLabel,
+                    'assigned_at'   => $a->assigned_at->format('M d, Y h:i A'),
+                    'assigned_by'   => $a->assignedByUser->fullname ?? 'Unknown user',
+                    'unassigned_at' => $a->unassigned_at ? $a->unassigned_at->format('M d, Y h:i A') : null,
+                    'unassigned_by' => $a->unassignedByUser->fullname ?? null,
+                    'duration'      => $a->assigned_at->diffForHumans($a->unassigned_at ?? now(), ['syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE]),
+                    'is_active'     => $a->unassigned_at === null,
+                    'notes'         => $a->notes,
+                ];
+            });
+
+        return response()->json([
+            'driver_name' => trim($driver->firstname . ' ' . $driver->lastname),
+            'records'     => $records,
         ]);
     }
 }

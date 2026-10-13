@@ -179,13 +179,25 @@ Route::middleware('auth')->group(function () {
         // actually printed and visible on the physical sticker).
         Route::get('/vehicles/scan-plate/{plate}', [ScanController::class, 'showByPlate'])->name('vehicles.scan-plate');
 
-        // Driver Management 
+        // Driver Management — as of the Driver Assignments merge, this is
+        // also where vehicle assignment is managed (see DriverController's
+        // class docblock); there is no separate assignment page anymore.
         Route::resource('drivers', DriverController::class)->except(['show']);
 
         // Live license-number duplicate check + profile photo streaming
         Route::post('/drivers/check-availability', [DriverController::class, 'checkAvailability'])->name('drivers.check-availability');
         Route::get('/drivers/{driver}/photo', [DriverController::class, 'photo'])->name('drivers.photo');
-        
+
+        // Vehicle Assignment, driver-centric — "assign this driver a
+        // vehicle" rather than "assign this vehicle a driver" — backing
+        // the Assign/Reassign/Unassign/History actions folded into the
+        // Driver Management table above. See DriverAssignmentController's
+        // class docblock for how this relates to its older vehicle-centric
+        // methods (assign()/unassign()/history() further below).
+        Route::post('/drivers/{driver}/assign-vehicle', [DriverAssignmentController::class, 'assignToDriver'])->name('drivers.assign-vehicle');
+        Route::post('/drivers/{driver}/unassign-vehicle', [DriverAssignmentController::class, 'unassignDriver'])->name('drivers.unassign-vehicle');
+        Route::get('/drivers/{driver}/assignment-history', [DriverAssignmentController::class, 'driverHistory'])->name('drivers.assignment-history');
+
         // Vehicle Types Management
         Route::resource('vehicle-types', VehicleTypeController::class)->except(['show']);
 
@@ -259,15 +271,17 @@ Route::middleware('auth')->group(function () {
         Route::get('/vehicle-requisitions/{maintenanceRecord}', [VehicleRepairRequisitionController::class, 'edit'])->name('vehicle-requisitions.edit');
         Route::post('/vehicle-requisitions/{maintenanceRecord}', [VehicleRepairRequisitionController::class, 'save'])->name('vehicle-requisitions.save');
 
-        // Driver Assignments — who currently has custody of which vehicle,
-        // plus the full assignment history (see driver_assignments
-        // migration's docblock). Writes the exact same
-        // vehicles.assigned_driver_id column the Vehicle Inventory Edit
-        // form's "Assigned Driver" field does; DriverAssignmentController
-        // enforces the same unit/station write-scoping as
-        // VehicleController::authorizeVehicleWrite().
+        // Driver Assignments (legacy, vehicle-centric) — this used to be
+        // its own page; it's now merged into Driver Management above (see
+        // DriverController's and DriverAssignmentController's class
+        // docblocks), so the index route just redirects there and nothing
+        // currently links to the assign/unassign/history routes below.
+        // They're kept rather than removed — same authorization rules,
+        // harmless if something calls them directly later — but the
+        // Driver Management page's own Assign/Unassign/History buttons
+        // call the driver-centric /drivers/{driver}/... routes above instead.
         Route::prefix('driver-assignments')->name('driver-assignments.')->group(function () {
-            Route::get('/', [DriverAssignmentController::class, 'index'])->name('index');
+            Route::get('/', fn () => redirect()->route('drivers.index'))->name('index');
             Route::post('/{vehicle}/assign', [DriverAssignmentController::class, 'assign'])->name('assign');
             Route::post('/{vehicle}/unassign', [DriverAssignmentController::class, 'unassign'])->name('unassign');
             Route::get('/{vehicle}/history', [DriverAssignmentController::class, 'history'])->name('history');
