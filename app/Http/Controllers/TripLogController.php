@@ -113,10 +113,28 @@ class TripLogController extends Controller
         return view('trip_logs.mobile', compact('driver', 'vehicles', 'trips'));
     }
 
+    /**
+     * Excludes a round trip's return leg from a TripLog query — a round
+     * trip is still two physical rows (see TripLog's own docblock: one
+     * per leg, sharing round_trip_group), but the Trip History table
+     * shows ONE row per round trip, built from the outbound leg plus its
+     * roundTripPartner() (see buildTripRow()). Applied to every count/
+     * list query in adminAjaxList()/adminIndex() so totals, pagination
+     * and "Logged Today/This Month" all agree with what's actually shown
+     * — a round trip counts once, not twice.
+     */
+    protected function excludingReturnLegs($query): void
+    {
+        $query->where(function ($q) {
+            $q->whereNull('leg')->orWhere('leg', 'outbound');
+        });
+    }
+
     protected function adminAjaxList(Request $request, $user, string $role): JsonResponse
     {
         $query = TripLog::with(['vehicle', 'driver', 'loggedBy'])->orderByDesc('trip_date')->orderByDesc('id');
         $this->scopeToVisibleVehicles($query, $user, $role, viaRelation: true);
+        $this->excludingReturnLegs($query);
 
         if ($vehicleId = $request->get('vehicle_id')) {
             $query->where('vehicle_id', $vehicleId);
@@ -149,6 +167,7 @@ class TripLogController extends Controller
 
         $totalScoped = TripLog::query();
         $this->scopeToVisibleVehicles($totalScoped, $user, $role, viaRelation: true);
+        $this->excludingReturnLegs($totalScoped);
         $totalRecords = $totalScoped->count();
         $filteredRecords = (clone $query)->count();
 
@@ -158,82 +177,7 @@ class TripLogController extends Controller
 
         $data = [];
         foreach ($trips as $trip) {
-            $vehicle = $trip->vehicle;
-
-            $vehicleHtml = $vehicle
-                ? '<span class="plate-badge">' . e(strtoupper($vehicle->plate_number)) . '</span>' .
-                  '<div class="vehicle-sub-info mt-1">' . e(trim($vehicle->make . ' ' . $vehicle->model)) . '</div>'
-                : '<span class="text-muted">Vehicle removed</span>';
-
-            $driverName = $trip->driver ? trim($trip->driver->firstname . ' ' . $trip->driver->lastname) : '—';
-            $driverHtml = '<div class="vehicle-sub-info">' . e($driverName) . '</div>';
-
-            $tripHtml = '<div class="vehicle-main-name" style="font-size:13.5px;">' . $trip->trip_date->format('M d, Y') . '</div>';
-            if ($trip->departure_time || $trip->arrival_time) {
-                $dep = $trip->departure_time ? date('h:i A', strtotime($trip->departure_time)) : '—';
-                $arr = $trip->arrival_time ? date('h:i A', strtotime($trip->arrival_time)) : '—';
-                $tripHtml .= '<div class="vehicle-sub-info">' . $dep . ' to ' . $arr . '</div>';
-            }
-
-            $routeHtml = '<div class="vehicle-main-name" style="font-size:13.5px;">' . e($trip->origin) . ' &rarr; ' . e($trip->destination);
-            if ($trip->leg === 'outbound') {
-                $routeHtml .= '<span class="round-trip-badge" title="Paired with its return leg below"><i class="fas fa-exchange-alt"></i> Round Trip · Outbound</span>';
-            } elseif ($trip->leg === 'return') {
-                $routeHtml .= '<span class="round-trip-badge" title="Return leg of the round trip above"><i class="fas fa-exchange-alt"></i> Round Trip · Return</span>';
-            }
-            $routeHtml .= '</div>';
-            if ($trip->purpose) {
-                $routeHtml .= '<div class="vehicle-sub-info">' . e(Str::limit($trip->purpose, 60)) . '</div>';
-            }
-
-            $odometerHtml = '<span class="text-muted">—</span>';
-            if ($trip->odometer_start !== null || $trip->odometer_end !== null) {
-                $odometerHtml = number_format((int) $trip->odometer_start) . ' &rarr; ' . number_format((int) $trip->odometer_end);
-                if ($trip->odometer_start !== null && $trip->odometer_end !== null && $trip->odometer_end >= $trip->odometer_start) {
-                    $odometerHtml .= '<div class="vehicle-sub-info mt-1">' . number_format($trip->odometer_end - $trip->odometer_start) . ' km traveled</div>';
-                }
-            }
-
-            $loggedHtml = '<div class="vehicle-sub-info">' . e(optional($trip->loggedBy)->fullname ?? 'Unknown user') . '</div>' .
-                          '<div class="vehicle-sub-info">' . $trip->created_at->format('M d, Y h:i A') . '</div>';
-
-            // GPS column: only trips logged live from the driver app's
-            // Start Trip flow carry a route — everything else (desktop
-            // entry, manual app entry, every return leg in this v1) shows
-            // a plain dash. The "View Route" link embeds the raw point
-            // array as a data attribute rather than hitting a new endpoint,
-            // since DataTables already paginates these rows server-side —
-            // see the Leaflet handler at the bottom of this view.
-            if ($trip->hasGpsRoute()) {
-                $gpsHtml = '<span class="gps-tracked-badge" title="Captured live by the driver app"><i class="fas fa-satellite-dish"></i> GPS</span>';
-                if ($trip->distance_km !== null) {
-                    $gpsHtml .= '<div class="vehicle-sub-info mt-1">' . number_format((float) $trip->distance_km, 2) . ' km</div>';
-                }
-                if ($trip->hasSpeedData()) {
-                    $gpsHtml .= '<div class="speed-chip mt-1" title="Average / top speed during this trip"><i class="fas fa-tachometer-alt"></i> ' .
-                        ($trip->avg_speed_kmh !== null ? number_format((float) $trip->avg_speed_kmh, 1) . ' avg' : '—');
-                    if ($trip->max_speed_kmh !== null) {
-                        $gpsHtml .= ' · ' . number_format((float) $trip->max_speed_kmh, 1) . ' max';
-                    }
-                    $gpsHtml .= ' km/h</div>';
-                }
-                $gpsHtml .= '<button type="button" class="btn btn-link btn-sm p-0 mt-1 view-route-btn" data-route="' . e(json_encode($trip->route_points)) . '" data-trip-label="' . e($trip->origin . ' → ' . $trip->destination) .
-                    '" data-distance="' . e($trip->distance_km ?? '') .
-                    '" data-avg-speed="' . e($trip->avg_speed_kmh ?? '') .
-                    '" data-max-speed="' . e($trip->max_speed_kmh ?? '') . '">View Route</button>';
-            } else {
-                $gpsHtml = '<span class="text-muted">—</span>';
-            }
-
-            $data[] = [
-                'vehicle_html'  => $vehicleHtml,
-                'driver_html'   => $driverHtml,
-                'trip_html'     => $tripHtml,
-                'route_html'    => $routeHtml,
-                'odometer_html' => $odometerHtml,
-                'gps_html'      => $gpsHtml,
-                'logged_html'   => $loggedHtml,
-            ];
+            $data[] = $this->buildTripRow($trip);
         }
 
         return response()->json([
@@ -242,6 +186,111 @@ class TripLogController extends Controller
             'recordsFiltered' => $filteredRecords,
             'data'            => $data,
         ]);
+    }
+
+    /**
+     * Builds one Trip History table row from $trip. For a one-way trip
+     * this is just $trip; for a round trip (leg === 'outbound' — the
+     * query this is called from never hands it a 'return' row directly,
+     * see excludingReturnLegs()) it's $trip combined with its
+     * roundTripPartner() so the admin sees the whole excursion — both
+     * legs' times and a continuous odometer range — as a single row,
+     * rather than the two separate rows this page used to show. The
+     * return leg is still its own permanent, append-only TripLog record
+     * underneath (TripLogController::store() / Api\TripLogController::
+     * store() haven't changed); only how it's *displayed* has.
+     */
+    protected function buildTripRow(TripLog $trip): array
+    {
+        $returnLeg = $trip->leg === 'outbound' ? $trip->roundTripPartner() : null;
+        $isRoundTrip = $returnLeg !== null;
+
+        $vehicle = $trip->vehicle;
+        $vehicleHtml = $vehicle
+            ? '<span class="plate-badge">' . e(strtoupper($vehicle->plate_number)) . '</span>' .
+              '<div class="vehicle-sub-info mt-1">' . e(trim($vehicle->make . ' ' . $vehicle->model)) . '</div>'
+            : '<span class="text-muted">Vehicle removed</span>';
+
+        $driverName = $trip->driver ? trim($trip->driver->firstname . ' ' . $trip->driver->lastname) : '—';
+        $driverHtml = '<div class="vehicle-sub-info">' . e($driverName) . '</div>';
+
+        $fmtTime = fn ($raw) => $raw ? date('h:i A', strtotime($raw)) : '—';
+
+        $tripHtml = '<div class="vehicle-main-name" style="font-size:13.5px;">' . $trip->trip_date->format('M d, Y') . '</div>';
+        if ($isRoundTrip) {
+            $tripHtml .= '<div class="vehicle-sub-info">Out ' . $fmtTime($trip->departure_time) . ' to ' . $fmtTime($trip->arrival_time) . '</div>';
+            $tripHtml .= '<div class="vehicle-sub-info">Back ' . $fmtTime($returnLeg->departure_time) . ' to ' . $fmtTime($returnLeg->arrival_time) . '</div>';
+        } elseif ($trip->departure_time || $trip->arrival_time) {
+            $tripHtml .= '<div class="vehicle-sub-info">' . $fmtTime($trip->departure_time) . ' to ' . $fmtTime($trip->arrival_time) . '</div>';
+        }
+
+        $routeHtml = '<div class="vehicle-main-name" style="font-size:13.5px;">' . e($trip->origin) . ' ' . ($isRoundTrip ? '&#8644;' : '&rarr;') . ' ' . e($trip->destination);
+        if ($isRoundTrip) {
+            $routeHtml .= '<span class="round-trip-badge" title="Logged as two linked trip records — outbound and return"><i class="fas fa-exchange-alt"></i> Round Trip</span>';
+        }
+        $routeHtml .= '</div>';
+        if ($trip->purpose) {
+            $routeHtml .= '<div class="vehicle-sub-info">' . e(Str::limit($trip->purpose, 60)) . '</div>';
+        }
+
+        // Continuous across both legs — the return leg's own
+        // odometer_start is just the outbound leg's odometer_end (see
+        // TripLogController::store()'s round-trip block), so showing
+        // outbound-start → return-end reads as one unbroken mileage
+        // range for the whole excursion, same as the driver experiences it.
+        $odoStart = $trip->odometer_start;
+        $odoEnd = $isRoundTrip ? $returnLeg->odometer_end : $trip->odometer_end;
+        $odometerHtml = '<span class="text-muted">—</span>';
+        if ($odoStart !== null || $odoEnd !== null) {
+            $odometerHtml = number_format((int) $odoStart) . ' &rarr; ' . number_format((int) $odoEnd);
+            if ($odoStart !== null && $odoEnd !== null && $odoEnd >= $odoStart) {
+                $odometerHtml .= '<div class="vehicle-sub-info mt-1">' . number_format($odoEnd - $odoStart) . ' km traveled</div>';
+            }
+        }
+
+        $loggedHtml = '<div class="vehicle-sub-info">' . e(optional($trip->loggedBy)->fullname ?? 'Unknown user') . '</div>' .
+                      '<div class="vehicle-sub-info">' . $trip->created_at->format('M d, Y h:i A') . '</div>';
+
+        // GPS column: only trips logged live from the driver app's Start
+        // Trip flow carry a route. For a round trip, the whole excursion's
+        // GPS trail lives on the outbound leg only — a return leg never
+        // carries its own route/distance/speed (see TripLogController::
+        // store()'s round-trip block) — so $trip (outbound, or the plain
+        // one-way trip) is always the right row to read this from. The
+        // "View Route" link embeds the raw point array as a data
+        // attribute rather than hitting a new endpoint, since DataTables
+        // already paginates these rows server-side — see the Leaflet
+        // handler at the bottom of this view.
+        if ($trip->hasGpsRoute()) {
+            $gpsHtml = '<span class="gps-tracked-badge" title="Captured live by the driver app"><i class="fas fa-satellite-dish"></i> GPS</span>';
+            if ($trip->distance_km !== null) {
+                $gpsHtml .= '<div class="vehicle-sub-info mt-1">' . number_format((float) $trip->distance_km, 2) . ' km</div>';
+            }
+            if ($trip->hasSpeedData()) {
+                $gpsHtml .= '<div class="speed-chip mt-1" title="Average / top speed during this trip"><i class="fas fa-tachometer-alt"></i> ' .
+                    ($trip->avg_speed_kmh !== null ? number_format((float) $trip->avg_speed_kmh, 1) . ' avg' : '—');
+                if ($trip->max_speed_kmh !== null) {
+                    $gpsHtml .= ' · ' . number_format((float) $trip->max_speed_kmh, 1) . ' max';
+                }
+                $gpsHtml .= ' km/h</div>';
+            }
+            $gpsHtml .= '<button type="button" class="btn btn-link btn-sm p-0 mt-1 view-route-btn" data-route="' . e(json_encode($trip->route_points)) . '" data-trip-label="' . e($trip->origin . ' → ' . $trip->destination) .
+                '" data-distance="' . e($trip->distance_km ?? '') .
+                '" data-avg-speed="' . e($trip->avg_speed_kmh ?? '') .
+                '" data-max-speed="' . e($trip->max_speed_kmh ?? '') . '">View Route</button>';
+        } else {
+            $gpsHtml = '<span class="text-muted">—</span>';
+        }
+
+        return [
+            'vehicle_html'  => $vehicleHtml,
+            'driver_html'   => $driverHtml,
+            'trip_html'     => $tripHtml,
+            'route_html'    => $routeHtml,
+            'odometer_html' => $odometerHtml,
+            'gps_html'      => $gpsHtml,
+            'logged_html'   => $loggedHtml,
+        ];
     }
 
     protected function adminIndex($user, string $role)
@@ -254,6 +303,10 @@ class TripLogController extends Controller
 
         $tripScope = TripLog::query();
         $this->scopeToVisibleVehicles($tripScope, $user, $role, viaRelation: true);
+        // A round trip is two TripLog rows but one trip on screen (see
+        // buildTripRow()) — excluded here too so these counts agree with
+        // what the table actually shows a round trip as: one.
+        $this->excludingReturnLegs($tripScope);
 
         $stats = [
             'total_trips'     => (clone $tripScope)->count(),
