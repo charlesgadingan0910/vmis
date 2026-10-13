@@ -191,7 +191,6 @@ $(document.body).ready(function() {
     }).addTo(map);
 
     const markers = {};     // vehicle_id -> L.marker
-    const polylines = {};   // vehicle_id -> { glow: L.polyline, line: L.polyline }
     const prevLatLngs = {}; // vehicle_id -> [lat, lng] — last position, for computing heading
     const headings = {};    // vehicle_id -> last known bearing in degrees (kept when stationary)
     let hasFitOnce = false;
@@ -423,38 +422,21 @@ $(document.body).ready(function() {
                 } else {
                     markers[t.vehicle_id] = L.marker(latLng, { icon: markerIcon(t.stale, heading, t.vehicle_id) }).addTo(map).bindPopup(popupHtml(t));
                 }
-
-                const trail = (t.route_points || [])
-                    .filter(function(p) { return typeof p.lat === 'number' && typeof p.lng === 'number'; })
-                    .map(function(p) { return [p.lat, p.lng]; });
-
-                // Soft outer glow + crisp inner line, same treatment as the
-                // Trip Logs route viewer — reads as a deliberately-drawn
-                // path rather than a thin, easy-to-miss stroke.
-                if (polylines[t.vehicle_id]) {
-                    polylines[t.vehicle_id].glow.setLatLngs(trail);
-                    polylines[t.vehicle_id].line.setLatLngs(trail);
-                } else if (trail.length > 1) {
-                    polylines[t.vehicle_id] = {
-                        glow: L.polyline(trail, { color: '#3b82f6', weight: 8, opacity: 0.15, lineCap: 'round', lineJoin: 'round' }).addTo(map),
-                        line: L.polyline(trail, { color: '#3b82f6', weight: 3, opacity: 0.75, lineCap: 'round', lineJoin: 'round' }).addTo(map),
-                    };
-                }
+                // Deliberately no live trail/polyline here — this page is
+                // just "where is it right now" (monitoring/tracking).
+                // The driven path is still available afterward in Trip
+                // Logs' route viewer, which draws it from the same
+                // route_points once the trip is logged.
             });
 
-            // Drop markers/trails for vehicles that are no longer active
-            // (trip ended, or the session went stale and was purged).
+            // Drop markers for vehicles that are no longer active (trip
+            // ended, or the session went stale and was purged).
             Object.keys(markers).forEach(function(vehicleId) {
                 if (!seenIds[vehicleId]) {
                     map.removeLayer(markers[vehicleId]);
                     delete markers[vehicleId];
                     delete prevLatLngs[vehicleId];
                     delete headings[vehicleId];
-                    if (polylines[vehicleId]) {
-                        map.removeLayer(polylines[vehicleId].glow);
-                        map.removeLayer(polylines[vehicleId].line);
-                        delete polylines[vehicleId];
-                    }
                 }
             });
 
