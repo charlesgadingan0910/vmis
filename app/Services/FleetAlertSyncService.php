@@ -45,12 +45,7 @@ class FleetAlertSyncService
             }
 
             if ($vehicle->needsPmsAlert()) {
-                $seenKeys[] = $this->upsertVehicleAlert(
-                    $vehicle,
-                    FleetAlert::TYPE_PMS_DUE,
-                    $vehicle->pmsDaysRemaining(),
-                    'PMS',
-                );
+                $seenKeys[] = $this->upsertPmsAlert($vehicle);
             }
 
             if ($vehicle->needsUnserviceableAlert()) {
@@ -95,6 +90,36 @@ class FleetAlertSyncService
                 'body'       => $overdue
                     ? $label . ' for ' . strtoupper($vehicle->plate_number) . ' is ' . abs($days) . ' day(s) overdue.'
                     : $label . ' for ' . strtoupper($vehicle->plate_number) . ' is due in ' . $days . ' day(s).',
+            ]
+        );
+
+        return $key;
+    }
+
+    /**
+     * PMS's own upsert, separate from the generic day-based
+     * upsertVehicleAlert() above — PMS is the one alert type with TWO
+     * independent triggers (calendar date and mileage, see
+     * Vehicle::pmsStatus()), so its title/body is built from
+     * Vehicle::pmsReason() rather than a single $days count. Severity is
+     * overdue if EITHER trigger is overdue, same "whichever is worse"
+     * rule pmsStatus() itself uses.
+     */
+    protected function upsertPmsAlert(Vehicle $vehicle): string
+    {
+        $key = FleetAlert::TYPE_PMS_DUE . ':vehicle:' . $vehicle->id;
+        $overdue = $vehicle->pmsStatus()['bucket'] === 'overdue';
+        $reason = $vehicle->pmsReason();
+
+        FleetAlert::updateOrCreate(
+            ['dedupe_key' => $key],
+            [
+                'type'       => FleetAlert::TYPE_PMS_DUE,
+                'severity'   => $overdue ? FleetAlert::SEVERITY_OVERDUE : FleetAlert::SEVERITY_DUE_SOON,
+                'vehicle_id' => $vehicle->id,
+                'driver_id'  => null,
+                'title'      => 'PMS ' . ($overdue ? 'overdue' : 'due soon') . ' — ' . strtoupper($vehicle->plate_number),
+                'body'       => 'PMS for ' . strtoupper($vehicle->plate_number) . ' is ' . $reason . '.',
             ]
         );
 

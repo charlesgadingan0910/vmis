@@ -234,6 +234,11 @@ class TripLogController extends Controller
             ]);
         }
 
+        // Mileage-based PMS trigger — see the desktop TripLogController::
+        // store()'s identical hook for why this only ever moves the
+        // vehicle's running odometer_km forward, never backward.
+        $vehicle->bumpOdometer($returnTrip?->odometer_end ?? $trip->odometer_end);
+
         ActivityLog::record(
             'created',
             'Trip Log',

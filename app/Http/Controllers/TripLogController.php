@@ -560,6 +560,13 @@ class TripLogController extends Controller
             ]);
         }
 
+        // Mileage-based PMS trigger: the vehicle's running odometer_km
+        // advances to this trip's ending reading (the return leg's, for a
+        // round trip, since that's the later/higher one) — only ever
+        // forward, never backward (see Vehicle::bumpOdometer()). A trip
+        // logged without an odometer reading at all leaves it untouched.
+        $vehicle->bumpOdometer($returnTrip?->odometer_end ?? $trip->odometer_end);
+
         ActivityLog::record(
             'created',
             'Trip Log',

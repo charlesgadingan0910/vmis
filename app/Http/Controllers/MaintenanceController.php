@@ -109,6 +109,13 @@ class MaintenanceController extends Controller
 
         $vehicle->next_pms_date = $latest?->next_due_date;
 
+        // Mirrors next_pms_date exactly (including blanking out to null when
+        // the latest record didn't set one) — this is a TARGET to re-aim at
+        // each time, not a reading that should only ever climb. That "only
+        // moves forward" rule applies to odometer_km itself just below, and
+        // separately to every logged trip via Vehicle::bumpOdometer().
+        $vehicle->next_pms_odometer_km = $latest?->next_due_odometer_km;
+
         // Odometer only ever moves forward from a logged reading — never blanked out
         // just because the latest record happened not to include one.
         if ($latest?->odometer_km) {
@@ -142,24 +149,35 @@ class MaintenanceController extends Controller
     }
 
     /**
-     * Overdue/due-soon bucket + a human day count for a given next_pms_date, shared by
-     * both the monitoring panel payload and the per-row "Next Due" pill.
+     * Overdue/due-soon bucket for a vehicle's PMS schedule, shared by both
+     * the monitoring panel payload and the Dashboard's due-soon/overdue
+     * counts. Thin wrapper around Vehicle::pmsStatus() — the actual date-
+     * vs-mileage logic lives there (single source of truth) so this page
+     * can never disagree with the Vehicle Inventory badge or the bell/
+     * inbox over whether a vehicle is overdue.
      */
-    protected function dueBucket(?Carbon $nextPmsDate): array
+    protected function dueBucket(Vehicle $vehicle): array
     {
-        if (! $nextPmsDate) {
-            return ['bucket' => 'none', 'days' => null];
-        }
+        return $vehicle->pmsStatus();
+    }
 
-        $days = now()->startOfDay()->diffInDays($nextPmsDate->copy()->startOfDay(), false);
+    /**
+     * Plain date-only overdue/due-soon/normal bucket — used only by
+     * nextDueHtml() below, which colors a single MAINTENANCE RECORD's own
+     * next_due_date pill in the records table. That's a historical
+     * "what this service scheduled next" display, independent of
+     * whichever record is actually latest/authoritative for the
+     * vehicle right now, so it has no business going through
+     * Vehicle::pmsStatus() the way dueBucket(Vehicle) above does.
+     */
+    protected function dateOnlyBucket(Carbon $date): string
+    {
+        $days = now()->startOfDay()->diffInDays($date->copy()->startOfDay(), false);
 
         if ($days < 0) {
-            return ['bucket' => 'overdue', 'days' => $days];
+            return 'overdue';
         }
-        if ($days <= self::DUE_SOON_DAYS) {
-            return ['bucket' => 'soon', 'days' => $days];
-        }
-        return ['bucket' => 'normal', 'days' => $days];
+        return $days <= self::DUE_SOON_DAYS ? 'soon' : 'normal';
     }
 
     protected function nextDueHtml(?Carbon $nextPmsDate): string
@@ -168,7 +186,7 @@ class MaintenanceController extends Controller
             return '<span class="due-pill due-none"><i class="fas fa-minus"></i> Not scheduled</span>';
         }
 
-        ['bucket' => $bucket] = $this->dueBucket($nextPmsDate);
+        $bucket = $this->dateOnlyBucket($nextPmsDate);
         $formatted = $nextPmsDate->format('M d, Y');
 
         return match ($bucket) {
@@ -249,8 +267,12 @@ class MaintenanceController extends Controller
             // ---------------- Monitoring snapshot ----------------
             // Recomputed against the vehicle scope + unit/station filter (not the record-level
             // search/type/date filters) so the panel always reflects "vehicles in view", not
-            // whatever the table's text search happens to match.
-            $vehicleScope = Vehicle::query()->whereNotNull('next_pms_date');
+            // whatever the table's text search happens to match. whereNotNull covers EITHER
+            // trigger column now — a vehicle scheduled only by mileage (no next_pms_date at
+            // all) still needs to be picked up and scored by Vehicle::pmsStatus() below.
+            $vehicleScope = Vehicle::query()->where(function ($q) {
+                $q->whereNotNull('next_pms_date')->orWhereNotNull('next_pms_odometer_km');
+            });
             $this->scopeToVisibleVehicles($vehicleScope, $user, $role);
             if ($unitId) {
                 $vehicleScope->where('unit_id', $unitId);
@@ -259,18 +281,30 @@ class MaintenanceController extends Controller
                 $vehicleScope->where('station_id', $stationId);
             }
 
-            $monitorVehicles = $vehicleScope->orderBy('next_pms_date')->get(['id', 'plate_number', 'make', 'model', 'next_pms_date']);
+            $monitorVehicles = $vehicleScope->orderBy('next_pms_date')
+                ->get(['id', 'plate_number', 'make', 'model', 'next_pms_date', 'next_pms_odometer_km', 'odometer_km']);
 
             $dueSoon = [];
             $overdue = [];
             foreach ($monitorVehicles as $v) {
-                ['bucket' => $bucket, 'days' => $days] = $this->dueBucket($v->next_pms_date);
+                ['bucket' => $bucket, 'days' => $days, 'km' => $km] = $this->dueBucket($v);
+
+                $scheduleParts = [];
+                if ($v->next_pms_date) {
+                    $scheduleParts[] = $v->next_pms_date->format('M d, Y');
+                }
+                if ($v->next_pms_odometer_km) {
+                    $scheduleParts[] = number_format($v->next_pms_odometer_km) . ' km';
+                }
+
                 $item = [
-                    'id'            => $v->id,
-                    'plate_number'  => strtoupper($v->plate_number),
-                    'make_model'    => trim($v->make . ' ' . $v->model),
-                    'next_pms_date' => $v->next_pms_date->format('M d, Y'),
-                    'days'          => (int) $days,
+                    'id'              => $v->id,
+                    'plate_number'    => strtoupper($v->plate_number),
+                    'make_model'      => trim($v->make . ' ' . $v->model),
+                    'schedule_label'  => $scheduleParts ? implode(' / ', $scheduleParts) : 'Not scheduled',
+                    'reason'          => $v->pmsReason(),
+                    'days'            => $days,
+                    'km'              => $km,
                 ];
                 if ($bucket === 'overdue') {
                     $overdue[] = $item;
@@ -437,11 +471,15 @@ class MaintenanceController extends Controller
         // for their own vehicle in practice, not whoever is logged in as admin.
         $vehicles = (clone $vehicleScope)->with('driver')->orderBy('plate_number')->get(['id', 'plate_number', 'make', 'model', 'odometer_km', 'assigned_driver_id']);
 
-        $monitorScope = (clone $vehicleScope)->whereNotNull('next_pms_date')->get(['next_pms_date']);
+        $monitorScope = (clone $vehicleScope)
+            ->where(function ($q) {
+                $q->whereNotNull('next_pms_date')->orWhereNotNull('next_pms_odometer_km');
+            })
+            ->get(['next_pms_date', 'next_pms_odometer_km', 'odometer_km']);
         $dueSoonCount = 0;
         $overdueCount = 0;
         foreach ($monitorScope as $v) {
-            $bucket = $this->dueBucket($v->next_pms_date)['bucket'];
+            $bucket = $this->dueBucket($v)['bucket'];
             if ($bucket === 'overdue') { $overdueCount++; }
             elseif ($bucket === 'soon') { $dueSoonCount++; }
         }

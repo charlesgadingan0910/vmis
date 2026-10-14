@@ -52,6 +52,7 @@ class Vehicle extends Model
         'assigned_driver_id',
         'odometer_km',
         'next_pms_date',
+        'next_pms_odometer_km',
         'status',
         'ber_sub_status',
         'disposal_date',
@@ -241,14 +242,133 @@ class Vehicle extends Model
     }
 
     /**
-     * True once next_pms_date has passed or is within PMS_DUE_SOON_DAYS —
-     * mirrors needsRegistrationAlert()'s shape.
+     * Mileage-based PMS trigger — the odometer-reading counterpart to
+     * PMS_DUE_SOON_DAYS. A vehicle averaging well above a "typical"
+     * pace can rack up thousands of km between calendar services, so
+     * this exists alongside the date trigger rather than instead of it
+     * (see pmsStatus()) — "every 6 months or 5,000 km, whichever comes
+     * first," the same way a manufacturer's own service schedule works.
+     */
+    public const PMS_DUE_SOON_KM = 500;
+
+    /**
+     * Km remaining until next_pms_odometer_km, negative once overdue,
+     * null if no mileage target is on file yet. Same shape as
+     * pmsDaysRemaining() — positive always means "still ahead," negative
+     * always means "overdue."
+     */
+    public function pmsKmRemaining(): ?int
+    {
+        if ($this->next_pms_odometer_km === null) {
+            return null;
+        }
+
+        return (int) $this->next_pms_odometer_km - (int) $this->odometer_km;
+    }
+
+    /**
+     * Single source of truth for "is this vehicle due for PMS, and why" —
+     * every consumer (Vehicle Inventory's badge, the Maintenance & PMS
+     * monitoring panel, the Dashboard's due-soon/overdue counts,
+     * FleetAlertSyncService, PmsPredictionService) reads this rather than
+     * re-deriving its own bucket from next_pms_date, so none of them can
+     * ever disagree about whether a vehicle is overdue.
+     *
+     * The date and mileage triggers are independent — EITHER one being
+     * due/overdue is enough, and whichever of the two is more urgent
+     * decides the overall bucket. A vehicle with no schedule set at all
+     * (neither column populated) gets 'none'.
+     *
+     * @return array{bucket: string, days: ?int, km: ?int}
+     *         bucket: 'overdue' | 'soon' | 'normal' | 'none'
+     */
+    public function pmsStatus(): array
+    {
+        $days = $this->pmsDaysRemaining();
+        $km = $this->pmsKmRemaining();
+
+        $bucketFor = function (?int $value, int $dueSoonThreshold): string {
+            if ($value === null) {
+                return 'none';
+            }
+            if ($value < 0) {
+                return 'overdue';
+            }
+            return $value <= $dueSoonThreshold ? 'soon' : 'normal';
+        };
+
+        $dateBucket = $bucketFor($days, self::PMS_DUE_SOON_DAYS);
+        $kmBucket = $bucketFor($km, self::PMS_DUE_SOON_KM);
+
+        // Rank, not a plain string compare — picks whichever of the two
+        // triggers is currently more urgent ('overdue' beats 'soon' beats
+        // 'normal' beats 'none', the last only surviving when BOTH
+        // triggers are unset).
+        $rank = ['none' => 0, 'normal' => 1, 'soon' => 2, 'overdue' => 3];
+        $bucket = $rank[$dateBucket] >= $rank[$kmBucket] ? $dateBucket : $kmBucket;
+
+        return ['bucket' => $bucket, 'days' => $days, 'km' => $km];
+    }
+
+    /**
+     * Human-readable explanation of pmsStatus() — "overdue 5 day(s)",
+     * "due in 320 km", or both joined when both triggers are set, so a
+     * badge/alert/tooltip never has to re-derive this phrasing itself.
+     */
+    public function pmsReason(): string
+    {
+        $status = $this->pmsStatus();
+        $parts = [];
+
+        if ($status['days'] !== null) {
+            $parts[] = match (true) {
+                $status['days'] < 0 => 'overdue ' . abs($status['days']) . ' day(s)',
+                $status['days'] === 0 => 'due today',
+                default => 'due in ' . $status['days'] . ' day(s)',
+            };
+        }
+
+        if ($status['km'] !== null) {
+            $parts[] = match (true) {
+                $status['km'] < 0 => 'overdue ' . number_format(abs($status['km'])) . ' km',
+                $status['km'] === 0 => 'due now (at target odometer)',
+                default => 'due in ' . number_format($status['km']) . ' km',
+            };
+        }
+
+        return $parts ? implode(' · ', $parts) : 'not scheduled';
+    }
+
+    /**
+     * True once EITHER next_pms_date OR next_pms_odometer_km says this
+     * vehicle is due soon or overdue — mirrors needsRegistrationAlert()'s
+     * shape, now delegated to pmsStatus() so this can never drift from
+     * what the badges/panels actually show.
      */
     public function needsPmsAlert(): bool
     {
-        $days = $this->pmsDaysRemaining();
+        return in_array($this->pmsStatus()['bucket'], ['soon', 'overdue'], true);
+    }
 
-        return $days !== null && $days <= self::PMS_DUE_SOON_DAYS;
+    /**
+     * Advances this vehicle's recorded odometer_km to $reading if (and
+     * only if) that's higher than what's already on file — the running-
+     * mileage counterpart to MaintenanceController::
+     * syncVehicleFromLatestRecord()'s "odometer only ever moves forward"
+     * rule, applied here to every logged trip's ending reading (see
+     * TripLogController::store() / Api\TripLogController::store()) so
+     * the current mileage keeps climbing day to day instead of sitting
+     * frozen at whatever the last completed service happened to record.
+     * A trip logged with no odometer reading, or a lower/stale one
+     * (a typo, or a manually-logged trip entered out of order), never
+     * moves it backward.
+     */
+    public function bumpOdometer(?int $reading): void
+    {
+        if ($reading !== null && $reading > ($this->odometer_km ?? 0)) {
+            $this->odometer_km = $reading;
+            $this->save();
+        }
     }
 
     /**

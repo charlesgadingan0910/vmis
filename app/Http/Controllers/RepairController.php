@@ -108,6 +108,11 @@ class RepairController extends Controller
 
         $vehicle->next_pms_date = $latest?->next_due_date;
 
+        // Mirrors next_pms_date — see MaintenanceController's version of
+        // this same method for why this is a target to re-aim at each
+        // time (even blanking to null), not a reading that only climbs.
+        $vehicle->next_pms_odometer_km = $latest?->next_due_odometer_km;
+
         if ($latest?->odometer_km) {
             $vehicle->odometer_km = $latest->odometer_km;
         }

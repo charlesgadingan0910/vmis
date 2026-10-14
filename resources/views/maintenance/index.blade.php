@@ -298,20 +298,7 @@
                             <select name="vehicle_id" id="log_vehicle_id" class="form-control" style="width:100%;" required>
                                 <option value="">Select vehicle...</option>
                                 @foreach ($vehicles as $v)
-                                    @php
-                                        // Same name-assembly as VehicleController's driverHtml, so the
-                                        // name that auto-fills here matches the one shown everywhere
-                                        // else in the app for this driver.
-                                        $driverName = '';
-                                        if ($v->driver) {
-                                            $mi = $v->driver->middlename ? strtoupper(substr($v->driver->middlename, 0, 1)) : '';
-                                            $driverName = implode(' ', array_filter(
-                                                [$v->driver->rank, $v->driver->firstname, $mi, $v->driver->lastname, $v->driver->qlfr],
-                                                fn ($part) => ! is_null($part) && trim($part) !== ''
-                                            ));
-                                        }
-                                    @endphp
-                                    <option value="{{ $v->id }}" data-driver="{{ $driverName }}">{{ strtoupper($v->plate_number) }} — {{ trim($v->make.' '.$v->model) }}</option>
+                                    <option value="{{ $v->id }}">{{ strtoupper($v->plate_number) }} — {{ trim($v->make.' '.$v->model) }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -442,17 +429,7 @@
                             <select name="vehicle_id" id="edit_log_vehicle_id" class="form-control" style="width:100%;" required>
                                 <option value="">Select vehicle...</option>
                                 @foreach ($vehicles as $v)
-                                    @php
-                                        $driverName = '';
-                                        if ($v->driver) {
-                                            $mi = $v->driver->middlename ? strtoupper(substr($v->driver->middlename, 0, 1)) : '';
-                                            $driverName = implode(' ', array_filter(
-                                                [$v->driver->rank, $v->driver->firstname, $mi, $v->driver->lastname, $v->driver->qlfr],
-                                                fn ($part) => ! is_null($part) && trim($part) !== ''
-                                            ));
-                                        }
-                                    @endphp
-                                    <option value="{{ $v->id }}" data-driver="{{ $driverName }}">{{ strtoupper($v->plate_number) }} — {{ trim($v->make.' '.$v->model) }}</option>
+                                    <option value="{{ $v->id }}">{{ strtoupper($v->plate_number) }} — {{ trim($v->make.' '.$v->model) }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -801,26 +778,6 @@ $(document).ready(function() {
         });
     }
 
-    // ---------------- Auto-fill "Requested By" from the vehicle's assigned driver ----------------
-    // In practice it's the driver assigned to a vehicle who actually requests its
-    // PMS/repair, not whichever admin is logged in and logging it on their behalf —
-    // so picking a vehicle fills this in as a convenience default. It's a plain
-    // text input, so the admin can still overwrite it (walk-in request, vehicle
-    // with no assigned driver, etc.) — this just saves the common case of retyping
-    // a name that's already on file. Bound to 'change' rather than select2's own
-    // 'select2:select' so it also fires for every .val(...).trigger('change') call
-    // already used elsewhere on this page (quick-log from the monitoring panel,
-    // the Edit modal populating itself) — in the edit case, the actual saved
-    // requested_by value is set right afterward and wins, as it should.
-    $('#log_vehicle_id').on('change', function () {
-        const driverName = $(this).find(':selected').data('driver') || '';
-        $('#log_requested_by').val(driverName);
-    });
-    $('#edit_log_vehicle_id').on('change', function () {
-        const driverName = $(this).find(':selected').data('driver') || '';
-        $('#edit_requested_by').val(driverName);
-    });
-
     @if (session('success'))
         toastr.success(@json(session('success')));
     @endif
@@ -844,19 +801,20 @@ $(document).ready(function() {
         }
 
         items.forEach(function (item) {
-            const dayLabel = variant === 'overdue'
-                ? Math.abs(item.days) + (Math.abs(item.days) === 1 ? ' day overdue' : ' days overdue')
-                : (item.days === 0 ? 'Due today' : 'in ' + item.days + (item.days === 1 ? ' day' : ' days'));
-
+            // reason is already a ready-made, human-readable explanation
+            // from Vehicle::pmsReason() — "overdue 5 day(s)", "due in 320
+            // km", or both joined, covering whichever trigger(s) (date
+            // and/or mileage) are actually set for this vehicle, so this
+            // list doesn't need its own day-counting logic any more.
             const $row = $('<div class="monitor-item"></div>');
             $row.append(
                 $('<div class="monitor-item-info"></div>').append(
                     $('<span class="plate-badge-sm"></span>').text(item.plate_number),
-                    $('<div class="monitor-item-name"></div>').text(item.make_model + ' · ' + item.next_pms_date)
+                    $('<div class="monitor-item-name"></div>').text(item.make_model + ' · ' + item.schedule_label)
                 )
             );
             const $right = $('<div class="d-flex align-items-center" style="gap:10px;"></div>');
-            $right.append($('<span class="monitor-item-days"></span>').text(dayLabel));
+            $right.append($('<span class="monitor-item-days"></span>').text(item.reason));
             @if (! $isViewer)
             $right.append(
                 $('<button type="button" class="btn btn-sm btn-light border btn-log-quick" title="Log maintenance for this vehicle"><i class="fas fa-plus"></i></button>')

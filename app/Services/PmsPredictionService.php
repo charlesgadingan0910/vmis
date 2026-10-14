@@ -7,13 +7,15 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
- * Turns a vehicle's flat "next PMS date" into an explainable urgency score
+ * Turns a vehicle's next-due PMS schedule into an explainable urgency score
  * instead of treating every overdue/soon vehicle the same. The formula only
- * uses data already on file — the recorded due date, past service
- * intervals, and odometer pace from maintenance history — no external call,
- * no black-box model. A reviewer can always see exactly why a vehicle
- * ranked where it did (see the "reason" string), which matters more for a
- * government fleet audit trail than squeezing out extra predictive accuracy.
+ * uses data already on file — the recorded due date AND/OR due-odometer
+ * target (see Vehicle::pmsStatus() — whichever of the two is more urgent
+ * drives the base score), past service intervals, and odometer pace from
+ * maintenance history — no external call, no black-box model. A reviewer
+ * can always see exactly why a vehicle ranked where it did (see the
+ * "reason" string), which matters more for a government fleet audit trail
+ * than squeezing out extra predictive accuracy.
  */
 class PmsPredictionService
 {
@@ -24,17 +26,27 @@ class PmsPredictionService
     public const DUE_SOON_DAYS = 14;
 
     /**
-     * @return array{urgency: int, priority: string, reason: string, days: int}|null
-     *         Null when the vehicle has no next_pms_date at all — there's
-     *         nothing to score yet.
+     * Mileage counterpart to DUE_SOON_DAYS, matching
+     * Vehicle::PMS_DUE_SOON_KM — kept as its own constant here (rather than
+     * referenced inline) for the same reason DUE_SOON_DAYS is: so the
+     * scoring formula's threshold is visible right alongside the formula
+     * that uses it.
+     */
+    public const DUE_SOON_KM = Vehicle::PMS_DUE_SOON_KM;
+
+    /**
+     * @return array{urgency: int, priority: string, reason: string, days: ?int, km: ?int}|null
+     *         Null when the vehicle has neither next_pms_date nor
+     *         next_pms_odometer_km set — there's nothing to score yet.
      */
     public function scoreVehicle(Vehicle $vehicle): ?array
     {
-        if (! $vehicle->next_pms_date) {
+        $days = $vehicle->pmsDaysRemaining();
+        $km = $vehicle->pmsKmRemaining();
+
+        if ($days === null && $km === null) {
             return null;
         }
-
-        $days = (int) now()->startOfDay()->diffInDays($vehicle->next_pms_date->copy()->startOfDay(), false);
 
         $records = $vehicle->maintenanceRecords()
             ->whereNotNull('service_date')
@@ -44,8 +56,21 @@ class PmsPredictionService
         [$avgKmPerDay, $paceReason] = $this->usagePace($records);
         [$lateCount, $totalCompared] = $this->lateServiceHistory($records);
 
-        $score = $this->dateScore($days);
-        $reasons = [$this->dateReason($days)];
+        // Whichever trigger (date or mileage) is currently more urgent
+        // drives the base score — same "whichever comes first" rule
+        // Vehicle::pmsStatus() uses for the bucket itself, just scored
+        // instead of bucketed.
+        $dateComponent = $days !== null ? $this->dateScore($days) : 0;
+        $kmComponent = $km !== null ? $this->kmScore($km) : 0;
+        $score = max($dateComponent, $kmComponent);
+
+        $reasons = [];
+        if ($days !== null) {
+            $reasons[] = $this->dateReason($days);
+        }
+        if ($km !== null) {
+            $reasons[] = $this->kmReason($km);
+        }
 
         if ($avgKmPerDay !== null) {
             // Above ~40km/day is a rough "actively used" pace for a typical
@@ -72,6 +97,7 @@ class PmsPredictionService
             'priority' => $this->priorityLabel($score),
             'reason' => implode(' · ', $reasons),
             'days' => $days,
+            'km' => $km,
         ];
     }
 
@@ -90,11 +116,21 @@ class PmsPredictionService
     {
         $query = $scopedQuery ?? Vehicle::query();
 
-        $cutoff = now()->addDays(self::DUE_SOON_DAYS)->endOfDay();
+        $dateCutoff = now()->addDays(self::DUE_SOON_DAYS)->endOfDay();
 
+        // Candidate filter covers EITHER trigger — a vehicle due soon/
+        // overdue purely by mileage (no next_pms_date at all) has to make
+        // it into this pre-filtered slice too, or scoreVehicle() never
+        // gets a chance to rank it.
         $candidates = (clone $query)
-            ->whereNotNull('next_pms_date')
-            ->where('next_pms_date', '<=', $cutoff)
+            ->where(function ($q) use ($dateCutoff) {
+                $q->where(function ($dateQ) use ($dateCutoff) {
+                    $dateQ->whereNotNull('next_pms_date')->where('next_pms_date', '<=', $dateCutoff);
+                })->orWhere(function ($kmQ) {
+                    $kmQ->whereNotNull('next_pms_odometer_km')
+                        ->whereRaw('odometer_km >= next_pms_odometer_km - ?', [self::DUE_SOON_KM]);
+                });
+            })
             ->where('status', '!=', 'BER')
             ->orderBy('next_pms_date')
             ->limit(50) // a generous ceiling on how many get individually scored per request
@@ -140,6 +176,40 @@ class PmsPredictionService
         }
 
         return 'due in '.$days.' day(s)';
+    }
+
+    /**
+     * Mileage counterpart to dateScore() — same shape (climbs once
+     * overdue, capped below overdue-territory while still "due soon"),
+     * just measured in km against DUE_SOON_KM instead of days against
+     * DUE_SOON_DAYS.
+     */
+    protected function kmScore(int $km): int
+    {
+        if ($km < 0) {
+            // Overdue: climbs with how many km overdue, capping out once
+            // a vehicle is roughly 2x the due-soon window past target —
+            // same "don't let a merely-old overdue reading drown out a
+            // genuinely worse one" reasoning as dateScore().
+            return (int) min(85, 55 + ((abs($km) / self::DUE_SOON_KM) * 30));
+        }
+        if ($km <= self::DUE_SOON_KM) {
+            return (int) round(50 - (($km / self::DUE_SOON_KM) * 35));
+        }
+
+        return 5;
+    }
+
+    protected function kmReason(int $km): string
+    {
+        if ($km < 0) {
+            return 'overdue '.number_format(abs($km)).' km';
+        }
+        if ($km === 0) {
+            return 'due now (at target odometer)';
+        }
+
+        return 'due in '.number_format($km).' km';
     }
 
     /**

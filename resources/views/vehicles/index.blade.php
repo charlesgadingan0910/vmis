@@ -266,7 +266,7 @@
         @if($priorityVehicles->isNotEmpty())
         <div class="priority-panel">
             <div class="priority-panel-header"><i class="fas fa-bolt"></i> Preventive Maintenance Attention</div>
-            <div class="priority-panel-sub">Predicted from PMS due date, usage pace and service history — not just which vehicles happen to be overdue. Click one to find it below.</div>
+            <div class="priority-panel-sub">Predicted from PMS due date/mileage, usage pace and service history — not just which vehicles happen to be overdue. Click one to find it below.</div>
             @foreach($priorityVehicles as $p)
             <div class="priority-row" data-plate="{{ strtoupper($p['vehicle']->plate_number) }}" title="Click to find this vehicle in the table below">
                 <span class="priority-row-plate">{{ strtoupper($p['vehicle']->plate_number) }}</span>
@@ -507,6 +507,11 @@
                             <input type="date" name="next_pms_date" class="form-control form-control-modern">
                         </div>
                         <div class="col-md-3 form-group">
+                            <label class="field-label">Next PMS Odometer (km)</label>
+                            <input type="number" name="next_pms_odometer_km" class="form-control form-control-modern" min="0" placeholder="e.g. 45000">
+                            <small class="text-muted">Flags PMS due once the odometer reaches this — whichever of date/mileage comes first.</small>
+                        </div>
+                        <div class="col-md-3 form-group">
                             <label class="field-label">Official Receipt (OR) <span class="text-danger">*</span></label>
                             <input type="file" id="or_file" name="or_file" class="form-control form-control-modern" accept=".pdf,.jpg,.png" required style="padding-top:7px;">
                             <span class="field-feedback-text" id="orScanStatus" style="display:none;"></span>
@@ -670,6 +675,11 @@
                         <div class="col-md-3 form-group">
                             <label class="field-label">Next PMS Date</label>
                             <input type="date" id="edit_next_pms_date" name="next_pms_date" class="form-control form-control-modern">
+                        </div>
+                        <div class="col-md-3 form-group">
+                            <label class="field-label">Next PMS Odometer (km)</label>
+                            <input type="number" id="edit_next_pms_odometer_km" name="next_pms_odometer_km" class="form-control form-control-modern" min="0" placeholder="e.g. 45000">
+                            <small class="text-muted">Flags PMS due once the odometer reaches this — whichever of date/mileage comes first.</small>
                         </div>
                     </div>
                     <div class="alert alert-light border small text-muted mb-0">
@@ -1439,6 +1449,7 @@ $(document).ready(function() {
             $('#edit_color').val(data.color);
             $('#edit_odometer_km').val(data.odometer_km);
             $('#edit_next_pms_date').val(data.next_pms_date);
+            $('#edit_next_pms_odometer_km').val(data.next_pms_odometer_km);
             $('#edit_status').val(data.status);
             toggleBerFields($('#edit_status'));
             $('#edit_ber_sub_status').val(data.ber_sub_status);

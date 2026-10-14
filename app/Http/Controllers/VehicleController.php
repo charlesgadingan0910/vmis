@@ -225,26 +225,39 @@ class VehicleController extends Controller
                     $driverHtml = '<span class="driver-none">Unassigned</span>';
                 }
 
+                // Delegates entirely to Vehicle::pmsStatus() — the single source
+                // of truth for "is this vehicle due for PMS, and why" (date,
+                // mileage, or both; see that method's docblock) — so this badge
+                // can never disagree with the Maintenance & PMS monitoring panel
+                // or the bell/inbox over whether a vehicle is overdue.
                 $pmsHtml = '—';
                 $pmsRowClass = '';
-                if ($vehicle->next_pms_date) {
-                    $days = now()->startOfDay()->diffInDays($vehicle->next_pms_date->startOfDay(), false);
-                    $formattedPmsDate = $vehicle->next_pms_date->format('M d, Y');
-                    if ($days < 0) {
+                $pmsStatus = $vehicle->pmsStatus();
+
+                if ($pmsStatus['bucket'] !== 'none') {
+                    $scheduleParts = [];
+                    if ($vehicle->next_pms_date) {
+                        $scheduleParts[] = $vehicle->next_pms_date->format('M d, Y');
+                    }
+                    if ($vehicle->next_pms_odometer_km) {
+                        $scheduleParts[] = number_format($vehicle->next_pms_odometer_km) . ' km';
+                    }
+                    $scheduleLabel = implode(' / ', $scheduleParts);
+
+                    if ($pmsStatus['bucket'] === 'overdue') {
                         // Past due — this needs to jump out at a glance, not just read as
                         // another date in the column, so it gets its own alert badge plus
                         // a tinted row (below) rather than only a small inline icon.
-                        $overdueDays = abs($days);
-                        $pmsHtml = '<div class="pms-date pms-date-overdue">' . $formattedPmsDate . '</div>' .
-                                   '<span class="badge-pms pms-badge-overdue"><i class="fas fa-exclamation-triangle"></i> Overdue ' . $overdueDays . 'd</span>' .
+                        $pmsHtml = '<div class="pms-date pms-date-overdue">' . $scheduleLabel . '</div>' .
+                                   '<span class="badge-pms pms-badge-overdue"><i class="fas fa-exclamation-triangle"></i> ' . e(ucfirst($vehicle->pmsReason())) . '</span>' .
                                    $this->pmsPriorityHtml($vehicle);
                         $pmsRowClass = 'row-pms-overdue';
-                    } elseif ($days <= 14) {
-                        $pmsHtml = '<div class="pms-date">' . $formattedPmsDate . '</div>' .
-                                   '<span class="badge-pms pms-badge-soon"><i class="fas fa-clock"></i> Due in ' . $days . 'd</span>' .
+                    } elseif ($pmsStatus['bucket'] === 'soon') {
+                        $pmsHtml = '<div class="pms-date">' . $scheduleLabel . '</div>' .
+                                   '<span class="badge-pms pms-badge-soon"><i class="fas fa-clock"></i> ' . e(ucfirst($vehicle->pmsReason())) . '</span>' .
                                    $this->pmsPriorityHtml($vehicle);
                     } else {
-                        $pmsHtml = '<div class="pms-date">' . $formattedPmsDate . '</div>';
+                        $pmsHtml = '<div class="pms-date">' . $scheduleLabel . '</div>';
                     }
                 }
 
@@ -452,6 +465,7 @@ class VehicleController extends Controller
             'assigned_driver_id' => ['nullable', 'exists:drivers,id'],
             'odometer_km'        => ['nullable', 'integer', 'min:0'],
             'next_pms_date'      => ['nullable', 'date'],
+            'next_pms_odometer_km' => ['nullable', 'integer', 'min:0'],
             'status'             => ['required', 'in:SERVICEABLE,UNSERVICEABLE,BER'],
             'ber_sub_status'     => ['nullable', 'required_if:status,BER', 'in:FOR_DISPOSAL,DISPOSED'],
             'disposal_date'      => ['nullable', 'date', 'required_if:ber_sub_status,DISPOSED'],
@@ -543,6 +557,7 @@ class VehicleController extends Controller
             'assigned_driver_id' => $vehicle->assigned_driver_id,
             'odometer_km'        => $vehicle->odometer_km,
             'next_pms_date'      => optional($vehicle->next_pms_date)->format('Y-m-d'),
+            'next_pms_odometer_km' => $vehicle->next_pms_odometer_km,
             'status'             => $vehicle->status,
             // Read-only in the Edit modal — VehicleController sets/clears this itself
             // whenever status changes, so the form only ever displays it as context.
@@ -576,6 +591,7 @@ class VehicleController extends Controller
             'assigned_driver_id' => ['nullable', 'exists:drivers,id'],
             'odometer_km'        => ['nullable', 'integer', 'min:0'],
             'next_pms_date'      => ['nullable', 'date'],
+            'next_pms_odometer_km' => ['nullable', 'integer', 'min:0'],
             'status'             => ['required', 'in:SERVICEABLE,UNSERVICEABLE,BER'],
             'ber_sub_status'     => ['nullable', 'required_if:status,BER', 'in:FOR_DISPOSAL,DISPOSED'],
             'disposal_date'      => ['nullable', 'date', 'required_if:ber_sub_status,DISPOSED'],

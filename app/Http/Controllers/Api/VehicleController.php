@@ -83,6 +83,7 @@ class VehicleController extends Controller
     protected function vehiclePayload(Vehicle $vehicle): array
     {
         $pmsDays = $vehicle->pmsDaysRemaining();
+        $pmsKm = $vehicle->pmsKmRemaining();
         $regDays = $vehicle->registrationDaysRemaining();
 
         return [
@@ -100,6 +101,13 @@ class VehicleController extends Controller
             'pms' => [
                 'next_pms_date' => optional($vehicle->next_pms_date)->toDateString(),
                 'days_remaining' => $pmsDays,
+                // Mileage counterpart to next_pms_date/days_remaining — null
+                // on either side when that trigger isn't scheduled at all.
+                // needs_attention already reflects whichever of the two is
+                // more urgent (see Vehicle::needsPmsAlert()/pmsStatus()).
+                'next_pms_odometer_km' => $vehicle->next_pms_odometer_km,
+                'km_remaining' => $pmsKm,
+                'reason' => $vehicle->pmsReason(),
                 'needs_attention' => $vehicle->needsPmsAlert(),
             ],
             'registration' => [

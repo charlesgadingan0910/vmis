@@ -26,10 +26,6 @@ class DashboardController extends Controller
 
     protected const BROAD_VISIBILITY_ROLES = [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN, self::ROLE_VIEWER];
 
-    // Kept identical to the threshold used on the Vehicle Inventory PMS badge and the
-    // Maintenance & PMS monitoring panel, so "due soon" means the same thing everywhere.
-    protected const DUE_SOON_DAYS = 14;
-
     protected function role($user): string
     {
         return strtoupper(trim((string) $user->account_type));
@@ -68,13 +64,24 @@ class DashboardController extends Controller
             ? (int) round(($vehicleStats['serviceable'] / $vehicleStats['total']) * 100)
             : 0;
 
+        // Delegates to Vehicle::pmsStatus() (date OR mileage, whichever is
+        // more urgent) rather than re-deriving a date-only bucket here, so
+        // this count can't disagree with the Vehicle Inventory badge or the
+        // Maintenance & PMS monitoring panel over whether a vehicle is
+        // overdue. whereNotNull covers either trigger column, same reason
+        // as MaintenanceController's own monitoring query.
         $dueSoon = 0;
         $overdue = 0;
-        foreach ((clone $vehicleScope)->whereNotNull('next_pms_date')->pluck('next_pms_date') as $date) {
-            $days = now()->startOfDay()->diffInDays($date->copy()->startOfDay(), false);
-            if ($days < 0) {
+        $pmsScheduledVehicles = (clone $vehicleScope)
+            ->where(function ($q) {
+                $q->whereNotNull('next_pms_date')->orWhereNotNull('next_pms_odometer_km');
+            })
+            ->get(['next_pms_date', 'next_pms_odometer_km', 'odometer_km']);
+        foreach ($pmsScheduledVehicles as $v) {
+            $bucket = $v->pmsStatus()['bucket'];
+            if ($bucket === 'overdue') {
                 $overdue++;
-            } elseif ($days <= self::DUE_SOON_DAYS) {
+            } elseif ($bucket === 'soon') {
                 $dueSoon++;
             }
         }
