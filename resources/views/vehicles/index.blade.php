@@ -529,13 +529,15 @@
                             <small class="text-muted">Flags PMS due once the odometer reaches this — whichever of date/mileage comes first.</small>
                         </div>
                         <div class="col-md-3 form-group">
-                            <label class="field-label">Official Receipt (OR) <span class="text-danger">*</span></label>
-                            <input type="file" id="or_file" name="or_file" class="form-control form-control-modern" accept=".pdf,.jpg,.png" required style="padding-top:7px;">
+                            <label class="field-label">Official Receipt (OR)</label>
+                            <input type="file" id="or_file" name="or_file" class="form-control form-control-modern" accept=".pdf,.jpg,.png" style="padding-top:7px;">
                             <span class="field-feedback-text" id="orScanStatus" style="display:none;"></span>
+                            <small class="text-muted">Optional — can be uploaded later.</small>
                         </div>
                         <div class="col-md-3 form-group">
-                            <label class="field-label">Cert. of Reg (CR) <span class="text-danger">*</span></label>
-                            <input type="file" name="cr_file" class="form-control form-control-modern" accept=".pdf,.jpg,.png" required style="padding-top:7px;">
+                            <label class="field-label">Cert. of Reg (CR)</label>
+                            <input type="file" name="cr_file" class="form-control form-control-modern" accept=".pdf,.jpg,.png" style="padding-top:7px;">
+                            <small class="text-muted">Optional — can be uploaded later.</small>
                         </div>
                     </div>
                     @if($aiDocumentScanningEnabled ?? false)

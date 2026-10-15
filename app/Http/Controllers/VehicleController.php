@@ -483,12 +483,16 @@ class VehicleController extends Controller
             'status'             => ['required', 'in:SERVICEABLE,UNSERVICEABLE,BER'],
             'ber_sub_status'     => ['nullable', 'required_if:status,BER', 'in:FOR_DISPOSAL,DISPOSED'],
             'disposal_date'      => ['nullable', 'date', 'required_if:ber_sub_status,DISPOSED'],
-            'or_file'            => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
-            'cr_file'            => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
-            'insurance_file'     => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            // Optional at registration time — a vehicle can be saved first and
+            // its OR/CR/Insurance documents uploaded later from the Registration
+            // History modal (storeRegistration()), which still requires the full
+            // bundle together when that upload actually happens.
+            'or_file'            => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'cr_file'            => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
+            'insurance_file'     => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:4096'],
             // When this OR/CR/Insurance bundle stops being valid — drives the
             // "Registration Due" priority panel (see Vehicle::needsRegistrationAlert()).
-            'expiry_date'        => ['required', 'date'],
+            'expiry_date'        => ['nullable', 'date'],
         ];
 
         if (in_array($role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN], true)) {
@@ -546,7 +550,9 @@ class VehicleController extends Controller
                 'cr_file_path'        => $request->file('cr_file')->store('vehicle_docs/cr', 'public'),
                 'insurance_file_path' => $request->file('insurance_file')->store('vehicle_docs/insurance', 'public'),
                 'registration_year'   => date('Y'),
-                'expiry_date'         => $validated['expiry_date'],
+                // expiry_date is now optional too, so it may not be present even
+                // when all three documents were uploaded together.
+                'expiry_date'         => $validated['expiry_date'] ?? null,
                 'uploaded_by'         => $user->id,
             ]);
         }
