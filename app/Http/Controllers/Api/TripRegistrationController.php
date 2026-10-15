@@ -103,7 +103,7 @@ class TripRegistrationController extends Controller
         // (Api\ActiveTripController::resolveVehicle(), Api\TripLogController
         // ::store()) — never trusts a client-sent vehicle_id beyond picking
         // among the driver's own assigned vehicle(s).
-        $vehicle = Vehicle::where('assigned_driver_id', $driver->id)
+        $vehicle = Vehicle::assignedToDriver($driver->id)
             ->when($request->filled('vehicle_id'), fn ($q) => $q->where('id', $validated['vehicle_id']))
             ->first();
 

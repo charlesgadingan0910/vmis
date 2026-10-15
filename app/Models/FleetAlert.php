@@ -98,7 +98,7 @@ class FleetAlert extends Model
 
                 if ($role === 'DRIVER') {
                     $vehicleAlerts->whereHas('vehicle', function ($v) use ($user) {
-                        $v->where('assigned_driver_id', $user->driver_id);
+                        $v->assignedToDriver($user->driver_id);
                     });
                 } elseif (! $broadVisibility) {
                     $vehicleAlerts->whereHas('vehicle', function ($v) use ($user, $role) {

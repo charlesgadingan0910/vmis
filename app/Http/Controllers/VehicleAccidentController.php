@@ -196,12 +196,18 @@ class VehicleAccidentController extends Controller
                     $photoBtn = '<a href="' . e($photoUrl) . '" target="_blank" class="btn btn-sm btn-light border text-info" title="View Photo"><i class="fas fa-image"></i></a>';
                 }
 
+                $spotReportBtn = '';
+                if ($accident->spot_report_path) {
+                    $spotReportUrl = route('accidents.document', ['path' => $accident->spot_report_path]);
+                    $spotReportBtn = '<a href="' . e($spotReportUrl) . '" target="_blank" class="btn btn-sm btn-light border text-secondary" title="View Spot Report"><i class="fas fa-file-alt"></i></a>';
+                }
+
                 if ($isViewer) {
-                    $actionsHtml = '<div class="btn-group" role="group">' . $photoBtn . '</div>';
+                    $actionsHtml = '<div class="btn-group" role="group">' . $photoBtn . $spotReportBtn . '</div>';
                 } else {
                     $actionsHtml = '
                         <div class="btn-group" role="group">
-                            ' . $photoBtn . '
+                            ' . $photoBtn . $spotReportBtn . '
                             <button type="button" class="btn btn-sm btn-light border text-primary btn-edit-accident" data-id="' . $accident->id . '" title="Edit"><i class="fas fa-edit"></i></button>
                             <button type="button" class="btn btn-sm btn-light border text-danger btn-delete-accident" data-id="' . $accident->id . '" title="Delete"><i class="fas fa-trash"></i></button>
                         </div>';
@@ -257,8 +263,12 @@ class VehicleAccidentController extends Controller
         // Drivers offered in the "who was driving" picker — scoped the same
         // way the vehicle picker is, via each driver's currently assigned
         // vehicle (a driver with no vehicle assigned at all has no reason to
-        // appear here).
-        $drivers = Driver::whereIn('id', (clone $vehicleScope)->whereNotNull('assigned_driver_id')->pluck('assigned_driver_id'))
+        // appear here). A vehicle can have two assigned drivers, so this
+        // pulls from both slots, not just the primary one.
+        $assignedDriverIdsForPicker = (clone $vehicleScope)->whereNotNull('assigned_driver_id')->pluck('assigned_driver_id')
+            ->merge((clone $vehicleScope)->whereNotNull('assigned_driver_id_2')->pluck('assigned_driver_id_2'))
+            ->unique();
+        $drivers = Driver::whereIn('id', $assignedDriverIdsForPicker)
             ->orderBy('lastname')
             ->get(['id', 'firstname', 'lastname']);
 
@@ -280,6 +290,11 @@ class VehicleAccidentController extends Controller
             'estimated_cost'    => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
             'police_report_no'  => ['nullable', 'string', 'max:100'],
             'photo'             => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:8192'],
+            // The formal incident report document — deliberately a separate
+            // upload from 'photo' (a picture of the damage/scene), so either
+            // one can be attached, replaced, or removed without touching
+            // the other.
+            'spot_report'       => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:8192'],
         ];
     }
 
@@ -295,6 +310,11 @@ class VehicleAccidentController extends Controller
         }
         unset($validated['photo']);
 
+        if ($request->hasFile('spot_report')) {
+            $validated['spot_report_path'] = $request->file('spot_report')->store('accident_spot_reports', 'public');
+        }
+        unset($validated['spot_report']);
+
         $validated['logged_by'] = auth()->id();
 
         $accident = VehicleAccident::create($validated);
@@ -304,7 +324,7 @@ class VehicleAccidentController extends Controller
             'Vehicle Accident',
             'Logged a ' . strtolower(VehicleAccident::SEVERITIES[$accident->severity] ?? $accident->severity) . ' accident for [' . strtoupper($vehicle->plate_number) . '] at ' . $accident->location . '.',
             $accident,
-            ['after' => \Illuminate\Support\Arr::except($validated, ['photo'])]
+            ['after' => \Illuminate\Support\Arr::except($validated, ['photo', 'spot_report'])]
         );
 
         return response()->json([
@@ -330,6 +350,8 @@ class VehicleAccidentController extends Controller
             'police_report_no'  => $accident->police_report_no,
             'has_photo'         => (bool) $accident->photo_path,
             'photo_url'         => $accident->photo_path ? route('accidents.document', ['path' => $accident->photo_path]) : null,
+            'has_spot_report'   => (bool) $accident->spot_report_path,
+            'spot_report_url'   => $accident->spot_report_path ? route('accidents.document', ['path' => $accident->spot_report_path]) : null,
         ]);
     }
 
@@ -339,6 +361,7 @@ class VehicleAccidentController extends Controller
 
         $rules = $this->validationRules();
         $rules['remove_photo'] = ['nullable', 'boolean'];
+        $rules['remove_spot_report'] = ['nullable', 'boolean'];
 
         $validated = $request->validate($rules);
 
@@ -355,6 +378,17 @@ class VehicleAccidentController extends Controller
             $validated['photo_path'] = null;
         }
         unset($validated['photo'], $validated['remove_photo']);
+
+        if ($request->hasFile('spot_report')) {
+            if ($accident->spot_report_path) {
+                Storage::disk('public')->delete($accident->spot_report_path);
+            }
+            $validated['spot_report_path'] = $request->file('spot_report')->store('accident_spot_reports', 'public');
+        } elseif ($request->boolean('remove_spot_report') && $accident->spot_report_path) {
+            Storage::disk('public')->delete($accident->spot_report_path);
+            $validated['spot_report_path'] = null;
+        }
+        unset($validated['spot_report'], $validated['remove_spot_report']);
 
         $accident->update($validated);
 
@@ -382,6 +416,9 @@ class VehicleAccidentController extends Controller
         if ($accident->photo_path) {
             Storage::disk('public')->delete($accident->photo_path);
         }
+        if ($accident->spot_report_path) {
+            Storage::disk('public')->delete($accident->spot_report_path);
+        }
 
         $accident->delete();
 
@@ -398,13 +435,17 @@ class VehicleAccidentController extends Controller
     }
 
     /**
-     * Serves an uploaded accident photo directly (bypasses the public/storage
-     * symlink, which is unreliable on Windows/WAMP) and keeps document access
-     * behind login — same convention as MaintenanceController::viewDocument.
+     * Serves an uploaded accident photo or spot report directly (bypasses
+     * the public/storage symlink, which is unreliable on Windows/WAMP) and
+     * keeps document access behind login — same convention as
+     * MaintenanceController::viewDocument.
      */
     public function viewDocument(string $path)
     {
-        if (! str_starts_with($path, 'accident_photos/') || ! Storage::disk('public')->exists($path)) {
+        $allowedPrefixes = ['accident_photos/', 'accident_spot_reports/'];
+        $hasAllowedPrefix = collect($allowedPrefixes)->contains(fn ($prefix) => str_starts_with($path, $prefix));
+
+        if (! $hasAllowedPrefix || ! Storage::disk('public')->exists($path)) {
             abort(404);
         }
 

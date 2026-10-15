@@ -94,10 +94,11 @@ class AccidentController extends Controller
             'estimated_cost' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
             'police_report_no' => ['nullable', 'string', 'max:100'],
             'photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:8192'],
+            'spot_report' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:8192'],
             'vehicle_id' => ['nullable', 'integer'],
         ]);
 
-        $vehicle = Vehicle::where('assigned_driver_id', $driver->id)
+        $vehicle = Vehicle::assignedToDriver($driver->id)
             ->when($request->filled('vehicle_id'), fn ($q) => $q->where('id', $request->integer('vehicle_id')))
             ->first();
 
@@ -114,6 +115,11 @@ class AccidentController extends Controller
             $validated['photo_path'] = $request->file('photo')->store('accident_photos', 'public');
         }
         unset($validated['photo']);
+
+        if ($request->hasFile('spot_report')) {
+            $validated['spot_report_path'] = $request->file('spot_report')->store('accident_spot_reports', 'public');
+        }
+        unset($validated['spot_report']);
 
         $accident = VehicleAccident::create($validated);
 
@@ -153,6 +159,7 @@ class AccidentController extends Controller
             'estimated_cost' => $accident->estimated_cost !== null ? (float) $accident->estimated_cost : null,
             'police_report_no' => $accident->police_report_no,
             'has_photo' => (bool) $accident->photo_path,
+            'has_spot_report' => (bool) $accident->spot_report_path,
             'logged_at' => optional($accident->created_at)->toIso8601String(),
         ];
     }

@@ -144,7 +144,7 @@ class TripLogController extends Controller
             'trip_registration_id' => ['nullable', 'integer', 'exists:trip_registrations,id'],
         ]);
 
-        $vehicle = Vehicle::where('assigned_driver_id', $driver->id)
+        $vehicle = Vehicle::assignedToDriver($driver->id)
             ->when($request->filled('vehicle_id'), fn ($q) => $q->where('id', $request->integer('vehicle_id')))
             ->first();
 

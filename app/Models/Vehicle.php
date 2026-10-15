@@ -50,6 +50,7 @@ class Vehicle extends Model
         'unit_id',
         'station_id',
         'assigned_driver_id',
+        'assigned_driver_id_2',
         'odometer_km',
         'next_pms_date',
         'next_pms_odometer_km',
@@ -133,11 +134,51 @@ class Vehicle extends Model
     }
 
     /**
-     * The driver currently designated to this vehicle.
+     * The driver currently designated to this vehicle (slot 1 — the
+     * original, still-primary assignment).
      */
     public function driver()
     {
         return $this->belongsTo(Driver::class, 'assigned_driver_id');
+    }
+
+    /**
+     * The second driver currently designated to this vehicle, if any — a
+     * vehicle can have up to two assigned drivers at once (Vehicle
+     * Inventory's Register/Edit modal), with no priority between the two
+     * slots beyond display order.
+     */
+    public function driver2()
+    {
+        return $this->belongsTo(Driver::class, 'assigned_driver_id_2');
+    }
+
+    /**
+     * Both assigned drivers, slot 1 then slot 2, skipping whichever slot
+     * is empty — the one place "who's assigned to this vehicle" is
+     * assembled, so the Vehicle Inventory listing and the mobile vehicle
+     * payload can't show the two drivers inconsistently.
+     */
+    public function assignedDrivers()
+    {
+        return collect([$this->driver, $this->driver2])->filter()->values();
+    }
+
+    /**
+     * Query scope: vehicles currently assigned — in EITHER driver slot —
+     * to the given driver. Every "what's my vehicle" lookup in this app
+     * (web Trip Logs/Fuel Monitoring driver flows, every DRIVER-role
+     * mobile API endpoint, FleetAlert's own alert scoping) goes through
+     * this rather than comparing assigned_driver_id directly, so a
+     * vehicle with two assigned drivers is visible to both of them
+     * everywhere, not just to whichever one happens to sit in slot 1.
+     */
+    public function scopeAssignedToDriver($query, $driverId)
+    {
+        return $query->where(function ($q) use ($driverId) {
+            $q->where('assigned_driver_id', $driverId)
+              ->orWhere('assigned_driver_id_2', $driverId);
+        });
     }
 
     /**

@@ -49,7 +49,7 @@ class ActiveTripController extends Controller
             return null;
         }
 
-        $vehicle = Vehicle::where('assigned_driver_id', $driver->id)
+        $vehicle = Vehicle::assignedToDriver($driver->id)
             ->when($request->filled('vehicle_id'), fn ($q) => $q->where('id', $request->integer('vehicle_id')))
             ->first();
 

@@ -270,10 +270,15 @@
                             <input type="text" name="police_report_no" class="form-control form-control-modern" maxlength="100">
                         </div>
                     </div>
-                    <div class="form-group mb-0">
+                    <div class="form-group mb-3">
                         <label class="field-label">Accident Photo <span class="text-muted" style="text-transform:none;font-weight:500;">(supporting document)</span></label>
                         <input type="file" name="photo" class="form-control form-control-modern" accept=".jpg,.jpeg,.png,.pdf" style="padding-top:7px;">
-                        <small class="text-muted d-block mt-1">Photo of the damage/scene, or a scanned police/incident report. JPG, PNG or PDF, up to 8 MB.</small>
+                        <small class="text-muted d-block mt-1">Photo of the damage/scene. JPG, PNG or PDF, up to 8 MB.</small>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="field-label">Spot Report <span class="text-muted" style="text-transform:none;font-weight:500;">(supporting document)</span></label>
+                        <input type="file" name="spot_report" class="form-control form-control-modern" accept=".jpg,.jpeg,.png,.pdf" style="padding-top:7px;">
+                        <small class="text-muted d-block mt-1">Scanned/photographed spot report or incident report form. JPG, PNG or PDF, up to 8 MB.</small>
                     </div>
                 </div>
                 <div class="modal-footer bg-light border-0 px-4 py-3">
@@ -355,7 +360,7 @@
                             <input type="text" name="police_report_no" id="e_police_report_no" class="form-control form-control-modern" maxlength="100">
                         </div>
                     </div>
-                    <div class="form-group mb-0">
+                    <div class="form-group mb-3">
                         <label class="field-label">Accident Photo <span class="text-muted" style="text-transform:none;font-weight:500;">(supporting document)</span></label>
                         <input type="file" name="photo" class="form-control form-control-modern" accept=".jpg,.jpeg,.png,.pdf" style="padding-top:7px;">
                         <div id="editAccidentPhotoCurrent" class="mt-1" style="display:none;">
@@ -364,6 +369,16 @@
                             <input type="hidden" name="remove_photo" id="e_remove_photo" value="0">
                         </div>
                         <small class="text-muted d-block mt-1">Leave blank to keep the current photo. JPG, PNG or PDF, up to 8 MB.</small>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="field-label">Spot Report <span class="text-muted" style="text-transform:none;font-weight:500;">(supporting document)</span></label>
+                        <input type="file" name="spot_report" class="form-control form-control-modern" accept=".jpg,.jpeg,.png,.pdf" style="padding-top:7px;">
+                        <div id="editAccidentSpotReportCurrent" class="mt-1" style="display:none;">
+                            <a href="#" target="_blank" id="editAccidentSpotReportLink" class="small"><i class="fas fa-file-alt"></i> View current spot report</a> —
+                            <a href="#" id="editAccidentSpotReportRemove" class="small text-danger">remove</a>
+                            <input type="hidden" name="remove_spot_report" id="e_remove_spot_report" value="0">
+                        </div>
+                        <small class="text-muted d-block mt-1">Leave blank to keep the current spot report. JPG, PNG or PDF, up to 8 MB.</small>
                     </div>
                 </div>
                 <div class="modal-footer bg-light border-0 px-4 py-3">
@@ -500,12 +515,21 @@ $(document.body).ready(function() {
             $('#e_police_report_no').val(data.police_report_no);
             $('#editAccidentForm input[name="photo"]').val('');
             $('#e_remove_photo').val('0');
+            $('#editAccidentForm input[name="spot_report"]').val('');
+            $('#e_remove_spot_report').val('0');
 
             if (data.has_photo) {
                 $('#editAccidentPhotoLink').attr('href', data.photo_url);
                 $('#editAccidentPhotoCurrent').show();
             } else {
                 $('#editAccidentPhotoCurrent').hide();
+            }
+
+            if (data.has_spot_report) {
+                $('#editAccidentSpotReportLink').attr('href', data.spot_report_url);
+                $('#editAccidentSpotReportCurrent').show();
+            } else {
+                $('#editAccidentSpotReportCurrent').hide();
             }
 
             $('#editAccidentErrorBanner').hide().text('');
@@ -520,6 +544,13 @@ $(document.body).ready(function() {
         $('#e_remove_photo').val('1');
         $('#editAccidentPhotoCurrent').hide();
         toastr.info('Photo will be removed when you save.');
+    });
+
+    $('#editAccidentSpotReportRemove').on('click', function(e) {
+        e.preventDefault();
+        $('#e_remove_spot_report').val('1');
+        $('#editAccidentSpotReportCurrent').hide();
+        toastr.info('Spot report will be removed when you save.');
     });
 
     $('#editAccidentForm').on('submit', function(e) {

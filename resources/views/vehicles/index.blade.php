@@ -394,11 +394,11 @@
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Make <span class="text-danger">*</span></label>
-                            <input type="text" id="make" name="make" class="form-control form-control-modern" required>
+                            <input type="text" id="make" name="make" class="form-control form-control-modern text-uppercase" oninput="this.value = this.value.toUpperCase()" required>
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Model <span class="text-danger">*</span></label>
-                            <input type="text" id="model" name="model" class="form-control form-control-modern" required>
+                            <input type="text" id="model" name="model" class="form-control form-control-modern text-uppercase" oninput="this.value = this.value.toUpperCase()" required>
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Vehicle Type <span class="text-danger">*</span></label>
@@ -415,7 +415,12 @@
                     <div class="row">
                         <div class="col-md-3 form-group">
                             <label class="field-label">Year Model</label>
-                            <input type="number" id="year_model" name="year_model" class="form-control form-control-modern" min="1980" max="{{ date('Y') + 1 }}">
+                            <select id="year_model" name="year_model" class="form-control form-control-modern">
+                                <option value="">Select year...</option>
+                                @for ($y = date('Y') + 1; $y >= 1980; $y--)
+                                    <option value="{{ $y }}">{{ $y }}</option>
+                                @endfor
+                            </select>
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Color</label>
@@ -454,8 +459,8 @@
                             </select>
                         </div>
                         <div class="form-group form-flex-item">
-                            <label class="field-label">Assigned Driver</label>
-                            <select name="assigned_driver_id" class="form-control form-control-modern">
+                            <label class="field-label">Assigned Driver 1</label>
+                            <select name="assigned_driver_id" id="assigned_driver_id" class="form-control form-control-modern driver-slot-select">
                                 <option value="">Unassigned</option>
                                 @foreach ($drivers as $driver)
                                     <option value="{{ $driver->id }}">
@@ -463,6 +468,18 @@
                                     </option>
                                 @endforeach
                             </select>
+                        </div>
+                        <div class="form-group form-flex-item">
+                            <label class="field-label">Assigned Driver 2</label>
+                            <select name="assigned_driver_id_2" id="assigned_driver_id_2" class="form-control form-control-modern driver-slot-select">
+                                <option value="">Unassigned</option>
+                                @foreach ($drivers as $driver)
+                                    <option value="{{ $driver->id }}">
+                                        {{ $driver->firstname }} {{$driver->lastname }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <small class="form-text text-muted">Optional — a vehicle can have up to two assigned drivers.</small>
                         </div>
                         <div class="form-group form-flex-item">
                             <label class="field-label">Status <span class="text-danger">*</span></label>
@@ -563,11 +580,11 @@
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Make <span class="text-danger">*</span></label>
-                            <input type="text" id="edit_make" name="make" class="form-control form-control-modern" required>
+                            <input type="text" id="edit_make" name="make" class="form-control form-control-modern text-uppercase" oninput="this.value = this.value.toUpperCase()" required>
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Model <span class="text-danger">*</span></label>
-                            <input type="text" id="edit_model" name="model" class="form-control form-control-modern" required>
+                            <input type="text" id="edit_model" name="model" class="form-control form-control-modern text-uppercase" oninput="this.value = this.value.toUpperCase()" required>
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Vehicle Type <span class="text-danger">*</span></label>
@@ -584,7 +601,12 @@
                     <div class="row">
                         <div class="col-md-3 form-group">
                             <label class="field-label">Year Model</label>
-                            <input type="number" id="edit_year_model" name="year_model" class="form-control form-control-modern" min="1980" max="{{ date('Y') + 1 }}">
+                            <select id="edit_year_model" name="year_model" class="form-control form-control-modern">
+                                <option value="">Select year...</option>
+                                @for ($y = date('Y') + 1; $y >= 1980; $y--)
+                                    <option value="{{ $y }}">{{ $y }}</option>
+                                @endfor
+                            </select>
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Color</label>
@@ -623,8 +645,8 @@
                             </select>
                         </div>
                         <div class="form-group form-flex-item">
-                            <label class="field-label">Assigned Driver</label>
-                            <select id="edit_assigned_driver_id" name="assigned_driver_id" class="form-control form-control-modern">
+                            <label class="field-label">Assigned Driver 1</label>
+                            <select id="edit_assigned_driver_id" name="assigned_driver_id" class="form-control form-control-modern driver-slot-select-edit">
                                 <option value="">Unassigned</option>
                                 @foreach ($drivers as $driver)
                                     <option value="{{ $driver->id }}">
@@ -632,6 +654,18 @@
                                     </option>
                                 @endforeach
                             </select>
+                        </div>
+                        <div class="form-group form-flex-item">
+                            <label class="field-label">Assigned Driver 2</label>
+                            <select id="edit_assigned_driver_id_2" name="assigned_driver_id_2" class="form-control form-control-modern driver-slot-select-edit">
+                                <option value="">Unassigned</option>
+                                @foreach ($drivers as $driver)
+                                    <option value="{{ $driver->id }}">
+                                        {{ $driver->firstname }} {{ $driver->lastname }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <small class="form-text text-muted">Optional — a vehicle can have up to two assigned drivers.</small>
                         </div>
                         <div class="form-group form-flex-item">
                             <label class="field-label">Status <span class="text-danger">*</span></label>
@@ -1077,6 +1111,36 @@ $(document).ready(function() {
     $('#status, #edit_status').on('change', function() { toggleBerFields($(this)); });
     $(document).on('change', '.ber-sub-status-select', function() { toggleDisposalDate($(this)); });
 
+    // A vehicle's two assigned-driver slots can't both point at the same
+    // driver — rather than only catching that server-side on submit, grey
+    // out whichever driver is already picked in the OTHER slot of the same
+    // pair (create modal's pair, or edit modal's pair), so it can't be
+    // picked twice in the first place.
+    function syncDriverSlotExclusivity($slotA, $slotB) {
+        const selectedInA = $slotA.val();
+        const selectedInB = $slotB.val();
+        $slotB.find('option').each(function() {
+            const $opt = $(this);
+            if ($opt.val() === '') return;
+            $opt.prop('disabled', $opt.val() === selectedInA);
+        });
+        $slotA.find('option').each(function() {
+            const $opt = $(this);
+            if ($opt.val() === '') return;
+            $opt.prop('disabled', $opt.val() === selectedInB);
+        });
+    }
+
+    const $createDriverSlots = $('#assigned_driver_id, #assigned_driver_id_2');
+    $createDriverSlots.on('change', function() {
+        syncDriverSlotExclusivity($('#assigned_driver_id'), $('#assigned_driver_id_2'));
+    });
+
+    const $editDriverSlots = $('#edit_assigned_driver_id, #edit_assigned_driver_id_2');
+    $editDriverSlots.on('change', function() {
+        syncDriverSlotExclusivity($('#edit_assigned_driver_id'), $('#edit_assigned_driver_id_2'));
+    });
+
     // The "Unserviceable since" note reflects whatever was loaded from the
     // server — the moment the admin touches Status themselves, that note is
     // stale (a save will restamp or clear the date), so hide it rather than
@@ -1465,7 +1529,10 @@ $(document).ready(function() {
             } else {
                 $unsNote.addClass('d-none').text('');
             }
+            $('#edit_assigned_driver_id, #edit_assigned_driver_id_2').find('option').prop('disabled', false);
             $('#edit_assigned_driver_id').val(data.assigned_driver_id);
+            $('#edit_assigned_driver_id_2').val(data.assigned_driver_id_2);
+            syncDriverSlotExclusivity($('#edit_assigned_driver_id'), $('#edit_assigned_driver_id_2'));
 
             $('#edit_unit_id').val(data.unit_id).trigger('change');
             $('#edit_station_id').val(data.station_id);
@@ -1583,6 +1650,10 @@ $(document).ready(function() {
         // multi-unit admins (nothing chosen yet), or auto-filters to the one pre-selected unit's
         // stations for a Unit Administrator (who only ever has a single option anyway).
         $('#formUnitId').trigger('change');
+
+        // The form doesn't get a hard .reset() between opens either — clear
+        // any options a prior open had greyed out via syncDriverSlotExclusivity.
+        $('#assigned_driver_id, #assigned_driver_id_2').find('option').prop('disabled', false);
     });
 
     let typingTimer;

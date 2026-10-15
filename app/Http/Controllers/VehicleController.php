@@ -86,7 +86,7 @@ class VehicleController extends Controller
         $hasBroadVisibility = in_array($role, self::BROAD_VISIBILITY_ROLES, true);
 
         if ($request->ajax()) {
-            $query = Vehicle::with(['driver', 'type', 'latestRegistration', 'encoder'])->latest();
+            $query = Vehicle::with(['driver', 'driver2', 'type', 'latestRegistration', 'encoder'])->latest();
 
             if ($hasBroadVisibility) {
                 if ($unitId = $request->get('unit_id')) {
@@ -211,19 +211,30 @@ class VehicleController extends Controller
                 $typeHtml = '<span class="badge badge-light px-2 py-1 border" style="font-size:12px; font-weight:600;">' . e($typeName) . '</span>' .
                             '<div class="vehicle-sub-info mt-1"><i class="fas fa-tag mr-1"></i>' . e($sourceLabel) . '</div>';
 
-                if ($vehicle->driver) {
-                    $initials = strtoupper(substr($vehicle->driver->firstname, 0, 1) . substr($vehicle->driver->lastname, 0, 1));
-                    $middleInitial = $vehicle->driver->middlename ? strtoupper(substr($vehicle->driver->middlename, 0, 1)) : '';
-                    $nameParts = [$vehicle->driver->rank, $vehicle->driver->firstname, $middleInitial, $vehicle->driver->lastname, $vehicle->driver->qlfr];
+                // A vehicle can have up to two assigned drivers (driver/driver2 —
+                // see VehicleController's Register/Edit modal); this renders
+                // whichever of the two slots are filled as its own chip, so the
+                // column scales from "Unassigned" to one chip to two without a
+                // separate layout for each case.
+                $driverChip = function ($driver) {
+                    if (! $driver) {
+                        return null;
+                    }
+                    $initials = strtoupper(substr($driver->firstname, 0, 1) . substr($driver->lastname, 0, 1));
+                    $middleInitial = $driver->middlename ? strtoupper(substr($driver->middlename, 0, 1)) : '';
+                    $nameParts = [$driver->rank, $driver->firstname, $middleInitial, $driver->lastname, $driver->qlfr];
                     $fullName = implode(' ', array_filter($nameParts, fn($value) => !is_null($value) && trim($value) !== ''));
 
-                    $driverHtml = '<div class="driver-chip-wrapper">' .
-                                  '<div class="driver-avatar-circle">' . $initials . '</div>' .
-                                  '<div class="driver-name-text">' . e($fullName) . '</div>' .
-                                  '</div>';
-                } else {
-                    $driverHtml = '<span class="driver-none">Unassigned</span>';
-                }
+                    return '<div class="driver-chip-wrapper">' .
+                           '<div class="driver-avatar-circle">' . $initials . '</div>' .
+                           '<div class="driver-name-text">' . e($fullName) . '</div>' .
+                           '</div>';
+                };
+
+                $driverChips = array_filter([$driverChip($vehicle->driver), $driverChip($vehicle->driver2)]);
+                $driverHtml = $driverChips
+                    ? implode('', $driverChips)
+                    : '<span class="driver-none">Unassigned</span>';
 
                 // Delegates entirely to Vehicle::pmsStatus() — the single source
                 // of truth for "is this vehicle due for PMS, and why" (date,
@@ -463,6 +474,9 @@ class VehicleController extends Controller
             'acquisition_date'   => ['nullable', 'date'],
             'source'             => ['required', 'in:ORGANIC,LOANED,DONATED'],
             'assigned_driver_id' => ['nullable', 'exists:drivers,id'],
+            // A vehicle can have up to two assigned drivers at once; 'different'
+            // stops the same driver being picked for both slots.
+            'assigned_driver_id_2' => ['nullable', 'exists:drivers,id', 'different:assigned_driver_id'],
             'odometer_km'        => ['nullable', 'integer', 'min:0'],
             'next_pms_date'      => ['nullable', 'date'],
             'next_pms_odometer_km' => ['nullable', 'integer', 'min:0'],
@@ -486,8 +500,17 @@ class VehicleController extends Controller
         $validated = $this->normalizeBerFields($validated);
         $validated = $this->normalizeUnserviceableTracking($validated);
 
+        // Normalized to uppercase server-side (not just via the form's own
+        // oninput handler) so MAKE/MODEL stay consistent no matter how a
+        // record gets created.
+        $validated['make'] = Str::upper($validated['make']);
+        $validated['model'] = Str::upper($validated['model']);
+
         if ($expiredDriverError = $this->expiredLicenseAssignmentError($validated['assigned_driver_id'] ?? null)) {
             return redirect()->back()->withErrors(['assigned_driver_id' => $expiredDriverError])->withInput();
+        }
+        if ($expiredDriverError = $this->expiredLicenseAssignmentError($validated['assigned_driver_id_2'] ?? null)) {
+            return redirect()->back()->withErrors(['assigned_driver_id_2' => $expiredDriverError])->withInput();
         }
 
         $validated['qr_code'] = Str::upper(Str::random(10));
@@ -504,6 +527,14 @@ class VehicleController extends Controller
             DriverAssignment::create([
                 'vehicle_id'  => $vehicle->id,
                 'driver_id'   => $validated['assigned_driver_id'],
+                'assigned_by' => $user->id,
+                'assigned_at' => now(),
+            ]);
+        }
+        if (! empty($validated['assigned_driver_id_2'])) {
+            DriverAssignment::create([
+                'vehicle_id'  => $vehicle->id,
+                'driver_id'   => $validated['assigned_driver_id_2'],
                 'assigned_by' => $user->id,
                 'assigned_at' => now(),
             ]);
@@ -555,6 +586,7 @@ class VehicleController extends Controller
             'unit_id'            => $vehicle->unit_id,
             'station_id'         => $vehicle->station_id,
             'assigned_driver_id' => $vehicle->assigned_driver_id,
+            'assigned_driver_id_2' => $vehicle->assigned_driver_id_2,
             'odometer_km'        => $vehicle->odometer_km,
             'next_pms_date'      => optional($vehicle->next_pms_date)->format('Y-m-d'),
             'next_pms_odometer_km' => $vehicle->next_pms_odometer_km,
@@ -589,6 +621,7 @@ class VehicleController extends Controller
             'color'              => ['nullable', 'string', 'max:30'],
             'source'             => ['required', 'in:ORGANIC,LOANED,DONATED'],
             'assigned_driver_id' => ['nullable', 'exists:drivers,id'],
+            'assigned_driver_id_2' => ['nullable', 'exists:drivers,id', 'different:assigned_driver_id'],
             'odometer_km'        => ['nullable', 'integer', 'min:0'],
             'next_pms_date'      => ['nullable', 'date'],
             'next_pms_odometer_km' => ['nullable', 'integer', 'min:0'],
@@ -608,15 +641,24 @@ class VehicleController extends Controller
         // status against $vehicle's still-original (pre-update) status.
         $validated = $this->normalizeUnserviceableTracking($validated, $vehicle);
 
+        // Normalized to uppercase server-side — same rule as store().
+        $validated['make'] = Str::upper($validated['make']);
+        $validated['model'] = Str::upper($validated['model']);
+
         // A driver whose license has expired can't be (re-)assigned to a
         // vehicle — same guard as store() above, surfaced here as a
         // blocking JSON error so the admin sees exactly why the save
-        // didn't go through. Only checked when assigned_driver_id is
+        // didn't go through. Only checked when a slot's driver is
         // actually changing, so an already-assigned driver whose license
         // later expires doesn't lock the admin out of editing anything
         // else about this vehicle.
         if (array_key_exists('assigned_driver_id', $validated) && $validated['assigned_driver_id'] != $vehicle->assigned_driver_id) {
             if ($expiredDriverError = $this->expiredLicenseAssignmentError($validated['assigned_driver_id'] ?? null)) {
+                return response()->json(['success' => false, 'message' => $expiredDriverError], 422);
+            }
+        }
+        if (array_key_exists('assigned_driver_id_2', $validated) && $validated['assigned_driver_id_2'] != $vehicle->assigned_driver_id_2) {
+            if ($expiredDriverError = $this->expiredLicenseAssignmentError($validated['assigned_driver_id_2'] ?? null)) {
                 return response()->json(['success' => false, 'message' => $expiredDriverError], 422);
             }
         }
@@ -627,23 +669,53 @@ class VehicleController extends Controller
         unset($changed['updated_at']);
 
         // Keep driver_assignments in sync whenever this form is what
-        // changed assigned_driver_id — same hook as store() above, and
-        // the exact same vehicle-assignment history DriverAssignmentController
-        // writes to from its own dedicated page.
+        // changed assigned_driver_id (slot 1) or assigned_driver_id_2
+        // (slot 2) — same hook as store() above, and the exact same
+        // vehicle-assignment history DriverAssignmentController writes to
+        // from its own dedicated page. Each slot's "close the open row"
+        // is scoped by driver_id, not just vehicle_id — with two
+        // independent slots, a vehicle can have two concurrently-open
+        // rows now, and closing slot 1's change must never also close
+        // slot 2's still-current one (or vice versa).
         if (array_key_exists('assigned_driver_id', $changed)) {
             $previousDriverId = $before['assigned_driver_id'] ?? null;
             $newDriverId = $changed['assigned_driver_id'];
 
             if ($previousDriverId) {
-                DriverAssignment::where('vehicle_id', $vehicle->id)->active()->update([
-                    'unassigned_at' => now(),
-                    'unassigned_by' => $user->id,
-                ]);
+                DriverAssignment::where('vehicle_id', $vehicle->id)
+                    ->where('driver_id', $previousDriverId)
+                    ->active()
+                    ->update([
+                        'unassigned_at' => now(),
+                        'unassigned_by' => $user->id,
+                    ]);
             }
             if ($newDriverId) {
                 DriverAssignment::create([
                     'vehicle_id'  => $vehicle->id,
                     'driver_id'   => $newDriverId,
+                    'assigned_by' => $user->id,
+                    'assigned_at' => now(),
+                ]);
+            }
+        }
+        if (array_key_exists('assigned_driver_id_2', $changed)) {
+            $previousDriverId2 = $before['assigned_driver_id_2'] ?? null;
+            $newDriverId2 = $changed['assigned_driver_id_2'];
+
+            if ($previousDriverId2) {
+                DriverAssignment::where('vehicle_id', $vehicle->id)
+                    ->where('driver_id', $previousDriverId2)
+                    ->active()
+                    ->update([
+                        'unassigned_at' => now(),
+                        'unassigned_by' => $user->id,
+                    ]);
+            }
+            if ($newDriverId2) {
+                DriverAssignment::create([
+                    'vehicle_id'  => $vehicle->id,
+                    'driver_id'   => $newDriverId2,
                     'assigned_by' => $user->id,
                     'assigned_at' => now(),
                 ]);

@@ -107,7 +107,7 @@ class TripLogController extends Controller
         $driver = $user->driver_id ? Driver::find($user->driver_id) : null;
 
         $vehicles = $driver
-            ? Vehicle::where('assigned_driver_id', $driver->id)->orderBy('plate_number')->get()
+            ? Vehicle::assignedToDriver($driver->id)->orderBy('plate_number')->get()
             : collect();
 
         $trips = $driver
@@ -500,7 +500,7 @@ class TripLogController extends Controller
                 ], 403);
             }
 
-            $vehicle = Vehicle::where('assigned_driver_id', $driver->id)
+            $vehicle = Vehicle::assignedToDriver($driver->id)
                 ->when($request->filled('vehicle_id'), fn ($q) => $q->where('id', $request->vehicle_id))
                 ->first();
 

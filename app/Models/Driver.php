@@ -90,10 +90,23 @@ class Driver extends Model
     }
 
     /**
-     * Vehicle(s) currently assigned to this driver (vehicles.assigned_driver_id).
+     * Vehicle(s) currently assigned to this driver as the PRIMARY (slot 1)
+     * driver (vehicles.assigned_driver_id). See vehiclesAsSecondary() for
+     * slot 2 — a driver can appear in either slot, so neither relation
+     * alone is the full picture of "this driver's vehicle(s)"; app code
+     * that needs that uses Vehicle::assignedToDriver() instead.
      */
     public function vehicles()
     {
         return $this->hasMany(Vehicle::class, 'assigned_driver_id');
+    }
+
+    /**
+     * Vehicle(s) where this driver sits in the SECOND assigned-driver slot
+     * (vehicles.assigned_driver_id_2) — see Vehicle::driver2().
+     */
+    public function vehiclesAsSecondary()
+    {
+        return $this->hasMany(Vehicle::class, 'assigned_driver_id_2');
     }
 }

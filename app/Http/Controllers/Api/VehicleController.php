@@ -40,7 +40,7 @@ class VehicleController extends Controller
             ]);
         }
 
-        $vehicles = Vehicle::where('assigned_driver_id', $driver->id)
+        $vehicles = Vehicle::assignedToDriver($driver->id)
             ->with(['type', 'unit', 'station', 'latestMaintenanceRecord', 'latestFuelLog', 'latestRegistration'])
             ->orderBy('plate_number')
             ->get()

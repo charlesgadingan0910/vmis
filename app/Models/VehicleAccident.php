@@ -23,6 +23,7 @@ class VehicleAccident extends Model
         'estimated_cost',
         'police_report_no',
         'photo_path',
+        'spot_report_path',
     ];
 
     public const SEVERITY_MINOR    = 'MINOR';

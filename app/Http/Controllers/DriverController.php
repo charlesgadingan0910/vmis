@@ -54,7 +54,13 @@ class DriverController extends Controller
             return $this->ajaxList($request, $role);
         }
 
-        $assignedDriverIds = Vehicle::excludingDisposed()->whereNotNull('assigned_driver_id')->distinct()->pluck('assigned_driver_id');
+        // A vehicle can have two assigned drivers (slot 1 and slot 2), so
+        // "currently assigned" pulls distinct driver ids from both columns
+        // — otherwise a driver who's only ever in slot 2 would wrongly
+        // count as unassigned here.
+        $assignedDriverIds = Vehicle::excludingDisposed()->whereNotNull('assigned_driver_id')->distinct()->pluck('assigned_driver_id')
+            ->merge(Vehicle::excludingDisposed()->whereNotNull('assigned_driver_id_2')->distinct()->pluck('assigned_driver_id_2'))
+            ->unique();
         $totalDrivers = Driver::count();
 
         $stats = [
