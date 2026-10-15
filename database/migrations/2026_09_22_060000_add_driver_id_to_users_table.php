@@ -29,7 +29,14 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropUnique(['driver_id']);
+            // dropConstrainedForeignId() already drops the foreign key
+            // constraint AND the column (which takes its unique index with
+            // it). A separate dropUnique(['driver_id']) call BEFORE this
+            // fails on MySQL/InnoDB with error 1553 ("needed in a foreign
+            // key constraint") — the unique index backs the FK, so it can't
+            // be dropped out from under a constraint that still points at
+            // it. Dropping the FK first (as part of this one call) removes
+            // that dependency, so the index/column come off cleanly.
             $table->dropConstrainedForeignId('driver_id');
         });
     }
