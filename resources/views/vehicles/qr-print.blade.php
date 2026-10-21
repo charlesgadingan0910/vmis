@@ -64,7 +64,7 @@
 
   @media print {
     body{background:#fff;padding:0;}
-    .toolbar{display:none;}
+    .toolbar,.no-print-banner{display:none;}
     .sticker-sheet{gap:12px;}
     .sticker{box-shadow:none;border:1px solid #cbd5e1;}
   }
@@ -87,6 +87,12 @@
         Print
     </button>
 </div>
+
+@if (!empty($truncated))
+<div style="max-width:920px;margin:0 auto 16px;padding:12px 18px;border-radius:12px;background:#fef3c7;color:#92400e;font-size:13px;font-weight:600;" class="no-print-banner">
+    {{ number_format($matched) }} vehicles match your filters; the first {{ number_format($limit) }} (by plate number) are shown. Narrow the filters to print the rest.
+</div>
+@endif
 
 <div class="sticker-sheet">
     @foreach ($vehicles as $vehicle)

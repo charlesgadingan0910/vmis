@@ -335,6 +335,7 @@ class VehicleController extends Controller
                     $actionsHtml = '
                         <div class="btn-group" role="group">
                             <button type="button" class="btn btn-sm btn-light border text-secondary btn-view-qr" data-id="'.$vehicle->id.'" title="QR Code"><i class="fas fa-qrcode"></i></button>
+                            <a href="'.route('vehicles.data-card', $vehicle->id).'" target="_blank" rel="noopener" class="btn btn-sm btn-light border text-secondary" title="Print Data Card"><i class="fas fa-id-card"></i></a>
                             '.$serviceHistoryBtn.'
                             <span class="d-inline-flex align-items-center text-muted small ml-2"><i class="fas fa-eye mr-1"></i>View only</span>
                         </div>';
@@ -342,6 +343,7 @@ class VehicleController extends Controller
                     $actionsHtml = '
                         <div class="btn-group" role="group">
                             <button type="button" class="btn btn-sm btn-light border text-secondary btn-view-qr" data-id="'.$vehicle->id.'" title="QR Code"><i class="fas fa-qrcode"></i></button>
+                            <a href="'.route('vehicles.data-card', $vehicle->id).'" target="_blank" rel="noopener" class="btn btn-sm btn-light border text-secondary" title="Print Data Card"><i class="fas fa-id-card"></i></a>
                             '.$serviceHistoryBtn.'
                             <button type="button" class="btn btn-sm btn-light border text-primary btn-edit-vehicle" data-id="'.$vehicle->id.'" title="Edit"><i class="fas fa-edit"></i></button>
                             <form method="POST" action="'.route('vehicles.destroy', $vehicle->id).'" class="form-delete-vehicle" style="display:inline-block;">
@@ -1312,6 +1314,12 @@ class VehicleController extends Controller
     }
 
     /**
+     * Upper bound for "print all filtered" so one click can't build a
+     * thousand-sticker page; the print view tells the user when it trims.
+     */
+    protected const QR_PRINT_FILTER_LIMIT = 500;
+
+    /**
      * Print layout for one or many vehicles' QR stickers, sized for real-world
      * printing. Every vehicle included gets a VehicleQrPrint audit row logged
      * against the current user before the page renders — printing IS the action
@@ -1319,17 +1327,40 @@ class VehicleController extends Controller
      */
     public function printQr(Request $request)
     {
-        $ids = array_values(array_filter(explode(',', (string) $request->get('ids'))));
-        abort_if(empty($ids), 404, 'No vehicles selected.');
-
         $user = auth()->user();
         $role = $this->role($user);
+        $filtered = $request->boolean('filtered');
+        $truncated = false;
+        $matched = 0;
 
-        $vehicles = Vehicle::with('type')->whereIn('id', $ids)->get()
-            ->filter(fn ($v) => $this->canView($v, $user, $role))
-            ->values();
+        if ($filtered) {
+            abort_unless(
+                in_array($role, self::BROAD_VISIBILITY_ROLES, true)
+                    || in_array($role, [self::ROLE_UNIT_ADMIN, self::ROLE_STATION_ADMIN], true),
+                403,
+                'Unauthorized Action'
+            );
 
-        abort_if($vehicles->isEmpty(), 404, 'No accessible vehicles in that selection.');
+            $query = $this->filteredVehicleQuery($request, $user, $role);
+            $matched = (clone $query)->count();
+            $truncated = $matched > self::QR_PRINT_FILTER_LIMIT;
+
+            $vehicles = $query->with('type')
+                ->orderBy('plate_number')
+                ->limit(self::QR_PRINT_FILTER_LIMIT)
+                ->get();
+
+            abort_if($vehicles->isEmpty(), 404, 'No vehicles match the current filters.');
+        } else {
+            $ids = array_values(array_filter(explode(',', (string) $request->get('ids'))));
+            abort_if(empty($ids), 404, 'No vehicles selected.');
+
+            $vehicles = Vehicle::with('type')->whereIn('id', $ids)->get()
+                ->filter(fn ($v) => $this->canView($v, $user, $role))
+                ->values();
+
+            abort_if($vehicles->isEmpty(), 404, 'No accessible vehicles in that selection.');
+        }
 
         $context = $vehicles->count() > 1 ? 'bulk' : 'single';
 
@@ -1342,7 +1373,58 @@ class VehicleController extends Controller
             ]);
         }
 
-        return view('vehicles.qr-print', compact('vehicles'));
+        return view('vehicles.qr-print', [
+            'vehicles'  => $vehicles,
+            'truncated' => $truncated,
+            'matched'   => $matched,
+            'limit'     => self::QR_PRINT_FILTER_LIMIT,
+        ]);
+    }
+
+    /**
+     * The same unit/station/search/status/type/source filters the Vehicle
+     * Inventory table applies, so "print all filtered" prints exactly what
+     * the table is showing. Role scope comes first and filters only narrow it.
+     */
+    protected function filteredVehicleQuery(Request $request, $user, string $role)
+    {
+        $query = Vehicle::query();
+
+        if (in_array($role, self::BROAD_VISIBILITY_ROLES, true)) {
+            if ($unitId = $request->get('unit_id')) {
+                $query->where('unit_id', $unitId);
+            }
+        } elseif ($role === self::ROLE_UNIT_ADMIN) {
+            $query->where('unit_id', $user->unit_id);
+        } elseif ($role === self::ROLE_STATION_ADMIN) {
+            $query->where('station_id', $user->station_id);
+        }
+
+        if ($stationId = $request->get('station_id')) {
+            $query->where('station_id', $stationId);
+        }
+
+        if ($search = trim((string) $request->get('search'))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('plate_number', 'like', "%{$search}%")
+                  ->orWhere('make', 'like', "%{$search}%")
+                  ->orWhere('model', 'like', "%{$search}%")
+                  ->orWhere('engine_number', 'like', "%{$search}%")
+                  ->orWhere('chassis_number', 'like', "%{$search}%");
+            });
+        }
+
+        if ($status = $request->get('status')) {
+            $query->where('status', $status);
+        }
+        if ($typeId = $request->get('vehicle_type_id')) {
+            $query->where('vehicle_type_id', $typeId);
+        }
+        if ($source = $request->get('source')) {
+            $query->where('source', $source);
+        }
+
+        return $query;
     }
 
     /**

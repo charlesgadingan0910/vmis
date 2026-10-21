@@ -315,6 +315,9 @@ class RepairController extends Controller
                 // every role including Viewer (read-only) since it now holds real
                 // per-part history, not just an attachment link.
                 $checklistBtn = '<button type="button" class="btn btn-sm btn-light border text-info btn-inspection-checklist" data-id="' . $record->id . '" title="Technical Inspection Checklist"><i class="fas fa-diagnoses"></i></button>';
+                // Opens the printable forms packet (service request, plus the
+                // inspection report and requisition slip when they exist).
+                $printFormsBtn = '<a href="' . route('print.maintenance', $record) . '" target="_blank" rel="noopener" class="btn btn-sm btn-light border text-secondary" title="Print forms"><i class="fas fa-print"></i></a>';
 
                 // Process-flow gate: the "Complete Service" action only appears while
                 // there's something left to complete, and is disabled (with the exact
@@ -327,11 +330,11 @@ class RepairController extends Controller
                 }
 
                 if ($isViewer) {
-                    $actionsHtml = '<div class="btn-group" role="group">' . $attachmentBtn . $inspectionBtn . $serviceRequestBtn . $requisitionScanBtn . $checklistBtn . $requisitionBtn . '</div>';
+                    $actionsHtml = '<div class="btn-group" role="group">' . $attachmentBtn . $inspectionBtn . $serviceRequestBtn . $requisitionScanBtn . $checklistBtn . $requisitionBtn . $printFormsBtn . '</div>';
                 } else {
                     $actionsHtml = '
                         <div class="btn-group" role="group">
-                            ' . $attachmentBtn . $inspectionBtn . $serviceRequestBtn . $requisitionScanBtn . $checklistBtn . $requisitionBtn . $completeBtn . '
+                            ' . $attachmentBtn . $inspectionBtn . $serviceRequestBtn . $requisitionScanBtn . $checklistBtn . $requisitionBtn . $printFormsBtn . $completeBtn . '
                             <button type="button" class="btn btn-sm btn-light border text-primary btn-edit-repair" data-id="' . $record->id . '" title="Edit"><i class="fas fa-edit"></i></button>
                             <button type="button" class="btn btn-sm btn-light border text-danger btn-delete-repair" data-id="' . $record->id . '" title="Delete"><i class="fas fa-trash"></i></button>
                         </div>';

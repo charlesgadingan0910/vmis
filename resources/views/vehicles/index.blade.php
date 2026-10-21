@@ -219,6 +219,9 @@
 <button type="button" id="printSelectedQrBtn" class="btn btn-outline-secondary font-weight-bold shadow-sm mr-2" style="border-radius:8px;" disabled>
   <i class="fas fa-print"></i> <span class="btn-label">Print QR</span> <span class="badge badge-primary ml-1" id="selectedCountBadge" style="display:none;">0</span>
 </button>
+<button type="button" id="printFilteredQrBtn" class="btn btn-outline-secondary font-weight-bold shadow-sm mr-2" style="border-radius:8px;" title="Print QR stickers for every vehicle matching the current filters and search">
+  <i class="fas fa-layer-group"></i> <span class="btn-label">Print All Filtered</span>
+</button>
 @if (! $isViewer)
 <button class="btn btn-primary font-weight-bold shadow-sm" style="border-radius:8px;" data-toggle="modal" data-target="#registerVehicleModal">
   <i class="fas fa-plus"></i> <span class="btn-label">Register Vehicle</span>
@@ -1010,6 +1013,24 @@ $(document).ready(function() {
         if (selectedVehicleIds.size === 0) return;
         const ids = Array.from(selectedVehicleIds).join(',');
         window.open(qrPrintBaseUrl + '?ids=' + encodeURIComponent(ids), '_blank');
+    });
+
+    // Print QR stickers for everything the table is currently filtered to
+    // (not just ticked rows) — the server re-applies the same filters and
+    // the user's unit/station scope, and caps the batch size.
+    $('#printFilteredQrBtn').on('click', function () {
+        const params = new URLSearchParams();
+        params.set('filtered', '1');
+        const add = (key, value) => { if (value) { params.set(key, value); } };
+        @if ($hasBroadVisibility)
+            add('unit_id', $('#filterUnit').val());
+        @endif
+        add('station_id', $('#filterStation').val());
+        add('status', $('#filterStatus').val());
+        add('vehicle_type_id', $('#filterVehicleType').val());
+        add('source', $('#filterSource').val());
+        add('search', table.search());
+        window.open(qrPrintBaseUrl + '?' + params.toString(), '_blank');
     });
 
     let currentQrVehicleId = null;

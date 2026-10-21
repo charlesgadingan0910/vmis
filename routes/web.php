@@ -26,6 +26,7 @@ use App\Http\Controllers\LiveMonitoringController;
 use App\Http\Controllers\DriverAssignmentController;
 use App\Http\Controllers\GeofenceController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\PrintFormController;
 use Illuminate\Support\Facades\Route;
 
 // ---------------------------------------------------------------------
@@ -279,6 +280,13 @@ Route::middleware('auth')->group(function () {
             Route::get('/', [ReportController::class, 'index'])->name('index');
             Route::get('/{report}', [ReportController::class, 'show'])->name('show');
         });
+
+        // Printable forms — the Service Request Form, Technical Inspection
+        // Report and Repair Requisition Slip for one maintenance/repair record
+        // (?form=all|service-request|inspection|requisition), plus a one-page
+        // vehicle data card. Read-only; scoping lives in PrintFormController.
+        Route::get('/print/maintenance/{maintenanceRecord}', [PrintFormController::class, 'maintenance'])->name('print.maintenance');
+        Route::get('/vehicles/{vehicle}/data-card', [PrintFormController::class, 'vehicleCard'])->name('vehicles.data-card');
 
         // Digitized Technical Inspection Report checklist — one shared route pair
         // for both Maintenance & PMS and Repairs records, since a checklist
