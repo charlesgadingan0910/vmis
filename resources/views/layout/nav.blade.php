@@ -185,6 +185,14 @@
             </a>
         </li>
         @endunless
+        @unless($__isDriver)
+        <li class="nav-item">
+            <a href="{{ route('reports.index') }}" class="nav-link {{ request()->routeIs('reports.*') ? 'active' : '' }}">
+                <i class="nav-icon fas fa-file-alt"></i>
+                <p>Reports</p>
+            </a>
+        </li>
+        @endunless
 
         @unless($__isDriver)
         <!-- PERSONNEL -->

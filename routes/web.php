@@ -25,6 +25,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\LiveMonitoringController;
 use App\Http\Controllers\DriverAssignmentController;
 use App\Http\Controllers\GeofenceController;
+use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 
 // ---------------------------------------------------------------------
@@ -269,6 +270,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/accident-documents/{path}', [VehicleAccidentController::class, 'viewDocument'])
             ->where('path', '.*')
             ->name('accidents.document');
+
+        // Reports — filterable, read-only summaries (master vehicle list,
+        // repair and maintenance history, unit recap, fuel and trip summaries)
+        // with a print-friendly view and a CSV download. Role scoping and the
+        // DRIVER block live inside ReportController, see its class docblock.
+        Route::prefix('reports')->name('reports.')->group(function () {
+            Route::get('/', [ReportController::class, 'index'])->name('index');
+            Route::get('/{report}', [ReportController::class, 'show'])->name('show');
+        });
 
         // Digitized Technical Inspection Report checklist — one shared route pair
         // for both Maintenance & PMS and Repairs records, since a checklist
