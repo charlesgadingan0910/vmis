@@ -473,6 +473,10 @@ class VehicleController extends Controller
             'station_id'         => ['required', 'exists:stations,id'],
             'year_model'         => ['nullable', 'integer', 'min:1980', 'max:' . (date('Y') + 1)],
             'color'              => ['nullable', 'string', 'max:30'],
+            'variant'            => ['nullable', 'string', 'max:50'],
+            'marked_status'      => ['nullable', 'in:MARKED,UNMARKED'],
+            'par_driver_id'      => ['nullable', 'exists:drivers,id'],
+            'par_driver_id_2'    => ['nullable', 'exists:drivers,id', 'different:par_driver_id'],
             'acquisition_date'   => ['nullable', 'date'],
             'source'             => ['required', 'in:ORGANIC,LOANED,DONATED'],
             'assigned_driver_id' => ['nullable', 'exists:drivers,id'],
@@ -511,6 +515,9 @@ class VehicleController extends Controller
         // record gets created.
         $validated['make'] = Str::upper($validated['make']);
         $validated['model'] = Str::upper($validated['model']);
+        if (! empty($validated['variant'])) {
+            $validated['variant'] = Str::upper($validated['variant']);
+        }
 
         if ($expiredDriverError = $this->expiredLicenseAssignmentError($validated['assigned_driver_id'] ?? null)) {
             return redirect()->back()->withErrors(['assigned_driver_id' => $expiredDriverError])->withInput();
@@ -588,6 +595,10 @@ class VehicleController extends Controller
             'vehicle_type_id'    => $vehicle->vehicle_type_id,
             'year_model'         => $vehicle->year_model,
             'color'              => $vehicle->color,
+            'variant'            => $vehicle->variant,
+            'marked_status'      => $vehicle->marked_status,
+            'par_driver_id'      => $vehicle->par_driver_id,
+            'par_driver_id_2'    => $vehicle->par_driver_id_2,
             'source'             => $vehicle->source,
             'ber_sub_status'     => $vehicle->ber_sub_status,
             'disposal_date'      => optional($vehicle->disposal_date)->format('Y-m-d'),
@@ -627,6 +638,10 @@ class VehicleController extends Controller
             'station_id'         => ['required', 'exists:stations,id'],
             'year_model'         => ['nullable', 'integer', 'min:1980', 'max:' . (date('Y') + 1)],
             'color'              => ['nullable', 'string', 'max:30'],
+            'variant'            => ['nullable', 'string', 'max:50'],
+            'marked_status'      => ['nullable', 'in:MARKED,UNMARKED'],
+            'par_driver_id'      => ['nullable', 'exists:drivers,id'],
+            'par_driver_id_2'    => ['nullable', 'exists:drivers,id', 'different:par_driver_id'],
             'source'             => ['required', 'in:ORGANIC,LOANED,DONATED'],
             'assigned_driver_id' => ['nullable', 'exists:drivers,id'],
             'assigned_driver_id_2' => ['nullable', 'exists:drivers,id', 'different:assigned_driver_id'],
@@ -652,6 +667,9 @@ class VehicleController extends Controller
         // Normalized to uppercase server-side — same rule as store().
         $validated['make'] = Str::upper($validated['make']);
         $validated['model'] = Str::upper($validated['model']);
+        if (! empty($validated['variant'])) {
+            $validated['variant'] = Str::upper($validated['variant']);
+        }
 
         // A driver whose license has expired can't be (re-)assigned to a
         // vehicle — same guard as store() above, surfaced here as a

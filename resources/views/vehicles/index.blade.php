@@ -444,6 +444,41 @@
                         </div>
                     </div>
 
+                    <div class="modal-section-divider">Marking &amp; Property Accountability (PAR)</div>
+                    <div class="row">
+                        <div class="col-md-3 form-group">
+                            <label class="field-label">Marked / Unmarked</label>
+                            <select id="marked_status" name="marked_status" class="form-control form-control-modern">
+                                <option value="">Not specified</option>
+                                @foreach (\App\Models\Vehicle::MARKED_STATUSES as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3 form-group">
+                            <label class="field-label">Variant</label>
+                            <input type="text" id="variant" name="variant" maxlength="50" class="form-control form-control-modern text-uppercase" oninput="this.value = this.value.toUpperCase()" placeholder="e.g. 4X2 MT">
+                        </div>
+                        <div class="col-md-3 form-group">
+                            <label class="field-label">Primary PAR Driver</label>
+                            <select id="par_driver_id" name="par_driver_id" class="form-control form-control-modern">
+                                <option value="">None</option>
+                                @foreach ($drivers as $driver)
+                                    <option value="{{ $driver->id }}">{{ $driver->firstname }} {{ $driver->lastname }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3 form-group">
+                            <label class="field-label">Alternate PAR Driver</label>
+                            <select id="par_driver_id_2" name="par_driver_id_2" class="form-control form-control-modern">
+                                <option value="">None</option>
+                                @foreach ($drivers as $driver)
+                                    <option value="{{ $driver->id }}">{{ $driver->firstname }} {{ $driver->lastname }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="modal-section-divider">Deployment & Status</div>
                     <div class="row form-flex-row">
                         <div class="form-group form-flex-item">
@@ -629,6 +664,41 @@
                             <label class="field-label">Chassis Number</label>
                             <input type="text" id="edit_chassis_number" name="chassis_number" class="form-control form-control-modern live-check-field-edit" data-field="chassis_number" autocomplete="off">
                             <span class="field-feedback-text" id="edit-feedback-chassis_number"></span>
+                        </div>
+                    </div>
+
+                    <div class="modal-section-divider">Marking &amp; Property Accountability (PAR)</div>
+                    <div class="row">
+                        <div class="col-md-3 form-group">
+                            <label class="field-label">Marked / Unmarked</label>
+                            <select id="edit_marked_status" name="marked_status" class="form-control form-control-modern">
+                                <option value="">Not specified</option>
+                                @foreach (\App\Models\Vehicle::MARKED_STATUSES as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3 form-group">
+                            <label class="field-label">Variant</label>
+                            <input type="text" id="edit_variant" name="variant" maxlength="50" class="form-control form-control-modern text-uppercase" oninput="this.value = this.value.toUpperCase()" placeholder="e.g. 4X2 MT">
+                        </div>
+                        <div class="col-md-3 form-group">
+                            <label class="field-label">Primary PAR Driver</label>
+                            <select id="edit_par_driver_id" name="par_driver_id" class="form-control form-control-modern">
+                                <option value="">None</option>
+                                @foreach ($drivers as $driver)
+                                    <option value="{{ $driver->id }}">{{ $driver->firstname }} {{ $driver->lastname }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3 form-group">
+                            <label class="field-label">Alternate PAR Driver</label>
+                            <select id="edit_par_driver_id_2" name="par_driver_id_2" class="form-control form-control-modern">
+                                <option value="">None</option>
+                                @foreach ($drivers as $driver)
+                                    <option value="{{ $driver->id }}">{{ $driver->firstname }} {{ $driver->lastname }}</option>
+                                @endforeach
+                            </select>
                         </div>
                     </div>
 
@@ -1624,6 +1694,10 @@ $(document).ready(function() {
             $('#edit_vehicle_type_id').val(data.vehicle_type_id);
             $('#edit_year_model').val(data.year_model);
             $('#edit_color').val(data.color);
+            $('#edit_variant').val(data.variant);
+            $('#edit_marked_status').val(data.marked_status || '');
+            $('#edit_par_driver_id').val(data.par_driver_id || '');
+            $('#edit_par_driver_id_2').val(data.par_driver_id_2 || '');
             $('#edit_odometer_km').val(data.odometer_km);
             $('#edit_next_pms_date').val(data.next_pms_date);
             $('#edit_next_pms_odometer_km').val(data.next_pms_odometer_km);

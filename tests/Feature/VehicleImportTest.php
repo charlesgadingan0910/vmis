@@ -171,7 +171,7 @@ it('builds the template with dropdowns for type, unit, station, source and statu
     $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
     $reference = SimpleXlsx::read($response->baseResponse->getFile()->getPathname());
 
-    expect(substr_count($sheet, '<dataValidation '))->toBe(5)
+    expect(substr_count($sheet, '<dataValidation '))->toBe(8)
         ->and($sheet)->toContain('sqref="E2:E1001"')
         ->and($sheet)->toContain('INDIRECT(VLOOKUP(');
     expect($zip->getFromName('xl/workbook.xml'))->toContain('definedName name="Stn_' . $fleet['units'][0]->id . '"');

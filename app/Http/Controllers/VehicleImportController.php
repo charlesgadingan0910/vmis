@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\Driver;
 use App\Models\Station;
 use App\Models\Unit;
 use App\Models\Vehicle;
@@ -39,6 +40,7 @@ class VehicleImportController extends Controller
         'plate_number'         => ['Plate Number', ['platenumber', 'plate', 'plateno']],
         'make'                 => ['Make', ['make', 'brand']],
         'model'                => ['Model', ['model']],
+        'variant'              => ['Variant', ['variant']],
         'vehicle_type'         => ['Vehicle Type', ['vehicletype', 'type']],
         'unit'                 => ['Unit', ['unit', 'unitname']],
         'station'              => ['Station', ['station', 'stationname']],
@@ -46,8 +48,11 @@ class VehicleImportController extends Controller
         'status'               => ['Status', ['status']],
         'year_model'           => ['Year Model', ['yearmodel', 'year']],
         'color'                => ['Color', ['color', 'colour']],
+        'marked_status'        => ['Marked/Unmarked', ['markedunmarked', 'marked', 'marking', 'markedstatus']],
         'engine_number'        => ['Engine Number', ['enginenumber', 'engineno', 'engine']],
         'chassis_number'       => ['Chassis Number', ['chassisnumber', 'chassisno', 'chassis']],
+        'par_driver'           => ['Primary PAR Driver', ['primarypardriver', 'pardriver', 'primarypar']],
+        'par_driver_2'         => ['Alternate PAR Driver', ['alternatepardriver', 'alternatepar', 'pardriver2']],
         'acquisition_date'     => ['Acquisition Date', ['acquisitiondate', 'dateacquired']],
         'odometer_km'          => ['Odometer (km)', ['odometerkm', 'odometer']],
         'next_pms_date'        => ['Next PMS Date', ['nextpmsdate', 'pmsdate']],
@@ -66,10 +71,14 @@ class VehicleImportController extends Controller
 
         $headers = array_map(fn ($c) => $c[0], array_values(self::COLUMNS));
         $example = [
-            'ABC 1234', 'TOYOTA', 'HILUX', optional(VehicleType::orderBy('name')->first())->name ?? 'Patrol Car',
-            optional($units->first())->unit_name ?? '', optional($stations->first())->station_name ?? '',
-            'Organic', 'Serviceable', '2022', 'White', '', '', '2022-03-15', '15000', '2026-12-01', '20000',
+            'plate_number' => 'ABC 1234', 'make' => 'TOYOTA', 'model' => 'HILUX', 'variant' => '4X2 MT',
+            'vehicle_type' => optional(VehicleType::orderBy('name')->first())->name ?? 'Patrol Car',
+            'unit' => optional($units->first())->unit_name ?? '', 'station' => optional($stations->first())->station_name ?? '',
+            'source' => 'Organic', 'status' => 'Serviceable', 'year_model' => '2022', 'color' => 'White',
+            'marked_status' => 'Marked', 'acquisition_date' => '2022-03-15', 'odometer_km' => '15000',
+            'next_pms_date' => '2026-12-01', 'next_pms_odometer_km' => '20000',
         ];
+        $exampleRow = array_map(fn ($key) => $example[$key] ?? '', array_keys(self::COLUMNS));
 
         $guide = [
             ['Column', 'Required?', 'Notes'],
@@ -80,6 +89,9 @@ class VehicleImportController extends Controller
             ['Station', 'Yes (except Station Admin)', 'Pick the Unit first, then choose the Station from the dropdown (it only lists that unit\'s stations). Station administrators: leave blank.'],
             ['Source', 'No', 'Organic, Loaned or Donated. Blank = Organic.'],
             ['Status', 'No', 'Serviceable, Unserviceable or BER (saved as "For Disposal"). Blank = Serviceable.'],
+            ['Variant', 'No', 'Free text, e.g. 4X2 MT. Saved in capital letters.'],
+            ['Marked/Unmarked', 'No', 'Pick Marked or Unmarked from the dropdown. Blank = not specified.'],
+            ['Primary / Alternate PAR Driver', 'No', 'Pick from the dropdown (drivers in the system). The two cannot be the same person. These are separate from the assigned drivers.'],
             ['Year Model', 'No', '1980 up to next year.'],
             ['Dates', 'No', 'Use YYYY-MM-DD (e.g. 2026-12-31) or real Excel dates.'],
             ['Engine / Chassis Number', 'No', 'Must be unique across the fleet.'],
@@ -88,12 +100,15 @@ class VehicleImportController extends Controller
 
         // Reference sheet = the source of the template's dropdown lists.
         //   A: Unit   B: that unit's range name   C: Station (grouped by unit)
-        //   D: Vehicle Type   E: Source   F: Status
+        //   D: Vehicle Type   E: Source   F: Status   G: Marked/Unmarked   H: Driver (PAR dropdowns)
         // Each unit with stations gets a defined name (Stn_<id>) covering its stations in
         // column C; the Station dropdown resolves it with INDIRECT(VLOOKUP(unit)).
         $types = VehicleType::orderBy('name')->pluck('name')->all();
         $sources = array_values(Vehicle::SOURCES);
         $statuses = ['Serviceable', 'Unserviceable', 'BER'];
+        $markings = array_values(Vehicle::MARKED_STATUSES);
+        $driverNames = Driver::where('status', 'active')->orderBy('lastname')->orderBy('firstname')->get()
+            ->map(fn ($d) => $this->driverLabel($d))->filter()->values()->all();
 
         $stationNames = [];
         $definedNames = [];
@@ -116,13 +131,13 @@ class VehicleImportController extends Controller
         }
 
         $unitList = $units->values();
-        $reference = [['Unit', 'Range name', 'Station', 'Vehicle Type', 'Source', 'Status']];
-        $count = max(count($types), $unitList->count(), count($stationNames), count($sources), count($statuses));
+        $reference = [['Unit', 'Range name', 'Station', 'Vehicle Type', 'Source', 'Status', 'Marked/Unmarked', 'Driver']];
+        $count = max(count($types), $unitList->count(), count($stationNames), count($sources), count($statuses), count($markings), count($driverNames));
         for ($i = 0; $i < $count; $i++) {
             $unit = $unitList[$i] ?? null;
             $reference[] = [
                 $unit->unit_name ?? '', $unit ? $unitKeys[$unit->id] : '', $stationNames[$i] ?? '',
-                $types[$i] ?? '', $sources[$i] ?? '', $statuses[$i] ?? '',
+                $types[$i] ?? '', $sources[$i] ?? '', $statuses[$i] ?? '', $markings[$i] ?? '', $driverNames[$i] ?? '',
             ];
         }
 
@@ -130,25 +145,30 @@ class VehicleImportController extends Controller
         $range = fn (string $col, int $n) => 'Reference!$' . $col . '$2:$' . $col . '$' . $last($n);
         $unitTable = 'Reference!$A$2:$B$' . $last($unitList->count());
         // Station dropdown follows the chosen Unit (all stations while Unit is still blank).
-        $stationFormula = 'IF($E2="",' . $range('C', count($stationNames)) . ',INDIRECT(VLOOKUP($E2,' . $unitTable . ',2,FALSE)))';
+        $letter = fn (string $key) => $this->columnLetter(array_search($key, array_keys(self::COLUMNS), true));
+        $unitCol = $letter('unit');
+        $stationFormula = 'IF($' . $unitCol . '2="",' . $range('C', count($stationNames)) . ',INDIRECT(VLOOKUP($' . $unitCol . '2,' . $unitTable . ',2,FALSE)))';
         $rows = self::MAX_ROWS + 1;
 
         $path = tempnam(sys_get_temp_dir(), 'vmis_tpl_');
         SimpleXlsx::write($path, [
-            'Vehicles'  => [$headers, $example],
+            'Vehicles'  => [$headers, $exampleRow],
             'Guide'     => $guide,
             'Reference' => $reference,
         ], [
             'Vehicles'  => array_fill(0, count($headers), 22),
             'Guide'     => [26, 26, 80],
-            'Reference' => [36, 14, 44, 24, 14, 16],
+            'Reference' => [36, 14, 44, 24, 14, 16, 18, 36],
         ], [
             'Vehicles' => [
-                ['sqref' => 'D2:D' . $rows, 'formula' => $range('D', count($types))],
-                ['sqref' => 'E2:E' . $rows, 'formula' => $range('A', $unitList->count())],
-                ['sqref' => 'F2:F' . $rows, 'formula' => $stationFormula],
-                ['sqref' => 'G2:G' . $rows, 'formula' => $range('E', count($sources))],
-                ['sqref' => 'H2:H' . $rows, 'formula' => $range('F', count($statuses))],
+                $this->dropdown($letter('vehicle_type'), $rows, $range('D', count($types))),
+                $this->dropdown($unitCol, $rows, $range('A', $unitList->count())),
+                $this->dropdown($letter('station'), $rows, $stationFormula),
+                $this->dropdown($letter('source'), $rows, $range('E', count($sources))),
+                $this->dropdown($letter('status'), $rows, $range('F', count($statuses))),
+                $this->dropdown($letter('marked_status'), $rows, $range('G', count($markings))),
+                $this->dropdown($letter('par_driver'), $rows, $range('H', count($driverNames))),
+                $this->dropdown($letter('par_driver_2'), $rows, $range('H', count($driverNames))),
             ],
         ], $definedNames, ['Reference']);
 
@@ -305,6 +325,7 @@ class VehicleImportController extends Controller
             'make'                 => Str::upper($row['make'] ?? ''),
             'model'                => Str::upper($row['model'] ?? ''),
             'color'                => $this->nullable($row['color'] ?? ''),
+            'variant'              => $this->nullable(Str::upper($row['variant'] ?? '')),
             'engine_number'        => $this->nullable(Str::upper($row['engine_number'] ?? '')),
             'chassis_number'       => $this->nullable(Str::upper($row['chassis_number'] ?? '')),
             'year_model'           => $this->wholeNumber($row['year_model'] ?? ''),
@@ -333,6 +354,30 @@ class VehicleImportController extends Controller
         $status = Str::upper(trim($row['status'] ?? ''));
         $data['status'] = $status === '' ? 'SERVICEABLE' : $status;
 
+        // Marked / Unmarked (optional).
+        $marked = Str::upper(trim($row['marked_status'] ?? ''));
+        $data['marked_status'] = $marked === '' ? null : $marked;
+
+        // PAR drivers (optional) — matched by name against active drivers.
+        foreach (['par_driver' => 'par_driver_id', 'par_driver_2' => 'par_driver_id_2'] as $column => $field) {
+            $name = Str::lower(preg_replace('/\s+/', ' ', trim($row[$column] ?? '')));
+            $data[$field] = null;
+            if ($name === '') {
+                continue;
+            }
+            $matches = $ctx['drivers'][$name] ?? [];
+            if (count($matches) === 1) {
+                $data[$field] = $matches[0];
+            } elseif (count($matches) > 1) {
+                $errors[] = self::COLUMNS[$column][0] . ': "' . $row[$column] . '" matches more than one driver.';
+            } else {
+                $errors[] = self::COLUMNS[$column][0] . ': "' . $row[$column] . '" is not an active driver (pick it from the dropdown in the template).';
+            }
+        }
+        if ($data['par_driver_id'] && $data['par_driver_id'] === $data['par_driver_id_2']) {
+            $errors[] = 'Primary and Alternate PAR Driver cannot be the same person.';
+        }
+
         // Unit & station, scoped by role.
         [$unitId, $stationId, $scopeErrors] = $this->resolveLocation($row, $user, $role, $ctx);
         array_push($errors, ...$scopeErrors);
@@ -351,7 +396,10 @@ class VehicleImportController extends Controller
             'odometer_km'          => ['nullable', 'integer', 'min:0'],
             'next_pms_odometer_km' => ['nullable', 'integer', 'min:0'],
             'status'               => ['required', 'in:SERVICEABLE,UNSERVICEABLE,BER'],
+            'variant'              => ['nullable', 'string', 'max:50'],
+            'marked_status'        => ['nullable', 'in:MARKED,UNMARKED'],
         ], [], [
+            'variant' => 'Variant', 'marked_status' => 'Marked/Unmarked',
             'plate_number' => 'Plate Number', 'make' => 'Make', 'model' => 'Model', 'year_model' => 'Year Model',
             'color' => 'Color', 'source' => 'Source', 'odometer_km' => 'Odometer', 'engine_number' => 'Engine Number',
             'chassis_number' => 'Chassis Number', 'status' => 'Status', 'next_pms_odometer_km' => 'Next PMS Odometer',
@@ -457,7 +505,7 @@ class VehicleImportController extends Controller
         return $code;
     }
 
-    /** @return array{types: array<string,int>, units: array<string,int>, stations: array<string,array<int,int>>, stationUnit: array<int,int>} */
+    /** @return array{drivers: array<string,array<int,int>>, types: array<string,int>, units: array<string,int>, stations: array<string,array<int,int>>, stationUnit: array<int,int>} */
     protected function lookups(): array
     {
         $types = [];
@@ -486,7 +534,16 @@ class VehicleImportController extends Controller
             }
         }
 
-        return compact('types', 'units', 'stations', 'stationUnit');
+        // Active drivers by name — "Firstname Lastname" and "Lastname, Firstname" both match.
+        $drivers = [];
+        foreach (Driver::where('status', 'active')->get(['id', 'firstname', 'lastname']) as $d) {
+            foreach ([trim($d->firstname . ' ' . $d->lastname), trim($d->lastname . ', ' . $d->firstname)] as $label) {
+                $key = Str::lower(preg_replace('/\s+/', ' ', $label));
+                $drivers[$key] = array_values(array_unique(array_merge($drivers[$key] ?? [], [$d->id])));
+            }
+        }
+
+        return compact('types', 'units', 'stations', 'stationUnit', 'drivers');
     }
 
     /** @return array{plate: array<string,bool>, engine: array<string,bool>, chassis: array<string,bool>} */
@@ -568,6 +625,28 @@ class VehicleImportController extends Controller
         fclose($handle);
 
         return $rows;
+    }
+
+    /** @return array{sqref: string, formula: string} */
+    protected function dropdown(string $column, int $lastRow, string $formula): array
+    {
+        return ['sqref' => $column . '2:' . $column . $lastRow, 'formula' => $formula];
+    }
+
+    /** 0 => A, 25 => Z, 26 => AA */
+    protected function columnLetter(int $index): string
+    {
+        $letters = '';
+        for ($i = $index + 1; $i > 0; $i = intdiv($i - 1, 26)) {
+            $letters = chr(65 + (($i - 1) % 26)) . $letters;
+        }
+
+        return $letters;
+    }
+
+    protected function driverLabel(Driver $driver): string
+    {
+        return trim($driver->firstname . ' ' . $driver->lastname);
     }
 
     protected function nullable(string $value): ?string

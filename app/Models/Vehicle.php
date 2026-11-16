@@ -21,6 +21,14 @@ class Vehicle extends Model
     ];
 
     /**
+     * Whether the vehicle carries police markings — optional on the record.
+     */
+    public const MARKED_STATUSES = [
+        'MARKED'   => 'Marked',
+        'UNMARKED' => 'Unmarked',
+    ];
+
+    /**
      * Only meaningful when status = BER — see VehicleController, which forces
      * both this and disposal_date back to null for any other status.
      */
@@ -42,15 +50,19 @@ class Vehicle extends Model
         'chassis_number',
         'make',
         'model',
+        'variant',
         'vehicle_type_id',
         'year_model',
         'color',
+        'marked_status',
         'acquisition_date',
         'source',
         'unit_id',
         'station_id',
         'assigned_driver_id',
         'assigned_driver_id_2',
+        'par_driver_id',
+        'par_driver_id_2',
         'odometer_km',
         'next_pms_date',
         'next_pms_odometer_km',
@@ -151,6 +163,23 @@ class Vehicle extends Model
     public function driver2()
     {
         return $this->belongsTo(Driver::class, 'assigned_driver_id_2');
+    }
+
+    /**
+     * Primary PAR (Property Acknowledgement Receipt) driver — the person
+     * accountable for this vehicle on paper. Independent of assigned drivers.
+     */
+    public function parDriver()
+    {
+        return $this->belongsTo(Driver::class, 'par_driver_id');
+    }
+
+    /**
+     * Alternate PAR driver.
+     */
+    public function parDriver2()
+    {
+        return $this->belongsTo(Driver::class, 'par_driver_id_2');
     }
 
     /**
