@@ -223,6 +223,9 @@
   <i class="fas fa-layer-group"></i> <span class="btn-label">Print All Filtered</span>
 </button>
 @if (! $isViewer)
+<button type="button" class="btn btn-outline-success font-weight-bold shadow-sm mr-2" style="border-radius:8px;" data-toggle="modal" data-target="#importVehiclesModal" title="Upload many vehicles at once from an Excel file">
+  <i class="fas fa-file-excel"></i> <span class="btn-label">Import Excel</span>
+</button>
 <button class="btn btn-primary font-weight-bold shadow-sm" style="border-radius:8px;" data-toggle="modal" data-target="#registerVehicleModal">
   <i class="fas fa-plus"></i> <span class="btn-label">Register Vehicle</span>
 </button>
@@ -845,11 +848,98 @@
         </div>
     </div>
 </div>
+
+@if (! $isViewer)
+<div class="modal fade" id="importVehiclesModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content modal-content-premium">
+            <div class="modal-header-slate d-flex align-items-center justify-content-between">
+                <h5 class="mb-0"><i class="fas fa-file-excel mr-2 text-success"></i> Import Vehicles from Excel</h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <ol class="small text-muted pl-3 mb-3">
+                    <li>Download the template and fill in one vehicle per row.</li>
+                    <li>Choose your file and click <b>Check File</b> — nothing is saved yet.</li>
+                    <li>Fix any flagged rows, then click <b>Import Valid Rows</b>.</li>
+                </ol>
+                <a href="{{ route('vehicles.import.template') }}" class="btn btn-sm btn-outline-primary mb-3"><i class="fas fa-download mr-1"></i> Download Template (.xlsx)</a>
+                <div class="form-group mb-2">
+                    <input type="file" id="importFile" class="form-control-file" accept=".xlsx,.csv">
+                    <small class="text-muted">Excel (.xlsx) or CSV, up to 5 MB and 1,000 rows. Existing plate numbers are skipped.</small>
+                </div>
+                <div id="importResult" class="mt-3" style="display:none;"></div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-light" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-outline-primary" id="importCheckBtn"><i class="fas fa-search mr-1"></i> Check File</button>
+                <button type="button" class="btn btn-success" id="importRunBtn" disabled><i class="fas fa-upload mr-1"></i> Import Valid Rows</button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
 @endsection
 
 @section('script')
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap4.min.js"></script>
+
+<script>
+$(function () {
+    const importUrl = @json(route('vehicles.import'));
+    const $file = $('#importFile'), $result = $('#importResult'), $check = $('#importCheckBtn'), $run = $('#importRunBtn');
+    const esc = (t) => $('<div>').text(t == null ? '' : t).html();
+
+    function send(preview) {
+        const file = $file[0].files[0];
+        if (!file) { toastr.warning('Choose an Excel or CSV file first.'); return; }
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('preview', preview ? 1 : 0);
+        fd.append('_token', $('meta[name="csrf-token"]').attr('content'));
+        $check.prop('disabled', true); $run.prop('disabled', true);
+        $result.show().html('<div class="text-muted"><span class="spinner-border spinner-border-sm mr-2"></span>' + (preview ? 'Checking file…' : 'Importing…') + '</div>');
+
+        $.ajax({ url: importUrl, method: 'POST', data: fd, processData: false, contentType: false })
+            .done(function (r) {
+                let html = '<div class="d-flex flex-wrap mb-2" style="gap:8px;">'
+                    + '<span class="badge badge-secondary p-2">Rows read: ' + r.total + '</span>'
+                    + '<span class="badge badge-success p-2">' + (r.preview ? 'Ready to import: ' + r.ready : 'Imported: ' + r.imported) + '</span>'
+                    + '<span class="badge badge-warning p-2">Duplicate plates skipped: ' + r.duplicates + '</span>'
+                    + '<span class="badge badge-danger p-2">Rows with errors: ' + r.errors + '</span></div>';
+                if (r.problems.length) {
+                    html += '<div style="max-height:260px;overflow:auto;" class="border rounded"><table class="table table-sm mb-0"><thead class="thead-light"><tr><th>Row</th><th>Plate</th><th>Problem</th></tr></thead><tbody>';
+                    r.problems.forEach(function (p) {
+                        html += '<tr class="' + (p.type === 'error' ? 'table-danger' : 'table-warning') + '"><td>' + p.row + '</td><td>' + esc(p.plate) + '</td><td>' + p.messages.map(esc).join('<br>') + '</td></tr>';
+                    });
+                    html += '</tbody></table></div>';
+                    if (r.truncated) { html += '<small class="text-muted">Showing the first problems only.</small>'; }
+                }
+                $result.html(html);
+                $check.prop('disabled', false);
+                if (r.preview) {
+                    $run.prop('disabled', r.ready === 0);
+                    if (r.ready === 0) { toastr.warning('No valid rows to import.'); }
+                } else {
+                    toastr.success(r.imported + ' vehicle(s) imported.');
+                    setTimeout(function () { window.location.reload(); }, 1800);
+                }
+            })
+            .fail(function (xhr) {
+                const msg = (xhr.responseJSON && (xhr.responseJSON.message || Object.values(xhr.responseJSON.errors || {}).flat()[0])) || 'The upload failed.';
+                $result.html('<div class="alert alert-danger mb-0">' + esc(msg) + '</div>');
+                $check.prop('disabled', false);
+            });
+    }
+
+    $check.on('click', function () { send(true); });
+    $run.on('click', function () { send(false); });
+    // A different file invalidates the last check.
+    $file.on('change', function () { $run.prop('disabled', true); $result.hide().empty(); });
+    $('#importVehiclesModal').on('hidden.bs.modal', function () { $file.val(''); $result.hide().empty(); $run.prop('disabled', true); $check.prop('disabled', false); });
+});
+</script>
 
 <script>
 $(document).ready(function() {

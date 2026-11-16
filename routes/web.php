@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\VehicleController;
+use App\Http\Controllers\VehicleImportController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\VehicleTypeController;
 use App\Http\Controllers\MaintenanceController;
@@ -85,6 +86,11 @@ Route::middleware('auth')->group(function () {
         // Vehicle Management — only(...) because create/show/edit (the Blade-view-returning
         // resource actions) aren't implemented; editing is AJAX-driven via edit-data/update below.
         Route::resource('vehicles', VehicleController::class)->only(['index', 'store', 'destroy']);
+
+        // Bulk import of vehicle records from an Excel (.xlsx) / CSV file —
+        // template download, then "Check file" (preview=1) / "Import".
+        Route::get('/vehicles/import/template', [VehicleImportController::class, 'template'])->name('vehicles.import.template');
+        Route::post('/vehicles/import', [VehicleImportController::class, 'import'])->name('vehicles.import');
 
         // Edit support: fetch raw field values, then submit changes — both AJAX, both open in the same modal.
         Route::get('/vehicles/{vehicle}/edit-data', [VehicleController::class, 'editData'])->name('vehicles.edit-data');
