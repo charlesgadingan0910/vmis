@@ -50,7 +50,7 @@ class AuthenticateApiToken
             return response()->json(['success' => false, 'message' => 'This app is for driver and viewer accounts only.'], 403);
         }
 
-        $apiToken->forceFill(['last_used_at' => now()])->save();
+        $apiToken->forceFill(['last_used_at' => now(), 'expires_at' => ApiToken::freshExpiry()])->save();
 
         Auth::guard('web')->setUser($user);
         $request->setUserResolver(fn () => $user);

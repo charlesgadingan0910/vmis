@@ -49,7 +49,21 @@ return [
 
     'anthropic' => [
         'api_key' => env('ANTHROPIC_API_KEY'),
-        'vision_model' => env('ANTHROPIC_VISION_MODEL', 'claude-sonnet-4-5-20250929'),
+        'vision_model' => env('ANTHROPIC_VISION_MODEL', 'claude-sonnet-5-5'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Mobile app API tokens
+    |--------------------------------------------------------------------------
+    |
+    | Days a mobile token stays valid after its last use (sliding: every API
+    | call renews it). A phone unused for this long must log in again.
+    |
+    */
+
+    'mobile' => [
+        'token_days' => (int) env('API_TOKEN_DAYS', 90),
     ],
 
 ];

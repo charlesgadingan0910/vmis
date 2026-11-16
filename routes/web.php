@@ -340,5 +340,11 @@ Route::middleware('auth')->group(function () {
         // rather than through a route middleware/policy layer.
         Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
         Route::get('/activity-logs/{activityLog}', [ActivityLogController::class, 'show'])->name('activity-logs.show');
+
+        // Mobile devices (Driver app logins) — list and revoke, e.g. a lost phone.
+        // Role gate lives inside DeviceController like the other admin pages.
+        Route::get('/devices', [\App\Http\Controllers\DeviceController::class, 'index'])->name('devices.index');
+        Route::delete('/devices/{apiToken}', [\App\Http\Controllers\DeviceController::class, 'revoke'])->name('devices.revoke');
+        Route::delete('/devices/user/{user}', [\App\Http\Controllers\DeviceController::class, 'revokeUser'])->name('devices.revoke-user');
     });
 });

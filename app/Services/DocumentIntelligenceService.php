@@ -23,7 +23,7 @@ class DocumentIntelligenceService
 
     protected function model(): string
     {
-        return config('services.anthropic.vision_model', 'claude-sonnet-4-5-20250929');
+        return config('services.anthropic.vision_model', 'claude-sonnet-5-5');
     }
 
     /**

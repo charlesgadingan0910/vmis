@@ -11,8 +11,10 @@ it('schedules the fleet alert sync every thirty minutes', function () {
     $event = collect(app(Schedule::class)->events())
         ->first(fn ($event) => $event->description === 'fleet-alerts-sync');
 
+    // Laravel writes "every thirty minutes" as '0,30 * * * *' or '*/30 * * * *'
+    // depending on its version; both mean the same schedule.
     expect($event)->not->toBeNull()
-        ->and($event->expression)->toBe('0,30 * * * *')
+        ->and($event->expression)->toBeIn(['0,30 * * * *', '*/30 * * * *'])
         ->and($event->withoutOverlapping)->toBeTrue();
 });
 

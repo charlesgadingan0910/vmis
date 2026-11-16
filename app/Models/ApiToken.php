@@ -48,13 +48,20 @@ class ApiToken extends Model
             'user_id' => $user->id,
             'token_hash' => hash('sha256', $plain),
             'device_name' => $deviceName,
-            // 1 year: long enough that a driver isn't repeatedly bounced
-            // back to the login screen, short enough that a lost/retired
-            // phone's access doesn't stay valid forever unnoticed.
-            'expires_at' => now()->addYear(),
+            'expires_at' => static::freshExpiry(),
         ]);
 
         return ['plain' => $plain, 'model' => $model];
+    }
+
+    /**
+     * Sliding expiry: a token lasts services.mobile.token_days (default 90)
+     * after its LAST use, so an active driver is never bounced to the login
+     * screen, while a lost or retired phone stops working on its own.
+     */
+    public static function freshExpiry(): \Illuminate\Support\Carbon
+    {
+        return now()->addDays(max(1, (int) config('services.mobile.token_days', 90)));
     }
 
     /**

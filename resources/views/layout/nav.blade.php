@@ -244,6 +244,14 @@
             </a>
         </li>
         @endif
+        @if(in_array($__navRole, ['SUPER ADMINISTRATOR', 'ADMINISTRATOR']))
+        <li class="nav-item">
+            <a href="{{ route('devices.index') }}" class="nav-link {{ request()->routeIs('devices.*') ? 'active' : '' }}">
+                <i class="nav-icon fas fa-mobile-alt"></i>
+                <p>Mobile Devices</p>
+            </a>
+        </li>
+        @endif
         @endunless
 
       </ul>

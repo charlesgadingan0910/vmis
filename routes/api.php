@@ -24,10 +24,10 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/change-password', [PasswordController::class, 'update']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:api-login');
+    Route::post('/change-password', [PasswordController::class, 'update'])->middleware('throttle:api-login');
 
-    Route::middleware('api.auth')->group(function () {
+    Route::middleware(['api.auth', 'throttle:vmis-api'])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
 

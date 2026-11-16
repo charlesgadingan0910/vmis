@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\ApiToken;
 use App\Models\User;
+use App\Support\LoginThrottle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -34,11 +35,22 @@ class AuthController extends Controller
             'password.required' => 'Please enter your password.',
         ]);
 
+        $throttleKey = LoginThrottle::key($request, $credentials['login']);
+
+        if (LoginThrottle::locked($throttleKey)) {
+            return response()->json([
+                'success' => false,
+                'message' => LoginThrottle::message($throttleKey),
+            ], 429);
+        }
+
         $user = User::where('badge_number', $credentials['login'])
             ->orWhere('email', $credentials['login'])
             ->first();
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+            LoginThrottle::fail($throttleKey);
+
             ActivityLog::record(
                 'login_failed',
                 'Authentication',
@@ -53,6 +65,8 @@ class AuthController extends Controller
                 'message' => 'The badge number/e-mail or password you entered is incorrect.',
             ], 401);
         }
+
+        LoginThrottle::clear($throttleKey);
 
         // ActivityLog::record() attributes every entry to auth()->user() —
         // set it on the (stateless) web guard for the rest of this request

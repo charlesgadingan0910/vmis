@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
 use App\Models\User;
+use App\Support\LoginThrottle;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -40,11 +41,23 @@ class AuthController extends Controller
             'password.required' => 'Please enter your password.',
         ]);
 
+        $throttleKey = LoginThrottle::key($request, $credentials['login']);
+
+        if (LoginThrottle::locked($throttleKey)) {
+            ActivityLog::record('login_failed', 'Authentication', "Blocked login attempt: too many failed attempts for '{$credentials['login']}'.");
+
+            return back()
+                ->withErrors(['login' => LoginThrottle::message($throttleKey)])
+                ->withInput($request->except('password'));
+        }
+
         $user = User::where('badge_number', $credentials['login'])
             ->orWhere('email', $credentials['login'])
             ->first();
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+            LoginThrottle::fail($throttleKey);
+
             // Distinguish "no such account" from "wrong password for a real
             // account" — the latter is tied to that user so repeated failed
             // attempts against one account are visible on the activity log,
@@ -75,6 +88,8 @@ class AuthController extends Controller
                 ->withErrors(['login' => 'This account has been deactivated. Please contact your system administrator.'])
                 ->withInput($request->except('password'));
         }
+
+        LoginThrottle::clear($throttleKey);
 
         Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
