@@ -30,3 +30,11 @@ Schedule::job(new SyncFleetAlertsJob())
 Schedule::command('queue:prune-failed --hours=720')
     ->name('queue-prune-failed')
     ->daily();
+
+// P1-08: nightly encrypted backup of the database and uploaded documents.
+// Needs BACKUP_PASSPHRASE (and, in production, a separate backup bucket) — see docs/BACKUP-RUNBOOK.md.
+Schedule::command('vmis:backup')
+    ->name('vmis-backup')
+    ->dailyAt('02:00')
+    ->withoutOverlapping()
+    ->onFailure(fn () => \Illuminate\Support\Facades\Log::error('Scheduled VMIS backup failed — run "php artisan vmis:backup" by hand and check the log.'));

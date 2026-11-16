@@ -64,6 +64,22 @@ return [
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
         ],
 
+        // Where encrypted backups (php artisan vmis:backup) are stored. MUST be
+        // a bucket separate from the documents bucket in production, because a
+        // Laravel Cloud app's own disk is wiped on every deploy.
+        'backups' => [
+            'driver' => env('BACKUP_DISK_DRIVER', 'local'),
+            'root' => storage_path('app/backups'),
+            'throw' => false,
+            'report' => false,
+            'key' => env('BACKUP_AWS_ACCESS_KEY_ID'),
+            'secret' => env('BACKUP_AWS_SECRET_ACCESS_KEY'),
+            'region' => env('BACKUP_AWS_DEFAULT_REGION', env('AWS_DEFAULT_REGION')),
+            'bucket' => env('BACKUP_AWS_BUCKET'),
+            'endpoint' => env('BACKUP_AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('BACKUP_AWS_USE_PATH_STYLE_ENDPOINT', false),
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
