@@ -98,9 +98,15 @@ class DriverController extends Controller
 
     protected function ajaxList(Request $request, string $role): JsonResponse
     {
-        $query = Driver::with(['vehicles' => function ($q) {
-            $q->excludingDisposed();
-        }])->latest();
+        $query = Driver::with([
+            'vehicles' => function ($q) {
+                $q->excludingDisposed();
+            },
+            // Alternate PAR (assigned driver 2) — shown in the assignment column too.
+            'vehiclesAsSecondary' => function ($q) {
+                $q->excludingDisposed();
+            },
+        ])->latest();
 
         // Handle Search
         if ($search = trim($request->input('search.value'))) {
@@ -180,11 +186,15 @@ class DriverController extends Controller
             // $driver->vehicles was eager-loaded above already filtered to
             // excludingDisposed(), so this is never an N+1.
             $currentVehicle = $driver->vehicles->first();
-            if ($driver->vehicles->isNotEmpty()) {
+            $alternateVehicles = $driver->vehiclesAsSecondary;
+            if ($driver->vehicles->isNotEmpty() || $alternateVehicles->isNotEmpty()) {
                 $vehicleHtml = $driver->vehicles->map(function ($v) {
                     return '<span class="plate-badge">' . e(strtoupper($v->plate_number)) . '</span>' .
                            '<div class="vehicle-sub-info mt-1">' . e(trim($v->make . ' ' . $v->model)) . '</div>';
-                })->implode('<hr class="my-2" style="border:none;border-top:1px dashed #e2e8f0;">');
+                })->concat($alternateVehicles->map(function ($v) {
+                    return '<span class="plate-badge">' . e(strtoupper($v->plate_number)) . '</span>' .
+                           '<div class="vehicle-sub-info mt-1">' . e(trim($v->make . ' ' . $v->model)) . ' &middot; Alternate</div>';
+                }))->implode('<hr class="my-2" style="border:none;border-top:1px dashed #e2e8f0;">');
             } else {
                 $vehicleHtml = '<span class="badge badge-light text-dark">Unassigned</span>';
             }

@@ -487,11 +487,11 @@
                                 <option value="">Unassigned</option>
                                 @foreach ($drivers as $driver)
                                     <option value="{{ $driver->id }}">
-                                        {{ $driver->firstname }} {{$driver->lastname }}
+                                        {{ $driver->parLabel() }}
                                     </option>
                                 @endforeach
                             </select>
-                            <input type="text" id="par_driver_name" name="par_driver_name" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
+                            <input type="text" id="par_driver_name" name="par_driver_name" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name" autocomplete="off">
                         </div>
                         <div class="form-group form-flex-item">
                             <label class="field-label">Alternate PAR Driver (Assigned Driver 2)</label>
@@ -499,11 +499,11 @@
                                 <option value="">Unassigned</option>
                                 @foreach ($drivers as $driver)
                                     <option value="{{ $driver->id }}">
-                                        {{ $driver->firstname }} {{$driver->lastname }}
+                                        {{ $driver->parLabel() }}
                                     </option>
                                 @endforeach
                             </select>
-                            <input type="text" id="par_driver_name_2" name="par_driver_name_2" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
+                            <input type="text" id="par_driver_name_2" name="par_driver_name_2" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name" autocomplete="off">
                             <small class="form-text text-muted">Optional — the Primary and Alternate PAR (Property Acknowledgement Receipt) drivers are the vehicle's assigned drivers.</small>
                         </div>
                         <div class="form-group form-flex-item">
@@ -694,11 +694,11 @@
                                 <option value="">Unassigned</option>
                                 @foreach ($drivers as $driver)
                                     <option value="{{ $driver->id }}">
-                                        {{ $driver->firstname }} {{ $driver->lastname }}
+                                        {{ $driver->parLabel() }}
                                     </option>
                                 @endforeach
                             </select>
-                            <input type="text" id="edit_par_driver_name" name="par_driver_name" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
+                            <input type="text" id="edit_par_driver_name" name="par_driver_name" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name" autocomplete="off">
                         </div>
                         <div class="form-group form-flex-item">
                             <label class="field-label">Alternate PAR Driver (Assigned Driver 2)</label>
@@ -706,11 +706,11 @@
                                 <option value="">Unassigned</option>
                                 @foreach ($drivers as $driver)
                                     <option value="{{ $driver->id }}">
-                                        {{ $driver->firstname }} {{ $driver->lastname }}
+                                        {{ $driver->parLabel() }}
                                     </option>
                                 @endforeach
                             </select>
-                            <input type="text" id="edit_par_driver_name_2" name="par_driver_name_2" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
+                            <input type="text" id="edit_par_driver_name_2" name="par_driver_name_2" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name" autocomplete="off">
                             <small class="form-text text-muted">Optional — the Primary and Alternate PAR (Property Acknowledgement Receipt) drivers are the vehicle's assigned drivers.</small>
                         </div>
                         <div class="form-group form-flex-item">
