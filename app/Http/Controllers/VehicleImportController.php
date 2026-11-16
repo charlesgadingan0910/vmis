@@ -91,7 +91,7 @@ class VehicleImportController extends Controller
             ['Status', 'No', 'Serviceable, Unserviceable or BER (saved as "For Disposal"). Blank = Serviceable.'],
             ['Variant', 'No', 'Free text, e.g. 4X2 MT. Saved in capital letters.'],
             ['Marked/Unmarked', 'No', 'Pick Marked or Unmarked from the dropdown. Blank = not specified.'],
-            ['Primary / Alternate PAR Driver', 'No', 'Pick from the dropdown (drivers in the system). The two cannot be the same person. These are separate from the assigned drivers.'],
+            ['Primary / Alternate PAR Driver', 'No', 'Pick a driver from the dropdown, or type a name if the person is not in the system yet (an admin can link it to a driver later in Driver Management). The two cannot be the same person. Separate from the assigned drivers.'],
             ['Year Model', 'No', '1980 up to next year.'],
             ['Dates', 'No', 'Use YYYY-MM-DD (e.g. 2026-12-31) or real Excel dates.'],
             ['Engine / Chassis Number', 'No', 'Must be unique across the fleet.'],
@@ -167,8 +167,8 @@ class VehicleImportController extends Controller
                 $this->dropdown($letter('source'), $rows, $range('E', count($sources))),
                 $this->dropdown($letter('status'), $rows, $range('F', count($statuses))),
                 $this->dropdown($letter('marked_status'), $rows, $range('G', count($markings))),
-                $this->dropdown($letter('par_driver'), $rows, $range('H', count($driverNames))),
-                $this->dropdown($letter('par_driver_2'), $rows, $range('H', count($driverNames))),
+                $this->dropdown($letter('par_driver'), $rows, $range('H', count($driverNames)), false),
+                $this->dropdown($letter('par_driver_2'), $rows, $range('H', count($driverNames)), false),
             ],
         ], $definedNames, ['Reference']);
 
@@ -358,23 +358,27 @@ class VehicleImportController extends Controller
         $marked = Str::upper(trim($row['marked_status'] ?? ''));
         $data['marked_status'] = $marked === '' ? null : $marked;
 
-        // PAR drivers (optional) — matched by name against active drivers.
-        foreach (['par_driver' => 'par_driver_id', 'par_driver_2' => 'par_driver_id_2'] as $column => $field) {
-            $name = Str::lower(preg_replace('/\s+/', ' ', trim($row[$column] ?? '')));
-            $data[$field] = null;
-            if ($name === '') {
+        // PAR drivers (optional). A name matching exactly one active driver is linked to that
+        // driver; any other name (not a driver yet, or ambiguous) is kept as typed text so the
+        // admin can link it later from Driver Management.
+        $parLabels = [];
+        foreach (['par_driver' => ['par_driver_id', 'par_driver_name'], 'par_driver_2' => ['par_driver_id_2', 'par_driver_name_2']] as $column => [$idField, $nameField]) {
+            $typed = trim(preg_replace('/\s+/', ' ', (string) ($row[$column] ?? '')));
+            $data[$idField] = null;
+            $data[$nameField] = null;
+            if ($typed === '') {
                 continue;
             }
-            $matches = $ctx['drivers'][$name] ?? [];
+            $matches = $ctx['drivers'][Str::lower($typed)] ?? [];
             if (count($matches) === 1) {
-                $data[$field] = $matches[0];
-            } elseif (count($matches) > 1) {
-                $errors[] = self::COLUMNS[$column][0] . ': "' . $row[$column] . '" matches more than one driver.';
+                $data[$idField] = $matches[0];
+                $parLabels[$column] = 'driver:' . $matches[0];
             } else {
-                $errors[] = self::COLUMNS[$column][0] . ': "' . $row[$column] . '" is not an active driver (pick it from the dropdown in the template).';
+                $data[$nameField] = $typed;
+                $parLabels[$column] = 'name:' . Str::lower($typed);
             }
         }
-        if ($data['par_driver_id'] && $data['par_driver_id'] === $data['par_driver_id_2']) {
+        if (isset($parLabels['par_driver'], $parLabels['par_driver_2']) && $this->sameParHolder($parLabels['par_driver'], $parLabels['par_driver_2'], $ctx)) {
             $errors[] = 'Primary and Alternate PAR Driver cannot be the same person.';
         }
 
@@ -398,8 +402,10 @@ class VehicleImportController extends Controller
             'status'               => ['required', 'in:SERVICEABLE,UNSERVICEABLE,BER'],
             'variant'              => ['nullable', 'string', 'max:50'],
             'marked_status'        => ['nullable', 'in:MARKED,UNMARKED'],
+            'par_driver_name'      => ['nullable', 'string', 'max:100'],
+            'par_driver_name_2'    => ['nullable', 'string', 'max:100'],
         ], [], [
-            'variant' => 'Variant', 'marked_status' => 'Marked/Unmarked',
+            'variant' => 'Variant', 'marked_status' => 'Marked/Unmarked', 'par_driver_name' => 'Primary PAR Driver', 'par_driver_name_2' => 'Alternate PAR Driver',
             'plate_number' => 'Plate Number', 'make' => 'Make', 'model' => 'Model', 'year_model' => 'Year Model',
             'color' => 'Color', 'source' => 'Source', 'odometer_km' => 'Odometer', 'engine_number' => 'Engine Number',
             'chassis_number' => 'Chassis Number', 'status' => 'Status', 'next_pms_odometer_km' => 'Next PMS Odometer',
@@ -627,10 +633,31 @@ class VehicleImportController extends Controller
         return $rows;
     }
 
-    /** @return array{sqref: string, formula: string} */
-    protected function dropdown(string $column, int $lastRow, string $formula): array
+    /** True when two PAR labels ("driver:<id>" or "name:<lowercase text>") are the same person. */
+    protected function sameParHolder(string $a, string $b, array $ctx): bool
     {
-        return ['sqref' => $column . '2:' . $column . $lastRow, 'formula' => $formula];
+        if ($a === $b) {
+            return true;
+        }
+
+        // A typed name equal to a driver's name counts as that driver.
+        $resolve = function (string $label) use ($ctx) {
+            if (str_starts_with($label, 'name:')) {
+                $matches = $ctx['drivers'][substr($label, 5)] ?? [];
+
+                return count($matches) === 1 ? 'driver:' . $matches[0] : $label;
+            }
+
+            return $label;
+        };
+
+        return $resolve($a) === $resolve($b);
+    }
+
+    /** @return array{sqref: string, formula: string, strict: bool} */
+    protected function dropdown(string $column, int $lastRow, string $formula, bool $strict = true): array
+    {
+        return ['sqref' => $column . '2:' . $column . $lastRow, 'formula' => $formula, 'strict' => $strict];
     }
 
     /** 0 => A, 25 => Z, 26 => AA */

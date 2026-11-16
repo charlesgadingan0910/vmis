@@ -63,6 +63,8 @@ class Vehicle extends Model
         'assigned_driver_id_2',
         'par_driver_id',
         'par_driver_id_2',
+        'par_driver_name',
+        'par_driver_name_2',
         'odometer_km',
         'next_pms_date',
         'next_pms_odometer_km',
@@ -180,6 +182,23 @@ class Vehicle extends Model
     public function parDriver2()
     {
         return $this->belongsTo(Driver::class, 'par_driver_id_2');
+    }
+
+    /**
+     * Who holds the PAR in the given slot (1 = primary, 2 = alternate): the
+     * linked driver's name when one is linked, otherwise the typed name
+     * (a holder not yet encoded as a driver), otherwise null.
+     */
+    public function parHolderName(int $slot = 1): ?string
+    {
+        $driver = $slot === 2 ? $this->parDriver2 : $this->parDriver;
+        if ($driver) {
+            return trim($driver->firstname . ' ' . $driver->lastname);
+        }
+
+        $typed = $slot === 2 ? $this->par_driver_name_2 : $this->par_driver_name;
+
+        return ($typed !== null && trim($typed) !== '') ? trim($typed) : null;
     }
 
     /**

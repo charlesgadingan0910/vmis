@@ -467,6 +467,7 @@
                                     <option value="{{ $driver->id }}">{{ $driver->firstname }} {{ $driver->lastname }}</option>
                                 @endforeach
                             </select>
+                            <input type="text" id="par_driver_name" name="par_driver_name" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Alternate PAR Driver</label>
@@ -476,6 +477,7 @@
                                     <option value="{{ $driver->id }}">{{ $driver->firstname }} {{ $driver->lastname }}</option>
                                 @endforeach
                             </select>
+                            <input type="text" id="par_driver_name_2" name="par_driver_name_2" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
                         </div>
                     </div>
 
@@ -690,6 +692,7 @@
                                     <option value="{{ $driver->id }}">{{ $driver->firstname }} {{ $driver->lastname }}</option>
                                 @endforeach
                             </select>
+                            <input type="text" id="edit_par_driver_name" name="par_driver_name" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
                         </div>
                         <div class="col-md-3 form-group">
                             <label class="field-label">Alternate PAR Driver</label>
@@ -699,6 +702,7 @@
                                     <option value="{{ $driver->id }}">{{ $driver->firstname }} {{ $driver->lastname }}</option>
                                 @endforeach
                             </select>
+                            <input type="text" id="edit_par_driver_name_2" name="par_driver_name_2" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
                         </div>
                     </div>
 
@@ -1299,6 +1303,19 @@ $(document).ready(function() {
     // out whichever driver is already picked in the OTHER slot of the same
     // pair (create modal's pair, or edit modal's pair), so it can't be
     // picked twice in the first place.
+    // PAR holders: pick a driver OR type a name. Choosing a driver locks (and clears)
+    // the typed-name box for that slot; leaving the select on "None" re-enables it.
+    function syncParNameInputs() {
+        [['#par_driver_id', '#par_driver_name'], ['#par_driver_id_2', '#par_driver_name_2'],
+         ['#edit_par_driver_id', '#edit_par_driver_name'], ['#edit_par_driver_id_2', '#edit_par_driver_name_2']].forEach(function (pair) {
+            const hasDriver = !!$(pair[0]).val();
+            const $name = $(pair[1]);
+            if (hasDriver) { $name.val(''); }
+            $name.prop('disabled', hasDriver);
+        });
+    }
+    $('#par_driver_id, #par_driver_id_2, #edit_par_driver_id, #edit_par_driver_id_2').on('change', syncParNameInputs);
+
     function syncDriverSlotExclusivity($slotA, $slotB) {
         const selectedInA = $slotA.val();
         const selectedInB = $slotB.val();
@@ -1698,6 +1715,9 @@ $(document).ready(function() {
             $('#edit_marked_status').val(data.marked_status || '');
             $('#edit_par_driver_id').val(data.par_driver_id || '');
             $('#edit_par_driver_id_2').val(data.par_driver_id_2 || '');
+            $('#edit_par_driver_name').val(data.par_driver_name || '');
+            $('#edit_par_driver_name_2').val(data.par_driver_name_2 || '');
+            syncParNameInputs();
             $('#edit_odometer_km').val(data.odometer_km);
             $('#edit_next_pms_date').val(data.next_pms_date);
             $('#edit_next_pms_odometer_km').val(data.next_pms_odometer_km);

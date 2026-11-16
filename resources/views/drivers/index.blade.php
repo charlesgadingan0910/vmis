@@ -681,6 +681,25 @@
         </div>
     </div>
 </div>
+<!-- PAR VEHICLES MODAL: vehicles where this driver is the PAR holder + typed PAR names that can be linked to this driver -->
+<div class="modal fade" id="parVehiclesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content modal-content-premium">
+            <div class="modal-header-slate d-flex justify-content-between align-items-center">
+                <h5 class="m-0"><i class="fas fa-file-signature mr-2"></i> PAR Vehicles — <span id="parModalDriverName"></span></h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body p-4">
+                <h6 class="font-weight-bold text-secondary text-uppercase mb-2" style="font-size:12px;">Linked to this driver</h6>
+                <div id="parLinkedList" class="mb-4"></div>
+                <h6 class="font-weight-bold text-secondary text-uppercase mb-1" style="font-size:12px;">Typed PAR names not yet linked to a driver</h6>
+                <p class="text-muted small mb-2">Names typed on a vehicle or in an Excel import. Names matching this driver are shown first. Link the ones that are this driver.</p>
+                <div id="parUnlinkedList"></div>
+            </div>
+            <div class="modal-footer bg-light border-0"><button type="button" class="btn btn-light font-weight-bold" data-dismiss="modal">Close</button></div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @section('script')
@@ -945,6 +964,52 @@ $(document.body).ready(function() {
         div.textContent = str == null ? '' : String(str);
         return div.innerHTML;
     }
+
+    // PAR VEHICLES — list, link and unlink (see DriverParController)
+    const parListUrlTemplate = @json(route('drivers.par-vehicles', ['driver' => ':id']));
+    const parLinkUrlTemplate = @json(route('drivers.par-link', ['driver' => ':id']));
+    const parUnlinkUrlTemplate = @json(route('drivers.par-unlink', ['driver' => ':id']));
+    let parDriverId = null;
+
+    function parEsc(str) { const d = document.createElement('div'); d.textContent = str == null ? '' : String(str); return d.innerHTML; }
+
+    function loadParVehicles() {
+        $('#parLinkedList, #parUnlinkedList').html('<div class="text-muted"><span class="spinner-border spinner-border-sm mr-2"></span>Loading…</div>');
+        $.getJSON(parListUrlTemplate.replace(':id', parDriverId), function (res) {
+            const row = function (r, actionHtml, note) {
+                return '<div class="d-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2" style="gap:10px;">' +
+                    '<div><span class="plate-badge">' + parEsc(r.plate) + '</span> <span class="text-muted small ml-1">' + parEsc(r.label) + '</span>' +
+                    '<div class="small text-muted mt-1">' + parEsc(r.slot_label) + ' PAR' + (note || '') + '</div></div>' + (actionHtml || '') + '</div>';
+            };
+
+            $('#parLinkedList').html(res.linked.length ? res.linked.map(function (r) {
+                return row(r, res.can_link ? '<button type="button" class="btn btn-sm btn-outline-secondary par-unlink-btn" data-vehicle="' + r.vehicle_id + '" data-slot="' + r.slot + '">Unlink</button>' : '');
+            }).join('') : '<div class="text-muted small">No vehicles are linked to this driver as PAR holder yet.</div>');
+
+            $('#parUnlinkedList').html(res.unlinked.length ? res.unlinked.map(function (r) {
+                const note = ' &middot; typed name: <strong>' + parEsc(r.name) + '</strong>' + (r.suggested ? ' <span class="badge badge-success ml-1">Matches this driver</span>' : '');
+                return row(r, res.can_link ? '<button type="button" class="btn btn-sm ' + (r.suggested ? 'btn-primary' : 'btn-outline-primary') + ' par-link-btn" data-vehicle="' + r.vehicle_id + '" data-slot="' + r.slot + '">Link to this driver</button>' : '', note);
+            }).join('') + (res.truncated ? '<div class="small text-muted">Showing the first ' + res.unlinked.length + ' names only.</div>' : '') : '<div class="text-muted small">No unlinked typed PAR names.</div>');
+        }).fail(function () {
+            $('#parLinkedList, #parUnlinkedList').html('<div class="text-danger small">Could not load PAR vehicles.</div>');
+        });
+    }
+
+    $('#driversTable').on('click', '.par-vehicles-btn', function () {
+        parDriverId = $(this).data('id');
+        $('#parModalDriverName').text($(this).data('name'));
+        $('#parVehiclesModal').modal('show');
+        loadParVehicles();
+    });
+
+    function parPost(urlTemplate, $btn) {
+        $btn.prop('disabled', true);
+        $.post(urlTemplate.replace(':id', parDriverId), { vehicle_id: $btn.data('vehicle'), slot: $btn.data('slot') })
+            .done(function (res) { toastr.success(res.message || 'Saved.'); loadParVehicles(); })
+            .fail(function (xhr) { toastr.error((xhr.responseJSON && xhr.responseJSON.message) || 'Could not save.'); $btn.prop('disabled', false); });
+    }
+    $('#parVehiclesModal').on('click', '.par-link-btn', function () { parPost(parLinkUrlTemplate, $(this)); });
+    $('#parVehiclesModal').on('click', '.par-unlink-btn', function () { parPost(parUnlinkUrlTemplate, $(this)); });
 
     $('#driversTable').on('click', '.vehicle-history-btn', function() {
         const driverId = $(this).data('id');

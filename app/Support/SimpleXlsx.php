@@ -164,8 +164,11 @@ class SimpleXlsx
         if ($validations) {
             $xml .= '<dataValidations count="' . count($validations) . '">';
             foreach ($validations as $rule) {
-                $xml .= '<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" errorStyle="stop"'
-                    . ' errorTitle="Pick from the list" error="Please choose a value from the dropdown list."'
+                $strict = $rule['strict'] ?? true;
+                $xml .= '<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="' . ($strict ? '1' : '0') . '" errorStyle="stop"'
+                    . ($strict
+                        ? ' errorTitle="Pick from the list" error="Please choose a value from the dropdown list."'
+                        : ' promptTitle="Pick or type" prompt="Pick a driver from the list, or type a name if the person is not in the system yet."')
                     . ' sqref="' . self::esc($rule['sqref']) . '"><formula1>' . self::esc($rule['formula']) . '</formula1></dataValidation>';
             }
             $xml .= '</dataValidations>';

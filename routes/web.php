@@ -6,6 +6,7 @@ use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\VehicleImportController;
 use App\Http\Controllers\DriverController;
+use App\Http\Controllers\DriverParController;
 use App\Http\Controllers\VehicleTypeController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\RepairController;
@@ -217,6 +218,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/drivers/{driver}/assign-vehicle', [DriverAssignmentController::class, 'assignToDriver'])->name('drivers.assign-vehicle');
         Route::post('/drivers/{driver}/unassign-vehicle', [DriverAssignmentController::class, 'unassignDriver'])->name('drivers.unassign-vehicle');
         Route::get('/drivers/{driver}/assignment-history', [DriverAssignmentController::class, 'driverHistory'])->name('drivers.assignment-history');
+
+        // PAR (Property Acknowledgement Receipt) vehicles of a driver — see
+        // DriverParController: link a vehicle's typed PAR name to this driver.
+        Route::get('/drivers/{driver}/par-vehicles', [DriverParController::class, 'index'])->name('drivers.par-vehicles');
+        Route::post('/drivers/{driver}/par-link', [DriverParController::class, 'link'])->name('drivers.par-link');
+        Route::post('/drivers/{driver}/par-unlink', [DriverParController::class, 'unlink'])->name('drivers.par-unlink');
 
         // Vehicle Types Management
         Route::resource('vehicle-types', VehicleTypeController::class)->except(['show']);

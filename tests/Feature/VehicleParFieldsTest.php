@@ -71,17 +71,23 @@ it('imports variant, marked status and PAR drivers', function () {
     expect($two->marked_status)->toBeNull()->and($two->par_driver_id)->toBeNull();
 });
 
-it('flags bad marked status, unknown drivers and identical PAR drivers', function () {
+it('flags a bad marked status and identical PAR holders, but keeps unknown names as typed text', function () {
     parSetup();
 
     $response = $this->actingAs(parAdmin())->post(route('vehicles.import'), ['file' => parImportFile([
         ['BAD 111', 'Toyota', 'Hilux', '', 'Patrol Car', 'Alpha Unit', 'Alpha Station', 'camouflaged', '', ''],
-        ['BAD 222', 'Toyota', 'Hilux', '', 'Patrol Car', 'Alpha Unit', 'Alpha Station', '', 'Nobody Here', ''],
-        ['BAD 333', 'Toyota', 'Hilux', '', 'Patrol Car', 'Alpha Unit', 'Alpha Station', '', 'Juan Dela Cruz', 'Juan Dela Cruz'],
+        ['TYP 222', 'Toyota', 'Hilux', '', 'Patrol Car', 'Alpha Unit', 'Alpha Station', '', 'Nobody Here', ''],
+        ['BAD 333', 'Toyota', 'Hilux', '', 'Patrol Car', 'Alpha Unit', 'Alpha Station', '', 'Juan Dela Cruz', 'juan dela cruz'],
+        ['BAD 444', 'Toyota', 'Hilux', '', 'Patrol Car', 'Alpha Unit', 'Alpha Station', '', 'Foo Bar', 'foo  BAR'],
     ])])->assertOk();
 
-    expect($response->json('imported'))->toBe(0)->and($response->json('errors'))->toBe(3);
-    expect(Vehicle::count())->toBe(0);
+    expect($response->json('imported'))->toBe(1)->and($response->json('errors'))->toBe(3);
+
+    $typed = Vehicle::where('plate_number', 'TYP 222')->first();
+    expect($typed->par_driver_id)->toBeNull()
+        ->and($typed->par_driver_name)->toBe('Nobody Here')
+        ->and($typed->parHolderName(1))->toBe('Nobody Here');
+    expect(Vehicle::count())->toBe(1);
 });
 
 it('saves the new fields when registering and editing a vehicle', function () {
@@ -120,4 +126,32 @@ it('rejects the same driver as both PAR drivers', function () {
     ])->assertSessionHasErrors('par_driver_id_2');
 
     expect(Vehicle::count())->toBe(0);
+});
+
+it('saves a typed PAR name, and a chosen driver replaces the typed name', function () {
+    $f = parSetup();
+    $admin = parAdmin();
+
+    $base = [
+        'make' => 'Toyota', 'model' => 'Hilux', 'vehicle_type_id' => $f['type']->id,
+        'unit_id' => $f['unit']->id, 'station_id' => $f['station']->id, 'source' => 'ORGANIC', 'status' => 'SERVICEABLE',
+    ];
+
+    $this->actingAs($admin)->post(route('vehicles.store'), $base + [
+        'plate_number' => 'TYP 111', 'par_driver_name' => '  Pedro   Reyes ', 'par_driver_name_2' => 'Ana Lopez',
+    ])->assertRedirect();
+    $typed = Vehicle::where('plate_number', 'TYP 111')->first();
+    expect($typed->par_driver_name)->toBe('Pedro Reyes')
+        ->and($typed->par_driver_name_2)->toBe('Ana Lopez')
+        ->and($typed->par_driver_id)->toBeNull();
+
+    $this->actingAs($admin)->post(route('vehicles.store'), $base + [
+        'plate_number' => 'TYP 222', 'par_driver_id' => $f['d1']->id, 'par_driver_name' => 'Should Be Cleared',
+    ])->assertRedirect();
+    $linked = Vehicle::where('plate_number', 'TYP 222')->first();
+    expect($linked->par_driver_id)->toBe($f['d1']->id)->and($linked->par_driver_name)->toBeNull();
+
+    $this->actingAs($admin)->post(route('vehicles.store'), $base + [
+        'plate_number' => 'TYP 333', 'par_driver_name' => 'Same Person', 'par_driver_name_2' => 'same person',
+    ])->assertSessionHasErrors('par_driver_name_2');
 });

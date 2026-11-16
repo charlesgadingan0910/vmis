@@ -206,6 +206,7 @@ class DriverController extends Controller
                 }
             }
             $assignmentButtons .= '<button type="button" class="btn btn-sm btn-light border ml-1 vehicle-history-btn" data-id="' . $driver->id . '" data-name="' . e($plainName) . '" title="Vehicle assignment history"><i class="fas fa-history"></i></button> ';
+            $assignmentButtons .= '<button type="button" class="btn btn-sm btn-light border ml-1 par-vehicles-btn" data-id="' . $driver->id . '" data-name="' . e($plainName) . '" title="PAR vehicles (Property Acknowledgement Receipt)"><i class="fas fa-file-signature"></i></button> ';
 
             $actionsHtml = '<div class="text-right text-nowrap">' .
                            $assignmentButtons .

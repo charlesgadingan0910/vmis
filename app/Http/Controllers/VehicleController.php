@@ -477,6 +477,8 @@ class VehicleController extends Controller
             'marked_status'      => ['nullable', 'in:MARKED,UNMARKED'],
             'par_driver_id'      => ['nullable', 'exists:drivers,id'],
             'par_driver_id_2'    => ['nullable', 'exists:drivers,id', 'different:par_driver_id'],
+            'par_driver_name'    => ['nullable', 'string', 'max:100'],
+            'par_driver_name_2'  => ['nullable', 'string', 'max:100'],
             'acquisition_date'   => ['nullable', 'date'],
             'source'             => ['required', 'in:ORGANIC,LOANED,DONATED'],
             'assigned_driver_id' => ['nullable', 'exists:drivers,id'],
@@ -507,6 +509,7 @@ class VehicleController extends Controller
 
         $validated = $request->validate($rules);
         $validated = $this->applyWriteScope($validated, $user, $role);
+        $validated = $this->normalizeParFields($validated);
         $validated = $this->normalizeBerFields($validated);
         $validated = $this->normalizeUnserviceableTracking($validated);
 
@@ -599,6 +602,8 @@ class VehicleController extends Controller
             'marked_status'      => $vehicle->marked_status,
             'par_driver_id'      => $vehicle->par_driver_id,
             'par_driver_id_2'    => $vehicle->par_driver_id_2,
+            'par_driver_name'    => $vehicle->par_driver_name,
+            'par_driver_name_2'  => $vehicle->par_driver_name_2,
             'source'             => $vehicle->source,
             'ber_sub_status'     => $vehicle->ber_sub_status,
             'disposal_date'      => optional($vehicle->disposal_date)->format('Y-m-d'),
@@ -642,6 +647,8 @@ class VehicleController extends Controller
             'marked_status'      => ['nullable', 'in:MARKED,UNMARKED'],
             'par_driver_id'      => ['nullable', 'exists:drivers,id'],
             'par_driver_id_2'    => ['nullable', 'exists:drivers,id', 'different:par_driver_id'],
+            'par_driver_name'    => ['nullable', 'string', 'max:100'],
+            'par_driver_name_2'  => ['nullable', 'string', 'max:100'],
             'source'             => ['required', 'in:ORGANIC,LOANED,DONATED'],
             'assigned_driver_id' => ['nullable', 'exists:drivers,id'],
             'assigned_driver_id_2' => ['nullable', 'exists:drivers,id', 'different:assigned_driver_id'],
@@ -659,6 +666,7 @@ class VehicleController extends Controller
 
         $validated = $request->validate($rules);
         $validated = $this->applyWriteScope($validated, $user, $role, $vehicle);
+        $validated = $this->normalizeParFields($validated);
         $validated = $this->normalizeBerFields($validated);
         // Must run before $vehicle->update() below — it compares the incoming
         // status against $vehicle's still-original (pre-update) status.
@@ -1462,6 +1470,38 @@ class VehicleController extends Controller
             $validated['station_id'] = $user->station_id;
         }
         // Super Admin / Admin: unit_id comes from the validated form input as-is.
+
+        return $validated;
+    }
+
+    /**
+     * PAR holders can be a linked driver (par_driver_id / _2) OR a typed name
+     * (par_driver_name / _2) for someone not yet in Driver Management. A chosen
+     * driver always wins — its typed name is cleared — and the same person can't
+     * hold both the Primary and Alternate slots.
+     */
+    protected function normalizeParFields(array $validated): array
+    {
+        $names = [];
+        foreach ([1 => ['par_driver_id', 'par_driver_name'], 2 => ['par_driver_id_2', 'par_driver_name_2']] as $slot => [$idKey, $nameKey]) {
+            if (array_key_exists($nameKey, $validated)) {
+                $typed = trim(preg_replace('/\s+/', ' ', (string) $validated[$nameKey]));
+                $validated[$nameKey] = $typed === '' ? null : $typed;
+            }
+            if (! empty($validated[$idKey] ?? null)) {
+                $validated[$nameKey] = null;
+                $driver = Driver::find($validated[$idKey]);
+                $names[$slot] = $driver ? Str::lower(trim($driver->firstname . ' ' . $driver->lastname)) : null;
+            } else {
+                $names[$slot] = ! empty($validated[$nameKey] ?? null) ? Str::lower($validated[$nameKey]) : null;
+            }
+        }
+
+        if ($names[1] && $names[1] === ($names[2] ?? null)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'par_driver_name_2' => 'The Primary and Alternate PAR Driver cannot be the same person.',
+            ]);
+        }
 
         return $validated;
     }
