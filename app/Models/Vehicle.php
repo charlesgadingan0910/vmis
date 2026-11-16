@@ -61,8 +61,6 @@ class Vehicle extends Model
         'station_id',
         'assigned_driver_id',
         'assigned_driver_id_2',
-        'par_driver_id',
-        'par_driver_id_2',
         'par_driver_name',
         'par_driver_name_2',
         'odometer_km',
@@ -168,30 +166,14 @@ class Vehicle extends Model
     }
 
     /**
-     * Primary PAR (Property Acknowledgement Receipt) driver — the person
-     * accountable for this vehicle on paper. Independent of assigned drivers.
-     */
-    public function parDriver()
-    {
-        return $this->belongsTo(Driver::class, 'par_driver_id');
-    }
-
-    /**
-     * Alternate PAR driver.
-     */
-    public function parDriver2()
-    {
-        return $this->belongsTo(Driver::class, 'par_driver_id_2');
-    }
-
-    /**
-     * Who holds the PAR in the given slot (1 = primary, 2 = alternate): the
-     * linked driver's name when one is linked, otherwise the typed name
-     * (a holder not yet encoded as a driver), otherwise null.
+     * Who holds the PAR (Property Acknowledgement Receipt) in the given slot
+     * (1 = Primary, 2 = Alternate). The PAR drivers ARE the vehicle's Assigned
+     * Driver 1 / 2: the assigned driver's name when one is set, otherwise the
+     * typed name of a holder who is not yet a driver, otherwise null.
      */
     public function parHolderName(int $slot = 1): ?string
     {
-        $driver = $slot === 2 ? $this->parDriver2 : $this->parDriver;
+        $driver = $slot === 2 ? $this->driver2 : $this->driver;
         if ($driver) {
             return trim($driver->firstname . ' ' . $driver->lastname);
         }

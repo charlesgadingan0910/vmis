@@ -475,8 +475,6 @@ class VehicleController extends Controller
             'color'              => ['nullable', 'string', 'max:30'],
             'variant'            => ['nullable', 'string', 'max:50'],
             'marked_status'      => ['nullable', 'in:MARKED,UNMARKED'],
-            'par_driver_id'      => ['nullable', 'exists:drivers,id'],
-            'par_driver_id_2'    => ['nullable', 'exists:drivers,id', 'different:par_driver_id'],
             'par_driver_name'    => ['nullable', 'string', 'max:100'],
             'par_driver_name_2'  => ['nullable', 'string', 'max:100'],
             'acquisition_date'   => ['nullable', 'date'],
@@ -600,8 +598,6 @@ class VehicleController extends Controller
             'color'              => $vehicle->color,
             'variant'            => $vehicle->variant,
             'marked_status'      => $vehicle->marked_status,
-            'par_driver_id'      => $vehicle->par_driver_id,
-            'par_driver_id_2'    => $vehicle->par_driver_id_2,
             'par_driver_name'    => $vehicle->par_driver_name,
             'par_driver_name_2'  => $vehicle->par_driver_name_2,
             'source'             => $vehicle->source,
@@ -645,8 +641,6 @@ class VehicleController extends Controller
             'color'              => ['nullable', 'string', 'max:30'],
             'variant'            => ['nullable', 'string', 'max:50'],
             'marked_status'      => ['nullable', 'in:MARKED,UNMARKED'],
-            'par_driver_id'      => ['nullable', 'exists:drivers,id'],
-            'par_driver_id_2'    => ['nullable', 'exists:drivers,id', 'different:par_driver_id'],
             'par_driver_name'    => ['nullable', 'string', 'max:100'],
             'par_driver_name_2'  => ['nullable', 'string', 'max:100'],
             'source'             => ['required', 'in:ORGANIC,LOANED,DONATED'],
@@ -1475,15 +1469,15 @@ class VehicleController extends Controller
     }
 
     /**
-     * PAR holders can be a linked driver (par_driver_id / _2) OR a typed name
-     * (par_driver_name / _2) for someone not yet in Driver Management. A chosen
-     * driver always wins — its typed name is cleared — and the same person can't
-     * hold both the Primary and Alternate slots.
+     * The Primary / Alternate PAR (Property Acknowledgement Receipt) drivers ARE
+     * Assigned Driver 1 / 2. A holder who is not a driver yet can be typed instead
+     * (par_driver_name / _2); choosing a driver always wins and clears that slot's
+     * typed name. The same person can't hold both slots.
      */
     protected function normalizeParFields(array $validated): array
     {
         $names = [];
-        foreach ([1 => ['par_driver_id', 'par_driver_name'], 2 => ['par_driver_id_2', 'par_driver_name_2']] as $slot => [$idKey, $nameKey]) {
+        foreach ([1 => ['assigned_driver_id', 'par_driver_name'], 2 => ['assigned_driver_id_2', 'par_driver_name_2']] as $slot => [$idKey, $nameKey]) {
             if (array_key_exists($nameKey, $validated)) {
                 $typed = trim(preg_replace('/\s+/', ' ', (string) $validated[$nameKey]));
                 $validated[$nameKey] = $typed === '' ? null : $typed;
@@ -1491,13 +1485,13 @@ class VehicleController extends Controller
             if (! empty($validated[$idKey] ?? null)) {
                 $validated[$nameKey] = null;
                 $driver = Driver::find($validated[$idKey]);
-                $names[$slot] = $driver ? Str::lower(trim($driver->firstname . ' ' . $driver->lastname)) : null;
+                $names[$slot] = $driver ? $driver->nameKeys() : [];
             } else {
-                $names[$slot] = ! empty($validated[$nameKey] ?? null) ? Str::lower($validated[$nameKey]) : null;
+                $names[$slot] = ! empty($validated[$nameKey] ?? null) ? [Str::lower($validated[$nameKey])] : [];
             }
         }
 
-        if ($names[1] && $names[1] === ($names[2] ?? null)) {
+        if ($names[1] && $names[2] && array_intersect($names[1], $names[2])) {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'par_driver_name_2' => 'The Primary and Alternate PAR Driver cannot be the same person.',
             ]);

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Driver;
+use App\Models\DriverAssignment;
 use App\Models\Station;
 use App\Models\Unit;
 use App\Models\User;
@@ -66,7 +67,7 @@ it('lists typed PAR names with matching ones suggested first', function () {
         ->and($response->json('unlinked.1.suggested'))->toBeFalse();
 });
 
-it('links a typed PAR name to a driver and can unlink it again', function () {
+it('links a typed PAR name by assigning the driver to that slot', function () {
     $f = parLinkFleet();
     $admin = parLinkUser('SUPER ADMINISTRATOR');
 
@@ -74,22 +75,30 @@ it('links a typed PAR name to a driver and can unlink it again', function () {
         ->assertOk()->assertJsonPath('success', true);
 
     $f['a']->refresh();
-    expect($f['a']->par_driver_id)->toBe($f['driver']->id)->and($f['a']->par_driver_name)->toBeNull();
+    expect($f['a']->assigned_driver_id)->toBe($f['driver']->id)->and($f['a']->par_driver_name)->toBeNull();
+    expect(DriverAssignment::where('vehicle_id', $f['a']->id)->where('driver_id', $f['driver']->id)->count())->toBe(1);
 
     $linked = $this->actingAs($admin)->getJson(route('drivers.par-vehicles', $f['driver']))->json('linked');
     expect($linked)->toHaveCount(1)->and($linked[0]['plate'])->toBe('AAA 111');
 
     // Already linked: linking again is refused.
     $this->actingAs($admin)->postJson(route('drivers.par-link', $f['driver']), ['vehicle_id' => $f['a']->id, 'slot' => 1])->assertStatus(422);
+});
 
-    $this->actingAs($admin)->postJson(route('drivers.par-unlink', $f['driver']), ['vehicle_id' => $f['a']->id, 'slot' => 1])->assertOk();
-    $f['a']->refresh();
-    expect($f['a']->par_driver_id)->toBeNull()->and($f['a']->par_driver_name)->toBe('Juan Dela Cruz');
+it('refuses to link a driver whose license has expired', function () {
+    $f = parLinkFleet();
+    $f['driver']->update(['license_expiration_date' => '2020-01-01']);
+
+    $this->actingAs(parLinkUser('SUPER ADMINISTRATOR'))
+        ->postJson(route('drivers.par-link', $f['driver']), ['vehicle_id' => $f['a']->id, 'slot' => 1])
+        ->assertStatus(422);
+
+    expect($f['a']->fresh()->assigned_driver_id)->toBeNull();
 });
 
 it('refuses to link the same driver to both PAR slots of one vehicle', function () {
     $f = parLinkFleet();
-    $f['a']->update(['par_driver_id' => $f['driver']->id, 'par_driver_name' => null, 'par_driver_name_2' => 'Juan Dela Cruz']);
+    $f['a']->update(['assigned_driver_id' => $f['driver']->id, 'par_driver_name' => null, 'par_driver_name_2' => 'Juan Dela Cruz']);
 
     $this->actingAs(parLinkUser('SUPER ADMINISTRATOR'))
         ->postJson(route('drivers.par-link', $f['driver']), ['vehicle_id' => $f['a']->id, 'slot' => 2])

@@ -223,7 +223,6 @@ Route::middleware('auth')->group(function () {
         // DriverParController: link a vehicle's typed PAR name to this driver.
         Route::get('/drivers/{driver}/par-vehicles', [DriverParController::class, 'index'])->name('drivers.par-vehicles');
         Route::post('/drivers/{driver}/par-link', [DriverParController::class, 'link'])->name('drivers.par-link');
-        Route::post('/drivers/{driver}/par-unlink', [DriverParController::class, 'unlink'])->name('drivers.par-unlink');
 
         // Vehicle Types Management
         Route::resource('vehicle-types', VehicleTypeController::class)->except(['show']);

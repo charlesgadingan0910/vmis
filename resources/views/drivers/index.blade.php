@@ -693,7 +693,7 @@
                 <h6 class="font-weight-bold text-secondary text-uppercase mb-2" style="font-size:12px;">Linked to this driver</h6>
                 <div id="parLinkedList" class="mb-4"></div>
                 <h6 class="font-weight-bold text-secondary text-uppercase mb-1" style="font-size:12px;">Typed PAR names not yet linked to a driver</h6>
-                <p class="text-muted small mb-2">Names typed on a vehicle or in an Excel import. Names matching this driver are shown first. Link the ones that are this driver.</p>
+                <p class="text-muted small mb-2">Names typed on a vehicle or in an Excel import. Names matching this driver are shown first. Linking assigns this driver as that vehicle's Primary or Alternate PAR Driver (Assigned Driver 1 or 2).</p>
                 <div id="parUnlinkedList"></div>
             </div>
             <div class="modal-footer bg-light border-0"><button type="button" class="btn btn-light font-weight-bold" data-dismiss="modal">Close</button></div>
@@ -968,7 +968,6 @@ $(document.body).ready(function() {
     // PAR VEHICLES — list, link and unlink (see DriverParController)
     const parListUrlTemplate = @json(route('drivers.par-vehicles', ['driver' => ':id']));
     const parLinkUrlTemplate = @json(route('drivers.par-link', ['driver' => ':id']));
-    const parUnlinkUrlTemplate = @json(route('drivers.par-unlink', ['driver' => ':id']));
     let parDriverId = null;
 
     function parEsc(str) { const d = document.createElement('div'); d.textContent = str == null ? '' : String(str); return d.innerHTML; }
@@ -983,7 +982,7 @@ $(document.body).ready(function() {
             };
 
             $('#parLinkedList').html(res.linked.length ? res.linked.map(function (r) {
-                return row(r, res.can_link ? '<button type="button" class="btn btn-sm btn-outline-secondary par-unlink-btn" data-vehicle="' + r.vehicle_id + '" data-slot="' + r.slot + '">Unlink</button>' : '');
+                return row(r, '', '');
             }).join('') : '<div class="text-muted small">No vehicles are linked to this driver as PAR holder yet.</div>');
 
             $('#parUnlinkedList').html(res.unlinked.length ? res.unlinked.map(function (r) {
@@ -1009,7 +1008,6 @@ $(document.body).ready(function() {
             .fail(function (xhr) { toastr.error((xhr.responseJSON && xhr.responseJSON.message) || 'Could not save.'); $btn.prop('disabled', false); });
     }
     $('#parVehiclesModal').on('click', '.par-link-btn', function () { parPost(parLinkUrlTemplate, $(this)); });
-    $('#parVehiclesModal').on('click', '.par-unlink-btn', function () { parPost(parUnlinkUrlTemplate, $(this)); });
 
     $('#driversTable').on('click', '.vehicle-history-btn', function() {
         const driverId = $(this).data('id');

@@ -444,7 +444,7 @@
                         </div>
                     </div>
 
-                    <div class="modal-section-divider">Marking &amp; Property Accountability (PAR)</div>
+                    <div class="modal-section-divider">Marking &amp; Variant</div>
                     <div class="row">
                         <div class="col-md-3 form-group">
                             <label class="field-label">Marked / Unmarked</label>
@@ -458,26 +458,6 @@
                         <div class="col-md-3 form-group">
                             <label class="field-label">Variant</label>
                             <input type="text" id="variant" name="variant" maxlength="50" class="form-control form-control-modern text-uppercase" oninput="this.value = this.value.toUpperCase()" placeholder="e.g. 4X2 MT">
-                        </div>
-                        <div class="col-md-3 form-group">
-                            <label class="field-label">Primary PAR Driver</label>
-                            <select id="par_driver_id" name="par_driver_id" class="form-control form-control-modern">
-                                <option value="">None</option>
-                                @foreach ($drivers as $driver)
-                                    <option value="{{ $driver->id }}">{{ $driver->firstname }} {{ $driver->lastname }}</option>
-                                @endforeach
-                            </select>
-                            <input type="text" id="par_driver_name" name="par_driver_name" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
-                        </div>
-                        <div class="col-md-3 form-group">
-                            <label class="field-label">Alternate PAR Driver</label>
-                            <select id="par_driver_id_2" name="par_driver_id_2" class="form-control form-control-modern">
-                                <option value="">None</option>
-                                @foreach ($drivers as $driver)
-                                    <option value="{{ $driver->id }}">{{ $driver->firstname }} {{ $driver->lastname }}</option>
-                                @endforeach
-                            </select>
-                            <input type="text" id="par_driver_name_2" name="par_driver_name_2" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
                         </div>
                     </div>
 
@@ -502,7 +482,7 @@
                             </select>
                         </div>
                         <div class="form-group form-flex-item">
-                            <label class="field-label">Assigned Driver 1</label>
+                            <label class="field-label">Primary PAR Driver (Assigned Driver 1)</label>
                             <select name="assigned_driver_id" id="assigned_driver_id" class="form-control form-control-modern driver-slot-select">
                                 <option value="">Unassigned</option>
                                 @foreach ($drivers as $driver)
@@ -511,9 +491,10 @@
                                     </option>
                                 @endforeach
                             </select>
+                            <input type="text" id="par_driver_name" name="par_driver_name" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
                         </div>
                         <div class="form-group form-flex-item">
-                            <label class="field-label">Assigned Driver 2</label>
+                            <label class="field-label">Alternate PAR Driver (Assigned Driver 2)</label>
                             <select name="assigned_driver_id_2" id="assigned_driver_id_2" class="form-control form-control-modern driver-slot-select">
                                 <option value="">Unassigned</option>
                                 @foreach ($drivers as $driver)
@@ -522,7 +503,8 @@
                                     </option>
                                 @endforeach
                             </select>
-                            <small class="form-text text-muted">Optional — a vehicle can have up to two assigned drivers.</small>
+                            <input type="text" id="par_driver_name_2" name="par_driver_name_2" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
+                            <small class="form-text text-muted">Optional — the Primary and Alternate PAR (Property Acknowledgement Receipt) drivers are the vehicle's assigned drivers.</small>
                         </div>
                         <div class="form-group form-flex-item">
                             <label class="field-label">Status <span class="text-danger">*</span></label>
@@ -669,7 +651,7 @@
                         </div>
                     </div>
 
-                    <div class="modal-section-divider">Marking &amp; Property Accountability (PAR)</div>
+                    <div class="modal-section-divider">Marking &amp; Variant</div>
                     <div class="row">
                         <div class="col-md-3 form-group">
                             <label class="field-label">Marked / Unmarked</label>
@@ -683,26 +665,6 @@
                         <div class="col-md-3 form-group">
                             <label class="field-label">Variant</label>
                             <input type="text" id="edit_variant" name="variant" maxlength="50" class="form-control form-control-modern text-uppercase" oninput="this.value = this.value.toUpperCase()" placeholder="e.g. 4X2 MT">
-                        </div>
-                        <div class="col-md-3 form-group">
-                            <label class="field-label">Primary PAR Driver</label>
-                            <select id="edit_par_driver_id" name="par_driver_id" class="form-control form-control-modern">
-                                <option value="">None</option>
-                                @foreach ($drivers as $driver)
-                                    <option value="{{ $driver->id }}">{{ $driver->firstname }} {{ $driver->lastname }}</option>
-                                @endforeach
-                            </select>
-                            <input type="text" id="edit_par_driver_name" name="par_driver_name" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
-                        </div>
-                        <div class="col-md-3 form-group">
-                            <label class="field-label">Alternate PAR Driver</label>
-                            <select id="edit_par_driver_id_2" name="par_driver_id_2" class="form-control form-control-modern">
-                                <option value="">None</option>
-                                @foreach ($drivers as $driver)
-                                    <option value="{{ $driver->id }}">{{ $driver->firstname }} {{ $driver->lastname }}</option>
-                                @endforeach
-                            </select>
-                            <input type="text" id="edit_par_driver_name_2" name="par_driver_name_2" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
                         </div>
                     </div>
 
@@ -727,7 +689,7 @@
                             </select>
                         </div>
                         <div class="form-group form-flex-item">
-                            <label class="field-label">Assigned Driver 1</label>
+                            <label class="field-label">Primary PAR Driver (Assigned Driver 1)</label>
                             <select id="edit_assigned_driver_id" name="assigned_driver_id" class="form-control form-control-modern driver-slot-select-edit">
                                 <option value="">Unassigned</option>
                                 @foreach ($drivers as $driver)
@@ -736,9 +698,10 @@
                                     </option>
                                 @endforeach
                             </select>
+                            <input type="text" id="edit_par_driver_name" name="par_driver_name" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
                         </div>
                         <div class="form-group form-flex-item">
-                            <label class="field-label">Assigned Driver 2</label>
+                            <label class="field-label">Alternate PAR Driver (Assigned Driver 2)</label>
                             <select id="edit_assigned_driver_id_2" name="assigned_driver_id_2" class="form-control form-control-modern driver-slot-select-edit">
                                 <option value="">Unassigned</option>
                                 @foreach ($drivers as $driver)
@@ -747,7 +710,8 @@
                                     </option>
                                 @endforeach
                             </select>
-                            <small class="form-text text-muted">Optional — a vehicle can have up to two assigned drivers.</small>
+                            <input type="text" id="edit_par_driver_name_2" name="par_driver_name_2" maxlength="100" class="form-control form-control-modern mt-1 par-name-input" placeholder="or type a name (not yet a driver)" autocomplete="off">
+                            <small class="form-text text-muted">Optional — the Primary and Alternate PAR (Property Acknowledgement Receipt) drivers are the vehicle's assigned drivers.</small>
                         </div>
                         <div class="form-group form-flex-item">
                             <label class="field-label">Status <span class="text-danger">*</span></label>
@@ -1306,15 +1270,15 @@ $(document).ready(function() {
     // PAR holders: pick a driver OR type a name. Choosing a driver locks (and clears)
     // the typed-name box for that slot; leaving the select on "None" re-enables it.
     function syncParNameInputs() {
-        [['#par_driver_id', '#par_driver_name'], ['#par_driver_id_2', '#par_driver_name_2'],
-         ['#edit_par_driver_id', '#edit_par_driver_name'], ['#edit_par_driver_id_2', '#edit_par_driver_name_2']].forEach(function (pair) {
+        [['#assigned_driver_id', '#par_driver_name'], ['#assigned_driver_id_2', '#par_driver_name_2'],
+         ['#edit_assigned_driver_id', '#edit_par_driver_name'], ['#edit_assigned_driver_id_2', '#edit_par_driver_name_2']].forEach(function (pair) {
             const hasDriver = !!$(pair[0]).val();
             const $name = $(pair[1]);
             if (hasDriver) { $name.val(''); }
             $name.prop('disabled', hasDriver);
         });
     }
-    $('#par_driver_id, #par_driver_id_2, #edit_par_driver_id, #edit_par_driver_id_2').on('change', syncParNameInputs);
+    $('#assigned_driver_id, #assigned_driver_id_2, #edit_assigned_driver_id, #edit_assigned_driver_id_2').on('change', syncParNameInputs);
 
     function syncDriverSlotExclusivity($slotA, $slotB) {
         const selectedInA = $slotA.val();
@@ -1713,8 +1677,6 @@ $(document).ready(function() {
             $('#edit_color').val(data.color);
             $('#edit_variant').val(data.variant);
             $('#edit_marked_status').val(data.marked_status || '');
-            $('#edit_par_driver_id').val(data.par_driver_id || '');
-            $('#edit_par_driver_id_2').val(data.par_driver_id_2 || '');
             $('#edit_par_driver_name').val(data.par_driver_name || '');
             $('#edit_par_driver_name_2').val(data.par_driver_name_2 || '');
             syncParNameInputs();

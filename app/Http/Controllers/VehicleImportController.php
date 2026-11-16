@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
 use App\Models\Driver;
+use App\Models\DriverAssignment;
 use App\Models\Station;
 use App\Models\Unit;
 use App\Models\Vehicle;
@@ -91,7 +92,7 @@ class VehicleImportController extends Controller
             ['Status', 'No', 'Serviceable, Unserviceable or BER (saved as "For Disposal"). Blank = Serviceable.'],
             ['Variant', 'No', 'Free text, e.g. 4X2 MT. Saved in capital letters.'],
             ['Marked/Unmarked', 'No', 'Pick Marked or Unmarked from the dropdown. Blank = not specified.'],
-            ['Primary / Alternate PAR Driver', 'No', 'Pick a driver from the dropdown, or type a name if the person is not in the system yet (an admin can link it to a driver later in Driver Management). The two cannot be the same person. Separate from the assigned drivers.'],
+            ['Primary / Alternate PAR Driver', 'No', 'These are the vehicle\'s assigned drivers. Pick a driver from the dropdown (or type the name, with or without rank), or type a name if the person is not in the system yet — an admin can link it to a driver later in Driver Management. The two cannot be the same person.'],
             ['Year Model', 'No', '1980 up to next year.'],
             ['Dates', 'No', 'Use YYYY-MM-DD (e.g. 2026-12-31) or real Excel dates.'],
             ['Engine / Chassis Number', 'No', 'Must be unique across the fleet.'],
@@ -108,7 +109,7 @@ class VehicleImportController extends Controller
         $statuses = ['Serviceable', 'Unserviceable', 'BER'];
         $markings = array_values(Vehicle::MARKED_STATUSES);
         $driverNames = Driver::where('status', 'active')->orderBy('lastname')->orderBy('firstname')->get()
-            ->map(fn ($d) => $this->driverLabel($d))->filter()->values()->all();
+            ->map(fn ($d) => $d->parLabel())->filter()->values()->all();
 
         $stationNames = [];
         $definedNames = [];
@@ -358,11 +359,12 @@ class VehicleImportController extends Controller
         $marked = Str::upper(trim($row['marked_status'] ?? ''));
         $data['marked_status'] = $marked === '' ? null : $marked;
 
-        // PAR drivers (optional). A name matching exactly one active driver is linked to that
-        // driver; any other name (not a driver yet, or ambiguous) is kept as typed text so the
-        // admin can link it later from Driver Management.
+        // Primary / Alternate PAR drivers (optional). They ARE the vehicle's Assigned Driver 1 / 2.
+        // A name matching exactly one active driver (with or without rank) assigns that driver; any
+        // other name (not a driver yet, or ambiguous) is kept as typed text so the admin can link
+        // it later from Driver Management.
         $parLabels = [];
-        foreach (['par_driver' => ['par_driver_id', 'par_driver_name'], 'par_driver_2' => ['par_driver_id_2', 'par_driver_name_2']] as $column => [$idField, $nameField]) {
+        foreach (['par_driver' => ['assigned_driver_id', 'par_driver_name'], 'par_driver_2' => ['assigned_driver_id_2', 'par_driver_name_2']] as $column => [$idField, $nameField]) {
             $typed = trim(preg_replace('/\s+/', ' ', (string) ($row[$column] ?? '')));
             $data[$idField] = null;
             $data[$nameField] = null;
@@ -373,6 +375,9 @@ class VehicleImportController extends Controller
             if (count($matches) === 1) {
                 $data[$idField] = $matches[0];
                 $parLabels[$column] = 'driver:' . $matches[0];
+                if (isset($ctx['expired'][$matches[0]])) {
+                    $errors[] = self::COLUMNS[$column][0] . ': ' . $typed . "'s Driver's License has expired — update the license record before assigning this driver.";
+                }
             } else {
                 $data[$nameField] = $typed;
                 $parLabels[$column] = 'name:' . Str::lower($typed);
@@ -494,8 +499,20 @@ class VehicleImportController extends Controller
                 $data['is_active'] = '1';
                 $data['encoded_by'] = $user->id;
 
-                Vehicle::create($data);
+                $vehicle = Vehicle::create($data);
                 $count++;
+
+                // Assigned (PAR) drivers get an assignment-history row, same as the Register Vehicle form.
+                foreach (['assigned_driver_id', 'assigned_driver_id_2'] as $slot) {
+                    if (! empty($data[$slot])) {
+                        DriverAssignment::create([
+                            'vehicle_id'  => $vehicle->id,
+                            'driver_id'   => $data[$slot],
+                            'assigned_by' => $user->id,
+                            'assigned_at' => now(),
+                        ]);
+                    }
+                }
             }
 
             return $count;
@@ -540,16 +557,19 @@ class VehicleImportController extends Controller
             }
         }
 
-        // Active drivers by name — "Firstname Lastname" and "Lastname, Firstname" both match.
+        // Active drivers by every accepted spelling (see Driver::nameKeys()).
         $drivers = [];
-        foreach (Driver::where('status', 'active')->get(['id', 'firstname', 'lastname']) as $d) {
-            foreach ([trim($d->firstname . ' ' . $d->lastname), trim($d->lastname . ', ' . $d->firstname)] as $label) {
-                $key = Str::lower(preg_replace('/\s+/', ' ', $label));
+        $expired = [];
+        foreach (Driver::where('status', 'active')->get() as $d) {
+            foreach ($d->nameKeys() as $key) {
                 $drivers[$key] = array_values(array_unique(array_merge($drivers[$key] ?? [], [$d->id])));
+            }
+            if ($d->isLicenseExpired()) {
+                $expired[$d->id] = true;
             }
         }
 
-        return compact('types', 'units', 'stations', 'stationUnit', 'drivers');
+        return compact('types', 'units', 'stations', 'stationUnit', 'drivers', 'expired');
     }
 
     /** @return array{plate: array<string,bool>, engine: array<string,bool>, chassis: array<string,bool>} */
@@ -669,11 +689,6 @@ class VehicleImportController extends Controller
         }
 
         return $letters;
-    }
-
-    protected function driverLabel(Driver $driver): string
-    {
-        return trim($driver->firstname . ' ' . $driver->lastname);
     }
 
     protected function nullable(string $value): ?string

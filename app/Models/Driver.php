@@ -48,6 +48,44 @@ class Driver extends Model
     ];
 
     /**
+     * "RANK Firstname Lastname" — how PAR holders are usually written (and what the
+     * Excel template's driver dropdown lists).
+     */
+    public function parLabel(): string
+    {
+        return trim(preg_replace('/\s+/', ' ', trim($this->rank . ' ' . $this->firstname . ' ' . $this->lastname)));
+    }
+
+    /**
+     * Every spelling of this driver's name that counts as a match when a PAR holder is
+     * typed or imported (lower-cased, single-spaced): with or without rank, "Last, First",
+     * and with the middle initial.
+     *
+     * @return array<int, string>
+     */
+    public function nameKeys(): array
+    {
+        $rank = trim((string) $this->rank);
+        $first = trim((string) $this->firstname);
+        $last = trim((string) $this->lastname);
+        $mi = $this->middlename ? strtoupper(substr(trim($this->middlename), 0, 1)) . '.' : '';
+
+        $variants = [
+            "$first $last", "$last, $first", "$last $first",
+            "$rank $first $last", "$rank $last, $first", "$rank $last $first",
+        ];
+        if ($mi !== '') {
+            $variants[] = "$first $mi $last";
+            $variants[] = "$rank $first $mi $last";
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            fn ($v) => strtolower(trim(preg_replace('/\s+/', ' ', $v))),
+            $variants
+        ))));
+    }
+
+    /**
      * Days remaining until license_expiration_date, negative once overdue,
      * null if no expiration date is on file yet. Same timestamp-based
      * computation as Vehicle::registrationDaysRemaining() / pmsDaysRemaining(),
