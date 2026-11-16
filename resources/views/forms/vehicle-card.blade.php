@@ -30,6 +30,8 @@
         <tr><td class="label">Year / Color</td><td>{{ $dash($vehicle->year_model) }} / {{ $dash($vehicle->color) }}</td></tr>
         <tr><td class="label">Engine No.</td><td>{{ $dash($vehicle->engine_number) }}</td></tr>
         <tr><td class="label">Chassis No.</td><td>{{ $dash($vehicle->chassis_number) }}</td></tr>
+        <tr><td class="label">Variant</td><td>{{ $dash($vehicle->variant) }}</td></tr>
+        <tr><td class="label">Marking</td><td>{{ $dash(\App\Models\Vehicle::MARKED_STATUSES[$vehicle->marked_status] ?? null) }}</td></tr>
         <tr><td class="label">Acquired</td><td>{{ $date($vehicle->acquisition_date) }}</td></tr>
         <tr><td class="label">Status</td><td>{{ $status }}</td></tr>
         <tr><td class="label">Odometer</td><td>{{ number_format((int) $vehicle->odometer_km) }} km</td></tr>
@@ -44,7 +46,7 @@
   <div class="part-title">Assignment</div>
   <table class="grid">
     <tr><td class="label">Unit</td><td>{{ $dash(optional($vehicle->unit)->unit_name) }}</td><td class="label">Station</td><td>{{ $dash(optional($vehicle->station)->station_name) }}</td></tr>
-    <tr><td class="label">Assigned driver</td><td>{{ $dash($person($vehicle->driver)) }}</td><td class="label">Second driver</td><td>{{ $dash($person($vehicle->driver2)) }}</td></tr>
+    <tr><td class="label">Primary PAR driver</td><td>{{ $dash($person($vehicle->driver) ?: $vehicle->par_driver_name) }}</td><td class="label">Alternate PAR driver</td><td>{{ $dash($person($vehicle->driver2) ?: $vehicle->par_driver_name_2) }}</td></tr>
   </table>
 
   <div class="part-title">Registration and Maintenance Schedule</div>

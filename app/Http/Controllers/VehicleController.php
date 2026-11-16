@@ -202,9 +202,15 @@ class VehicleController extends Controller
                 $chassisHtml = $vehicle->chassis_number
                     ? '<div class="vehicle-sub-info">Chassis: ' . e($vehicle->chassis_number) . '</div>'
                     : '';
+                // Variant + Marked/Unmarked get a sub-line of their own (only when set).
+                $markingBits = array_filter([
+                    $vehicle->variant ? 'Variant: ' . e($vehicle->variant) : null,
+                    $vehicle->marked_status ? (Vehicle::MARKED_STATUSES[$vehicle->marked_status] ?? $vehicle->marked_status) : null,
+                ]);
+                $markingHtml = $markingBits ? '<div class="vehicle-sub-info">' . implode(' &middot; ', $markingBits) . '</div>' : '';
                 $specHtml = '<div class="vehicle-main-name">' . e($vehicle->make) . ' ' . e($vehicle->model) . '</div>' .
                             '<div class="vehicle-sub-info">' . (e($vehicle->year_model) ?? 'N/A') . ' &middot; ' . (e($vehicle->color) ?? 'Unspecified') . $eng . '</div>' .
-                            $chassisHtml;
+                            $chassisHtml . $markingHtml;
 
                 $typeName = $vehicle->type->name ?? 'Unspecified';
                 $sourceLabel = Vehicle::SOURCES[$vehicle->source] ?? $vehicle->source;
