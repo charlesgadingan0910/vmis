@@ -73,8 +73,9 @@ class SimpleXlsx
      * @param  array<string, array<int, float>>  $widths  optional sheet name => column widths
      * @param  array<string, array<int, array{sqref: string, formula: string}>>  $validations  optional sheet name => dropdown (list) rules;
      *         'formula' is an Excel list source such as "Reference!$A$2:$A$9" (no leading "=")
+     * @param  array<string, string>  $names  optional defined names: name => reference such as "Reference!$C$2:$C$5"
      */
-    public static function write(string $path, array $sheets, array $widths = [], array $validations = []): void
+    public static function write(string $path, array $sheets, array $widths = [], array $validations = [], array $names = []): void
     {
         $zip = new ZipArchive();
         if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
@@ -102,7 +103,15 @@ class SimpleXlsx
         }
 
         $rels .= '<Relationship Id="rId' . ($n + 1) . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
-        $workbook .= '</sheets></workbook>';
+        $workbook .= '</sheets>';
+        if ($names) {
+            $workbook .= '<definedNames>';
+            foreach ($names as $name => $ref) {
+                $workbook .= '<definedName name="' . self::esc($name) . '">' . self::esc($ref) . '</definedName>';
+            }
+            $workbook .= '</definedNames>';
+        }
+        $workbook .= '</workbook>';
 
         $zip->addFromString('[Content_Types].xml', $contentTypes . '</Types>');
         $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'

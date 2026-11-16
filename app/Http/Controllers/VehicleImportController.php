@@ -87,31 +87,50 @@ class VehicleImportController extends Controller
         ];
 
         // Reference sheet = the source of the template's dropdown lists.
-        //   A: Unit (unique)   B: Unit (per station)   C: Station (sorted by unit)
-        //   D: Vehicle Type    E: Source               F: Status
+        //   A: Unit   B: that unit's range name   C: Station (grouped by unit)
+        //   D: Vehicle Type   E: Source   F: Status
+        // Each unit with stations gets a defined name (Stn_<id>) covering its stations in
+        // column C; the Station dropdown resolves it with INDIRECT(VLOOKUP(unit)).
         $types = VehicleType::orderBy('name')->pluck('name')->all();
-        $unitNames = $units->pluck('unit_name')->all();
-        $stationPairs = $stations->sortBy(fn ($s) => Str::lower($s->unit_id ? ($units->firstWhere('id', $s->unit_id)->unit_name ?? '') : '') . '|' . Str::lower($s->station_name))
-            ->map(fn ($s) => [$units->firstWhere('id', $s->unit_id)->unit_name ?? '', $s->station_name])
-            ->values()->all();
         $sources = array_values(Vehicle::SOURCES);
         $statuses = ['Serviceable', 'Unserviceable', 'BER'];
 
-        $reference = [['Unit', 'Unit (of station)', 'Station', 'Vehicle Type', 'Source', 'Status']];
-        $count = max(count($types), count($unitNames), count($stationPairs), count($sources), count($statuses));
+        $stationNames = [];
+        $definedNames = [];
+        $unitKeys = [];
+        $row = 2;
+        foreach ($units as $unit) {
+            $own = $stations->where('unit_id', $unit->id)->sortBy(fn ($s) => Str::lower($s->station_name));
+            if ($own->isEmpty()) {
+                $unitKeys[$unit->id] = '';
+                continue;
+            }
+            $key = 'Stn_' . $unit->id;
+            $unitKeys[$unit->id] = $key;
+            $start = $row;
+            foreach ($own as $station) {
+                $stationNames[] = $station->station_name;
+                $row++;
+            }
+            $definedNames[$key] = 'Reference!$C$' . $start . ':$C$' . ($row - 1);
+        }
+
+        $unitList = $units->values();
+        $reference = [['Unit', 'Range name', 'Station', 'Vehicle Type', 'Source', 'Status']];
+        $count = max(count($types), $unitList->count(), count($stationNames), count($sources), count($statuses));
         for ($i = 0; $i < $count; $i++) {
+            $unit = $unitList[$i] ?? null;
             $reference[] = [
-                $unitNames[$i] ?? '', $stationPairs[$i][0] ?? '', $stationPairs[$i][1] ?? '',
+                $unit->unit_name ?? '', $unit ? $unitKeys[$unit->id] : '', $stationNames[$i] ?? '',
                 $types[$i] ?? '', $sources[$i] ?? '', $statuses[$i] ?? '',
             ];
         }
 
         $last = fn (int $n) => max(2, $n + 1);
         $range = fn (string $col, int $n) => 'Reference!$' . $col . '$2:$' . $col . '$' . $last($n);
-        $lastStation = $last(count($stationPairs));
-        // Station dropdown follows the chosen Unit: the rows of that unit in the sorted station list.
-        $stationFormula = 'IFERROR(OFFSET(Reference!$C$1,MATCH($E2,Reference!$B$1:$B$' . $lastStation . ',0)-1,0,COUNTIF(Reference!$B$1:$B$' . $lastStation . ',$E2),1),'
-            . $range('C', count($stationPairs)) . ')';
+        $unitTable = 'Reference!$A$2:$B$' . $last($unitList->count());
+        // Station dropdown follows the chosen Unit (all stations while Unit is still blank).
+        $stationFormula = 'IF($E2="",' . $range('C', count($stationNames)) . ',INDIRECT(VLOOKUP($E2,' . $unitTable . ',2,FALSE)))';
         $rows = self::MAX_ROWS + 1;
 
         $path = tempnam(sys_get_temp_dir(), 'vmis_tpl_');
@@ -122,16 +141,16 @@ class VehicleImportController extends Controller
         ], [
             'Vehicles'  => array_fill(0, count($headers), 22),
             'Guide'     => [26, 26, 80],
-            'Reference' => [36, 36, 44, 24, 14, 16],
+            'Reference' => [36, 14, 44, 24, 14, 16],
         ], [
             'Vehicles' => [
                 ['sqref' => 'D2:D' . $rows, 'formula' => $range('D', count($types))],
-                ['sqref' => 'E2:E' . $rows, 'formula' => $range('A', count($unitNames))],
+                ['sqref' => 'E2:E' . $rows, 'formula' => $range('A', $unitList->count())],
                 ['sqref' => 'F2:F' . $rows, 'formula' => $stationFormula],
                 ['sqref' => 'G2:G' . $rows, 'formula' => $range('E', count($sources))],
                 ['sqref' => 'H2:H' . $rows, 'formula' => $range('F', count($statuses))],
             ],
-        ]);
+        ], $definedNames);
 
         return response()->download($path, 'vmis-vehicle-import-template.xlsx', [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

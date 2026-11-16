@@ -173,6 +173,7 @@ it('builds the template with dropdowns for type, unit, station, source and statu
 
     expect(substr_count($sheet, '<dataValidation '))->toBe(5)
         ->and($sheet)->toContain('sqref="E2:E1001"')
-        ->and($sheet)->toContain('OFFSET(Reference!');
+        ->and($sheet)->toContain('INDIRECT(VLOOKUP(');
+    expect($zip->getFromName('xl/workbook.xml'))->toContain('definedName name="Stn_' . $fleet['units'][0]->id . '"');
     expect($reference)->not->toBeEmpty();
 });
