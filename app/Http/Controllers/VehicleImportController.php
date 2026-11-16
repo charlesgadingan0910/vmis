@@ -75,9 +75,9 @@ class VehicleImportController extends Controller
             ['Column', 'Required?', 'Notes'],
             ['Plate Number', 'Yes', 'Must be new — existing plates are skipped.'],
             ['Make / Model', 'Yes', 'Saved in capital letters.'],
-            ['Vehicle Type', 'Yes', 'Must match a type in the Reference sheet.'],
-            ['Unit', 'Admins only', 'Unit/Station administrators: leave blank — your own unit is used.'],
-            ['Station', 'Yes (except Station Admin)', 'Must belong to the unit. Station administrators: leave blank.'],
+            ['Vehicle Type', 'Yes', 'Pick from the dropdown.'],
+            ['Unit', 'Admins only', 'Pick from the dropdown. Unit/Station administrators: leave blank — your own unit is used.'],
+            ['Station', 'Yes (except Station Admin)', 'Pick the Unit first, then choose the Station from the dropdown (it only lists that unit\'s stations). Station administrators: leave blank.'],
             ['Source', 'No', 'Organic, Loaned or Donated. Blank = Organic.'],
             ['Status', 'No', 'Serviceable, Unserviceable or BER (saved as "For Disposal"). Blank = Serviceable.'],
             ['Year Model', 'No', '1980 up to next year.'],
@@ -86,14 +86,33 @@ class VehicleImportController extends Controller
             ['Limits', '', 'Up to ' . self::MAX_ROWS . ' rows per file. Do not rename the column headings.'],
         ];
 
-        $reference = [['Vehicle Types', 'Unit', 'Station']];
+        // Reference sheet = the source of the template's dropdown lists.
+        //   A: Unit (unique)   B: Unit (per station)   C: Station (sorted by unit)
+        //   D: Vehicle Type    E: Source               F: Status
         $types = VehicleType::orderBy('name')->pluck('name')->all();
         $unitNames = $units->pluck('unit_name')->all();
-        $stationLines = $stations->map(fn ($s) => $s->station_name)->all();
-        $count = max(count($types), count($unitNames), count($stationLines));
+        $stationPairs = $stations->sortBy(fn ($s) => Str::lower($s->unit_id ? ($units->firstWhere('id', $s->unit_id)->unit_name ?? '') : '') . '|' . Str::lower($s->station_name))
+            ->map(fn ($s) => [$units->firstWhere('id', $s->unit_id)->unit_name ?? '', $s->station_name])
+            ->values()->all();
+        $sources = array_values(Vehicle::SOURCES);
+        $statuses = ['Serviceable', 'Unserviceable', 'BER'];
+
+        $reference = [['Unit', 'Unit (of station)', 'Station', 'Vehicle Type', 'Source', 'Status']];
+        $count = max(count($types), count($unitNames), count($stationPairs), count($sources), count($statuses));
         for ($i = 0; $i < $count; $i++) {
-            $reference[] = [$types[$i] ?? '', $unitNames[$i] ?? '', $stationLines[$i] ?? ''];
+            $reference[] = [
+                $unitNames[$i] ?? '', $stationPairs[$i][0] ?? '', $stationPairs[$i][1] ?? '',
+                $types[$i] ?? '', $sources[$i] ?? '', $statuses[$i] ?? '',
+            ];
         }
+
+        $last = fn (int $n) => max(2, $n + 1);
+        $range = fn (string $col, int $n) => 'Reference!$' . $col . '$2:$' . $col . '$' . $last($n);
+        $lastStation = $last(count($stationPairs));
+        // Station dropdown follows the chosen Unit: the rows of that unit in the sorted station list.
+        $stationFormula = 'IFERROR(OFFSET(Reference!$C$1,MATCH($E2,Reference!$B$1:$B$' . $lastStation . ',0)-1,0,COUNTIF(Reference!$B$1:$B$' . $lastStation . ',$E2),1),'
+            . $range('C', count($stationPairs)) . ')';
+        $rows = self::MAX_ROWS + 1;
 
         $path = tempnam(sys_get_temp_dir(), 'vmis_tpl_');
         SimpleXlsx::write($path, [
@@ -103,7 +122,15 @@ class VehicleImportController extends Controller
         ], [
             'Vehicles'  => array_fill(0, count($headers), 22),
             'Guide'     => [26, 26, 80],
-            'Reference' => [28, 36, 36],
+            'Reference' => [36, 36, 44, 24, 14, 16],
+        ], [
+            'Vehicles' => [
+                ['sqref' => 'D2:D' . $rows, 'formula' => $range('D', count($types))],
+                ['sqref' => 'E2:E' . $rows, 'formula' => $range('A', count($unitNames))],
+                ['sqref' => 'F2:F' . $rows, 'formula' => $stationFormula],
+                ['sqref' => 'G2:G' . $rows, 'formula' => $range('E', count($sources))],
+                ['sqref' => 'H2:H' . $rows, 'formula' => $range('F', count($statuses))],
+            ],
         ]);
 
         return response()->download($path, 'vmis-vehicle-import-template.xlsx', [

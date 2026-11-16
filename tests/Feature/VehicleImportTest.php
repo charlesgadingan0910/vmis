@@ -160,3 +160,19 @@ it('blocks viewers and serves the template to admins', function () {
     $this->actingAs(importUser('VIEWER'))->post(route('vehicles.import'), ['file' => importFile([])])->assertForbidden();
     $this->actingAs(importUser('SUPER ADMINISTRATOR'))->get(route('vehicles.import.template'))->assertOk();
 });
+
+it('builds the template with dropdowns for type, unit, station, source and status', function () {
+    $fleet = importFleet();
+
+    $response = $this->actingAs(importUser('SUPER ADMINISTRATOR'))->get(route('vehicles.import.template'))->assertOk();
+
+    $zip = new ZipArchive();
+    $zip->open($response->baseResponse->getFile()->getPathname());
+    $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
+    $reference = SimpleXlsx::read($response->baseResponse->getFile()->getPathname());
+
+    expect(substr_count($sheet, '<dataValidation '))->toBe(5)
+        ->and($sheet)->toContain('sqref="E2:E1001"')
+        ->and($sheet)->toContain('OFFSET(Reference!');
+    expect($reference)->not->toBeEmpty();
+});

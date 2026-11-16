@@ -71,8 +71,10 @@ class SimpleXlsx
     /**
      * @param  array<string, array<int, array<int, mixed>>>  $sheets  sheet name => rows (first row = header)
      * @param  array<string, array<int, float>>  $widths  optional sheet name => column widths
+     * @param  array<string, array<int, array{sqref: string, formula: string}>>  $validations  optional sheet name => dropdown (list) rules;
+     *         'formula' is an Excel list source such as "Reference!$A$2:$A$9" (no leading "=")
      */
-    public static function write(string $path, array $sheets, array $widths = []): void
+    public static function write(string $path, array $sheets, array $widths = [], array $validations = []): void
     {
         $zip = new ZipArchive();
         if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
@@ -96,7 +98,7 @@ class SimpleXlsx
             $contentTypes .= '<Override PartName="/xl/worksheets/sheet' . $n . '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
             $workbook .= '<sheet name="' . self::esc(mb_substr((string) $name, 0, 31)) . '" sheetId="' . $n . '" r:id="rId' . $n . '"/>';
             $rels .= '<Relationship Id="rId' . $n . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' . $n . '.xml"/>';
-            $zip->addFromString('xl/worksheets/sheet' . $n . '.xml', self::sheetXml($rows, $widths[$name] ?? []));
+            $zip->addFromString('xl/worksheets/sheet' . $n . '.xml', self::sheetXml($rows, $widths[$name] ?? [], $validations[$name] ?? []));
         }
 
         $rels .= '<Relationship Id="rId' . ($n + 1) . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
@@ -123,7 +125,7 @@ class SimpleXlsx
         $zip->close();
     }
 
-    protected static function sheetXml(array $rows, array $widths): string
+    protected static function sheetXml(array $rows, array $widths, array $validations = []): string
     {
         $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
@@ -147,7 +149,19 @@ class SimpleXlsx
             $xml .= '</row>';
         }
 
-        return $xml . '</sheetData></worksheet>';
+        $xml .= '</sheetData>';
+
+        if ($validations) {
+            $xml .= '<dataValidations count="' . count($validations) . '">';
+            foreach ($validations as $rule) {
+                $xml .= '<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" errorStyle="stop"'
+                    . ' errorTitle="Pick from the list" error="Please choose a value from the dropdown list."'
+                    . ' sqref="' . self::esc($rule['sqref']) . '"><formula1>' . self::esc($rule['formula']) . '</formula1></dataValidation>';
+            }
+            $xml .= '</dataValidations>';
+        }
+
+        return $xml . '</worksheet>';
     }
 
     protected static function firstSheetPath(ZipArchive $zip): string
