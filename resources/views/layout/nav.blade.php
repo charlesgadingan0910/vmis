@@ -212,6 +212,15 @@
             </a>
         </li>
         @endif
+        @if(in_array($__navRole, ['SUPER ADMINISTRATOR', 'ADMINISTRATOR', 'UNIT ADMINISTRATOR', 'STATION ADMINISTRATOR', 'VIEWER']))
+        @php($__pendingDispatch = \App\Services\DispatchService::pendingFor(auth()->user())->count())
+        <li class="nav-item">
+            <a href="{{ route('dispatch.index') }}" class="nav-link {{ request()->routeIs('dispatch.*') ? 'active' : '' }}">
+                <i class="nav-icon fas fa-calendar-alt"></i>
+                <p>Dispatch @if($__pendingDispatch > 0)<span class="badge badge-warning right">{{ $__pendingDispatch }}</span>@endif</p>
+            </a>
+        </li>
+        @endif
         {{-- Driver Assignments used to be its own nav link here — it's now
              folded into Driver Management itself (vehicle assignment is a
              column + actions on that page), so there's nothing separate

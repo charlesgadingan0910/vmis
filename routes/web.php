@@ -348,6 +348,13 @@ Route::middleware('auth')->group(function () {
         Route::post('/approvals/{changeRequest}/reject', [\App\Http\Controllers\ApprovalController::class, 'reject'])->name('approvals.reject');
         Route::post('/approvals/{changeRequest}/cancel', [\App\Http\Controllers\ApprovalController::class, 'cancel'])->name('approvals.cancel');
 
+        // Dispatch (P2-02) — vehicle requests and the booking calendar.
+        Route::get('/dispatch', [\App\Http\Controllers\DispatchController::class, 'index'])->name('dispatch.index');
+        Route::post('/dispatch', [\App\Http\Controllers\DispatchController::class, 'store'])->name('dispatch.store');
+        Route::post('/dispatch/{vehicleRequest}/approve', [\App\Http\Controllers\DispatchController::class, 'approve'])->name('dispatch.approve');
+        Route::post('/dispatch/{vehicleRequest}/reject', [\App\Http\Controllers\DispatchController::class, 'reject'])->name('dispatch.reject');
+        Route::post('/dispatch/{vehicleRequest}/cancel', [\App\Http\Controllers\DispatchController::class, 'cancel'])->name('dispatch.cancel');
+
         // Mobile devices (Driver app logins) — list and revoke, e.g. a lost phone.
         // Role gate lives inside DeviceController like the other admin pages.
         Route::get('/devices', [\App\Http\Controllers\DeviceController::class, 'index'])->name('devices.index');
