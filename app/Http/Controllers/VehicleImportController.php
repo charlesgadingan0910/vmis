@@ -150,7 +150,7 @@ class VehicleImportController extends Controller
                 ['sqref' => 'G2:G' . $rows, 'formula' => $range('E', count($sources))],
                 ['sqref' => 'H2:H' . $rows, 'formula' => $range('F', count($statuses))],
             ],
-        ], $definedNames);
+        ], $definedNames, ['Reference']);
 
         return response()->download($path, 'vmis-vehicle-import-template.xlsx', [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -323,7 +323,7 @@ class VehicleImportController extends Controller
         $typeName = Str::lower($row['vehicle_type'] ?? '');
         $type = $typeName !== '' ? ($ctx['types'][$typeName] ?? null) : null;
         if (! $type) {
-            $errors[] = $typeName === '' ? 'Vehicle Type is required.' : 'Unknown Vehicle Type "' . $row['vehicle_type'] . '" (see the Reference sheet).';
+            $errors[] = $typeName === '' ? 'Vehicle Type is required.' : 'Unknown Vehicle Type "' . $row['vehicle_type'] . '" (pick it from the dropdown in the template).';
         }
         $data['vehicle_type_id'] = $type;
 
@@ -394,7 +394,7 @@ class VehicleImportController extends Controller
         } elseif ($unitText !== '') {
             $unitId = $ctx['units'][$unitText] ?? null;
             if (! $unitId) {
-                $errors[] = 'Unknown Unit "' . $row['unit'] . '" (see the Reference sheet).';
+                $errors[] = 'Unknown Unit "' . $row['unit'] . '" (pick it from the dropdown in the template).';
             }
         }
 
@@ -414,7 +414,7 @@ class VehicleImportController extends Controller
             } elseif (count($candidates) > 1) {
                 $errors[] = 'Station "' . $row['station'] . '" exists in several units — fill in the Unit column.';
             } else {
-                $errors[] = 'Station "' . $row['station'] . '" was not found' . ($unitId ? ' in that unit' : '') . ' (see the Reference sheet).';
+                $errors[] = 'Station "' . $row['station'] . '" was not found' . ($unitId ? ' in that unit' : '') . ' (pick it from the dropdown in the template).';
             }
         }
 

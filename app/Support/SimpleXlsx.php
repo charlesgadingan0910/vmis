@@ -74,8 +74,9 @@ class SimpleXlsx
      * @param  array<string, array<int, array{sqref: string, formula: string}>>  $validations  optional sheet name => dropdown (list) rules;
      *         'formula' is an Excel list source such as "Reference!$A$2:$A$9" (no leading "=")
      * @param  array<string, string>  $names  optional defined names: name => reference such as "Reference!$C$2:$C$5"
+     * @param  array<int, string>  $hidden  names of sheets to hide ("very hidden": cannot be un-hidden from Excel's menu)
      */
-    public static function write(string $path, array $sheets, array $widths = [], array $validations = [], array $names = []): void
+    public static function write(string $path, array $sheets, array $widths = [], array $validations = [], array $names = [], array $hidden = []): void
     {
         $zip = new ZipArchive();
         if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
@@ -97,7 +98,7 @@ class SimpleXlsx
         foreach ($sheets as $name => $rows) {
             $n++;
             $contentTypes .= '<Override PartName="/xl/worksheets/sheet' . $n . '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
-            $workbook .= '<sheet name="' . self::esc(mb_substr((string) $name, 0, 31)) . '" sheetId="' . $n . '" r:id="rId' . $n . '"/>';
+            $workbook .= '<sheet name="' . self::esc(mb_substr((string) $name, 0, 31)) . '" sheetId="' . $n . '"' . (in_array($name, $hidden, true) ? ' state="veryHidden"' : '') . ' r:id="rId' . $n . '"/>';
             $rels .= '<Relationship Id="rId' . $n . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' . $n . '.xml"/>';
             $zip->addFromString('xl/worksheets/sheet' . $n . '.xml', self::sheetXml($rows, $widths[$name] ?? [], $validations[$name] ?? []));
         }

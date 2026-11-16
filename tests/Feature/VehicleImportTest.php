@@ -176,4 +176,5 @@ it('builds the template with dropdowns for type, unit, station, source and statu
         ->and($sheet)->toContain('INDIRECT(VLOOKUP(');
     expect($zip->getFromName('xl/workbook.xml'))->toContain('definedName name="Stn_' . $fleet['units'][0]->id . '"');
     expect($reference)->not->toBeEmpty();
+    expect($zip->getFromName('xl/workbook.xml'))->toContain('state="veryHidden"');
 });
