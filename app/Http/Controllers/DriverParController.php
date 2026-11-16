@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
 use App\Models\Driver;
+use App\Services\ApprovalService;
 use App\Models\DriverAssignment;
 use App\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
@@ -100,6 +101,14 @@ class DriverParController extends Controller
         $otherKeys = $otherHolder ? [Str::lower($otherHolder)] : [];
         if ((int) $vehicle->{$otherColumn} === $driver->id || array_intersect($driver->nameKeys(), $otherKeys)) {
             return response()->json(['message' => 'This driver already holds the other PAR slot on that vehicle.'], 422);
+        }
+
+        if ($held = app(ApprovalService::class)->hold(
+            'par.link', 'assignment', $vehicle, $driver,
+            'Link ' . ($slot === 1 ? 'Primary' : 'Alternate') . ' PAR driver "' . $vehicle->{$nameColumn} . '" to ' . $driverName . ' on [' . strtoupper($vehicle->plate_number) . ']',
+            $data
+        )) {
+            return $held;
         }
 
         $typed = $vehicle->{$nameColumn};

@@ -124,7 +124,11 @@ it('keeps Viewers read-only and unit admins inside their own unit when deleting'
     $this->actingAs($unitAdmin)->delete('/vehicles/' . $f['vehicles'][1]->id)->assertForbidden();
     expect(Vehicle::count())->toBe(2);
 
+    // P2-01: a unit admin's delete is held for approval, a Super Administrator's is immediate.
     $this->actingAs($unitAdmin)->delete('/vehicles/' . $f['vehicles'][0]->id)->assertRedirect();
+    expect(Vehicle::count())->toBe(2)->and(\App\Models\ChangeRequest::where('status', 'pending')->count())->toBe(1);
+
+    $this->actingAs(flowUser('SUPER ADMINISTRATOR'))->delete('/vehicles/' . $f['vehicles'][0]->id)->assertRedirect();
     expect(Vehicle::count())->toBe(1);
 });
 

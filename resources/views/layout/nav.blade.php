@@ -203,6 +203,15 @@
                 <p>Driver Management</p>
             </a>
         </li>
+        @if(in_array($__navRole, ['SUPER ADMINISTRATOR', 'ADMINISTRATOR', 'UNIT ADMINISTRATOR', 'STATION ADMINISTRATOR']))
+        @php($__pendingApprovals = \App\Services\ApprovalService::pendingFor(auth()->user())->count())
+        <li class="nav-item">
+            <a href="{{ route('approvals.index') }}" class="nav-link {{ request()->routeIs('approvals.*') ? 'active' : '' }}">
+                <i class="nav-icon fas fa-check-double"></i>
+                <p>Approvals @if($__pendingApprovals > 0)<span class="badge badge-warning right">{{ $__pendingApprovals }}</span>@endif</p>
+            </a>
+        </li>
+        @endif
         {{-- Driver Assignments used to be its own nav link here — it's now
              folded into Driver Management itself (vehicle assignment is a
              column + actions on that page), so there's nothing separate

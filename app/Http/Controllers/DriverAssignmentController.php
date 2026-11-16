@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
 use App\Models\Driver;
+use App\Services\ApprovalService;
 use App\Models\DriverAssignment;
 use App\Models\Station;
 use App\Models\Unit;
@@ -348,6 +349,15 @@ class DriverAssignmentController extends Controller
             return response()->json(['success' => false, 'message' => trim($driver->firstname . ' ' . $driver->lastname) . ' is already assigned to this vehicle.'], 422);
         }
 
+        // P2-01: held for approval unless the user is a Super Administrator.
+        if ($held = app(ApprovalService::class)->hold(
+            'assignment.assign', 'assignment', $vehicle, $driver,
+            'Assign ' . trim($driver->firstname . ' ' . $driver->lastname) . ' to [' . strtoupper($vehicle->plate_number) . ']',
+            $validated
+        )) {
+            return $held;
+        }
+
         // Close this vehicle's currently-open assignment (if any) before
         // opening the new one — a vehicle only ever has one active
         // assignment at a time. See closeOpenAssignment()'s docblock for
@@ -390,6 +400,14 @@ class DriverAssignmentController extends Controller
 
         $driver = Driver::find($vehicle->assigned_driver_id);
         $driverName = $driver ? trim($driver->firstname . ' ' . $driver->lastname) : 'the assigned driver';
+
+        if ($held = app(ApprovalService::class)->hold(
+            'assignment.unassign', 'assignment', $vehicle, $driver,
+            'Unassign ' . $driverName . ' from [' . strtoupper($vehicle->plate_number) . ']',
+            []
+        )) {
+            return $held;
+        }
 
         $this->closeOpenAssignment($vehicle, $user);
 
@@ -507,6 +525,14 @@ class DriverAssignmentController extends Controller
             }
         }
 
+        if ($held = app(ApprovalService::class)->hold(
+            'driver.assign', 'assignment', $vehicle, $driver,
+            'Assign ' . trim($driver->firstname . ' ' . $driver->lastname) . ' to [' . strtoupper($vehicle->plate_number) . ']',
+            $validated
+        )) {
+            return $held;
+        }
+
         foreach ($otherVehicles as $otherVehicle) {
             $this->closeOpenAssignment($otherVehicle, $user);
             $otherVehicle->update(['assigned_driver_id' => null]);
@@ -569,6 +595,14 @@ class DriverAssignmentController extends Controller
 
         if ($vehicles->isEmpty()) {
             return response()->json(['success' => false, 'message' => trim($driver->firstname . ' ' . $driver->lastname) . ' has no vehicle currently assigned.'], 422);
+        }
+
+        if ($held = app(ApprovalService::class)->hold(
+            'driver.unassign', 'assignment', $vehicles->first(), $driver,
+            'Unassign ' . trim($driver->firstname . ' ' . $driver->lastname) . ' from ' . $vehicles->map(fn ($v) => '[' . strtoupper($v->plate_number) . ']')->implode(', '),
+            []
+        )) {
+            return $held;
         }
 
         $unassignedPlates = [];

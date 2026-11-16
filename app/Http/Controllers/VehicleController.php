@@ -22,6 +22,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use App\Services\DocumentIntelligenceService;
+use App\Services\ApprovalService;
 use App\Services\PmsPredictionService;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
@@ -665,6 +666,19 @@ class VehicleController extends Controller
         }
 
         $validated = $request->validate($rules);
+
+        // P2-01: a driver-assignment change or a move into For Disposal / Disposed
+        // is held for approval (Super Administrator acts directly).
+        if ($sensitive = $this->sensitiveChanges($validated, $vehicle)) {
+            if ($held = app(ApprovalService::class)->hold(
+                'vehicle.update', $sensitive['category'], $vehicle, null,
+                'Edit [' . strtoupper($vehicle->plate_number) . ']: ' . implode('; ', $sensitive['labels']),
+                $request->all()
+            )) {
+                return $held;
+            }
+        }
+
         $validated = $this->applyWriteScope($validated, $user, $role, $vehicle);
         $validated = $this->normalizeParFields($validated);
         $validated = $this->normalizeBerFields($validated);
@@ -1185,10 +1199,48 @@ class VehicleController extends Controller
         ]);
     }
 
+    /**
+     * What an edit changes that needs approval (P2-01): the Primary/Alternate PAR
+     * (assigned) driver, or moving the vehicle into For Disposal / Disposed.
+     *
+     * @return array{category: string, labels: array<int, string>}|null
+     */
+    protected function sensitiveChanges(array $validated, Vehicle $vehicle): ?array
+    {
+        $labels = [];
+        $category = 'assignment';
+
+        foreach (['assigned_driver_id' => 'Primary PAR driver', 'assigned_driver_id_2' => 'Alternate PAR driver'] as $column => $label) {
+            if (array_key_exists($column, $validated) && (int) ($validated[$column] ?? 0) !== (int) $vehicle->{$column}) {
+                $labels[] = 'change ' . $label;
+            }
+        }
+
+        $sub = $validated['ber_sub_status'] ?? null;
+        if (($validated['status'] ?? null) === 'BER' && in_array($sub, ['FOR_DISPOSAL', 'DISPOSED'], true)
+            && ($vehicle->status !== 'BER' || $vehicle->ber_sub_status !== $sub)) {
+            $labels[] = 'set status to ' . (Vehicle::BER_SUB_STATUSES[$sub] ?? $sub);
+            $category = 'disposal';
+        }
+
+        return $labels ? ['category' => $category, 'labels' => $labels] : null;
+    }
+
     public function destroy($id): RedirectResponse
     {
         $vehicle = Vehicle::findOrFail($id);
         $this->authorizeVehicleWrite($vehicle);
+
+        // P2-01: deleting a vehicle is held for approval (Super Administrator acts directly).
+        if ($held = app(ApprovalService::class)->hold(
+            'vehicle.destroy', 'disposal', $vehicle, null,
+            'Delete [' . strtoupper($vehicle->plate_number) . ']',
+            []
+        )) {
+            $data = $held->getData(true);
+
+            return redirect()->route('vehicles.index')->with(! empty($data['success']) ? 'success' : 'error', $data['message']);
+        }
 
         $snapshot = $vehicle->toArray();
         $vehicle->delete();

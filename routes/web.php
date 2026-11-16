@@ -341,6 +341,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
         Route::get('/activity-logs/{activityLog}', [ActivityLogController::class, 'show'])->name('activity-logs.show');
 
+        // Approvals (P2-01) — changes held for a higher-level user to approve.
+        // Role gating lives in ApprovalController/ApprovalService.
+        Route::get('/approvals', [\App\Http\Controllers\ApprovalController::class, 'index'])->name('approvals.index');
+        Route::post('/approvals/{changeRequest}/approve', [\App\Http\Controllers\ApprovalController::class, 'approve'])->name('approvals.approve');
+        Route::post('/approvals/{changeRequest}/reject', [\App\Http\Controllers\ApprovalController::class, 'reject'])->name('approvals.reject');
+        Route::post('/approvals/{changeRequest}/cancel', [\App\Http\Controllers\ApprovalController::class, 'cancel'])->name('approvals.cancel');
+
         // Mobile devices (Driver app logins) — list and revoke, e.g. a lost phone.
         // Role gate lives inside DeviceController like the other admin pages.
         Route::get('/devices', [\App\Http\Controllers\DeviceController::class, 'index'])->name('devices.index');
