@@ -385,6 +385,8 @@ class VehicleImportController extends Controller
         return DB::transaction(function () use ($rows, $user) {
             $count = 0;
             foreach ($rows as $data) {
+                // vehicles.odometer_km is NOT NULL (default 0), so a blank cell must become 0, not null.
+                $data['odometer_km'] = $data['odometer_km'] ?? 0;
                 $data['unserviceable_since'] = $data['status'] === 'UNSERVICEABLE' ? now() : null;
                 $data['ber_sub_status'] = $data['status'] === 'BER' ? 'FOR_DISPOSAL' : null;
                 $data['disposal_date'] = null;
