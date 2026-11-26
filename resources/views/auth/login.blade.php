@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <title>Sign in — VMIS | PRO5</title>
-<link href="{{ asset('dist/img/kasurog.png') }}" rel="icon">
+<link href="{{ asset('images/vmis-emblem.png') }}" rel="icon">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,7 +37,7 @@
   }
 
   .auth-card{
-    position:relative; z-index:1; width:100%; max-width:860px;
+    position:relative; z-index:1; width:100%; max-width:900px;
     background:#fff; border-radius:20px; overflow:hidden;
     display:grid; grid-template-columns:1fr 1fr;
     box-shadow:0 30px 80px rgba(0,0,0,0.4);
@@ -57,12 +57,14 @@
     background:radial-gradient(circle, rgba(198,161,91,0.18), transparent 65%);
   }
   .auth-side > *{position:relative; z-index:1;}
-  .brand-mark{width:40px; height:40px;}
-  .brand-name{font-family:'Barlow Semi Condensed',sans-serif; font-weight:700; font-size:19px; margin-top:14px;}
+  .brand-emblem{width:96px; height:auto; display:block; filter:drop-shadow(0 6px 14px rgba(0,0,0,0.45));}
+  .driver-note{margin:22px 0 0; padding:10px 12px; font-size:12px; line-height:1.55; color:#C7D2E4; background:rgba(198,161,91,0.1); border:1px solid rgba(198,161,91,0.25); border-radius:9px; max-width:30ch;}
+  .driver-note strong{color:var(--gold-300);}
+  .brand-name{font-family:'Barlow Semi Condensed',sans-serif; font-weight:700; font-size:19px; margin-top:12px;}
   .brand-sub{font-size:10.5px; color:var(--gold-400); letter-spacing:0.06em; font-weight:600; margin-top:2px;}
-  .side-title{font-size:26px; margin-top:34px; max-width:13ch;}
-  .side-copy{font-size:13.5px; color:#9FADC4; margin-top:10px; line-height:1.65; max-width:26ch;}
-  .side-points{list-style:none; margin:26px 0 0; padding:0; display:flex; flex-direction:column; gap:12px;}
+  .side-title{font-size:25px; margin-top:22px; max-width:14ch;}
+  .side-copy{font-size:13.5px; color:#9FADC4; margin-top:10px; line-height:1.6; max-width:30ch;}
+  .side-points{list-style:none; margin:20px 0 0; padding:0; display:flex; flex-direction:column; gap:12px;}
   .side-points li{display:flex; align-items:center; gap:10px; font-size:12.5px; color:#C7D2E4;}
   .side-points svg{width:15px; height:15px; flex:none; color:var(--gold-400);}
   .side-foot{font-size:11px; color:#5E7096; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px; line-height:1.6;}
@@ -102,7 +104,7 @@
   .field-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; font-size:13px;}
   .remember{display:flex; align-items:center; gap:8px; color:var(--ink-600); cursor:pointer;}
   .remember input{width:15px; height:15px; accent-color:var(--navy-800);}
-  .forgot{color:#8896AA; font-size:12.5px; text-decoration:none; cursor:default;}
+  .forgot{color:#6B778B; font-size:12px; text-align:right;}
 
   .btn-submit{
     width:100%; padding:13px; font-size:15px; font-weight:600; border:none; border-radius:9px; cursor:pointer;
@@ -117,6 +119,7 @@
   .btn-submit.loading .spinner{display:inline-block;}
   @keyframes spin{to{transform:rotate(360deg);}}
 
+  .foot-meta{display:inline-block; margin-top:8px; color:#A3AEBE;}
   .form-foot{font-size:11.5px; color:#8896AA; text-align:center; margin-top:22px; line-height:1.6;}
 
   /* ---------- Mobile: keep the branding, don't hide it ---------- */
@@ -141,7 +144,8 @@
     .brand-name{font-size:14px; margin-top:10px;}
     .brand-sub{font-size:9.5px;}
     .side-title{font-size:19px; margin-top:8px; max-width:none;}
-    .side-copy, .side-points, .side-foot{display:none;}
+    .side-copy, .side-points, .side-foot, .driver-note{display:none;}
+    .brand-emblem{width:56px;}
     .auth-form{padding:28px 24px calc(36px + env(safe-area-inset-bottom, 0px));}
     .form-head h1{font-size:23px;}
     .field input{font-size:16px;} /* 16px+ prevents iOS Safari auto-zoom on focus */
@@ -154,20 +158,18 @@
 <div class="auth-card">
   <div class="auth-side">
     <div>
-      <svg class="brand-mark" viewBox="0 0 48 48" fill="none">
-        <path d="M24 3L42 10V22C42 33 34.6 41.6 24 45C13.4 41.6 6 33 6 22V10L24 3Z" fill="#0F2547" stroke="#C6A15B" stroke-width="1.5"/>
-        <circle cx="24" cy="23" r="8" fill="none" stroke="#C6A15B" stroke-width="1.2"/>
-        <path d="M24 17V23L28 26" stroke="#D8B876" stroke-width="1.4" stroke-linecap="round"/>
-      </svg>
+      <img class="brand-emblem" src="{{ asset('images/vmis-emblem.png') }}" alt="VMIS emblem" width="96" height="102">
       <div class="brand-name">VMIS &middot; PRO5</div>
       <div class="brand-sub">POLICE REGIONAL OFFICE 5</div>
       <div class="side-title">Vehicle Management Information System</div>
-      <p class="side-copy">Sign in with your PRO5-issued credentials to view and update vehicle records.</p>
+      <p class="side-copy">One record for every PRO5 vehicle, driver, trip, fuel purchase and repair.</p>
       <ul class="side-points">
-        <li><svg viewBox="0 0 24 24" fill="none"><path d="M4 12L10 18L20 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Fleet inventory &amp; assignment</li>
-        <li><svg viewBox="0 0 24 24" fill="none"><path d="M4 12L10 18L20 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Maintenance &amp; PMS scheduling</li>
-        <li><svg viewBox="0 0 24 24" fill="none"><path d="M4 12L10 18L20 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>QR-linked vehicle profiles</li>
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M4 12L10 18L20 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Fleet inventory, QR profiles &amp; PAR drivers</li>
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M4 12L10 18L20 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Vehicle requests, approvals &amp; dispatch</li>
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M4 12L10 18L20 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Trips, live GPS &amp; geofences</li>
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M4 12L10 18L20 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Fuel, PMS &amp; repair records</li>
       </ul>
+      <p class="driver-note"><strong>Drivers:</strong> use the VMIS Driver app on your phone for trips and fuel logs.</p>
     </div>
     <div class="side-foot">Unauthorized access to this system is prohibited and may be subject to disciplinary and/or legal action.</div>
   </div>
@@ -175,8 +177,8 @@
   <div class="auth-form">
     <div class="form-head">
       <div class="eyebrow">SIGN IN</div>
-      <h1>Welcome back</h1>
-      <p>Enter your credentials to access the system.</p>
+      <h1>Sign in to VMIS</h1>
+      <p>Use your badge number or PNP e-mail and your password.</p>
     </div>
 
     @if (session('success'))
@@ -196,10 +198,10 @@
     <form method="POST" action="{{ route('login.authenticate') }}" id="loginForm" novalidate>
       @csrf
       <div class="field">
-        <label for="login">PNP Email</label>
+        <label for="login">Badge number or PNP e-mail</label>
         <input type="text" id="login" name="login" value="{{ old('login') }}"
                class="{{ $errors->has('login') ? 'is-invalid' : '' }}"
-               placeholder="e.g. juan.delacruz@pnp.gov.ph"
+               placeholder="Badge number or juan.delacruz@pnp.gov.ph"
                autocomplete="username" autofocus required>
         @error('login')<div class="field-error">{{ $message }}</div>@enderror
       </div>
@@ -219,7 +221,7 @@
 
       <div class="field-row">
         <label class="remember"><input type="checkbox" name="remember"> Keep me signed in</label>
-        <span class="forgot" title="Contact your system administrator to reset your password">Forgot password?</span>
+        <span class="forgot">Forgot password? Ask your administrator</span>
       </div>
 
       <button type="submit" class="btn-submit" id="loginSubmit">
@@ -228,7 +230,7 @@
       </button>
     </form>
 
-    <p class="form-foot">Access is limited to accounts provisioned by the PRO5 admin.<br>Contact your unit's system administrator if you need an account.</p>
+    <p class="form-foot">Accounts are created by your Unit Administrator or RITO 5.<br>After 5 wrong passwords, sign-in is paused for 5 minutes.<br><span class="foot-meta">VMIS &middot; Regional Information Technology Office 5</span></p>
   </div>
 </div>
 
